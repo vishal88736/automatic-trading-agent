@@ -34,3 +34,14 @@ logs/
 # Operating system files
 .DS_Store
 Thumbs.db
+
+# Reference checkouts, local caches, and private runtime state
+.reference/
+.cache/
+.runtime/
+.python/
+artifacts/
+playwright-report/
+test-results/
+.env.local
+*.egg-info/
