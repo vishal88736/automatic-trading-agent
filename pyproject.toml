@@ -1,5 +1,5 @@
 [project]
-name = "hsk-agent-terminal"
+name = "krono-terminal"
 version = "0.1.0"
 description = "Auditable crypto research terminal with deterministic risk and simulation execution"
 requires-python = ">=3.12,<3.14"

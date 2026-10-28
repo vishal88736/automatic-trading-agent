@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "./api";
+import { KronoBrand, KronoMark } from "./brand";
 import type {
   Dashboard,
   Intent,
@@ -173,10 +174,10 @@ function Chat({
     <aside className="chat-panel" role="dialog" aria-label="Trading assistant">
       <div className="chat-head">
         <span className="chat-avatar">
-          <Bot size={18} />
+          <KronoMark />
         </span>
         <div>
-          <strong>Workspace assistant</strong>
+          <strong>Krono assistant</strong>
           <small>Validated command router · no signing authority</small>
         </div>
         <button
@@ -191,7 +192,7 @@ function Chat({
         {messages.map((m) => (
           <div className={`chat-message ${m.role}`} key={m.id}>
             <span className="eyebrow">
-              {m.role === "assistant" ? "HSK AGENT" : "YOU"}
+              {m.role === "assistant" ? "KRONO ASSISTANT" : "YOU"}
             </span>
             <p>{m.content}</p>
             {m.tool && (
@@ -399,25 +400,18 @@ export default function App() {
         <a
           href="#/overview"
           className="brand"
+          aria-label="Krono home"
           onClick={() => navigate("overview")}
         >
-          <span className="brand-mark">
-            <i />
-            <i />
-            <i />
-          </span>
-          <span>
-            HSK<span className="brand-light">AGENT</span>
-            <small>TRADING TERMINAL</small>
-          </span>
+          <KronoBrand />
         </a>
         <div className="workspace-label">
           <span className="workspace-icon">
             <FlaskConical size={13} />
           </span>
           <div>
-            <strong>Research workspace</strong>
-            <small>Simulation environment</small>
+            <strong>Research desk</strong>
+            <small>Simulation mode</small>
           </div>
           <ChevronDown size={13} />
         </div>
@@ -469,7 +463,9 @@ export default function App() {
             <ArrowRight size={13} />
           </a>
           <div className="sidebar-profile">
-            <span>VA</span>
+            <span>
+              <ShieldCheck size={17} />
+            </span>
             <div>
               <strong>Local operator</strong>
               <small>Human authorization enabled</small>
@@ -494,6 +490,15 @@ export default function App() {
           >
             <Menu size={19} />
           </button>
+          <a
+            href="#/overview"
+            className="mobile-brand"
+            onClick={() => navigate("overview")}
+            aria-label="Krono home"
+          >
+            <KronoMark />
+            <span>Krono.</span>
+          </a>
           <div className="breadcrumb">
             <span className="muted">Workspace</span>
             <span>/</span>
@@ -545,10 +550,18 @@ export default function App() {
             <div>
               <div className="eyebrow page-kicker">
                 {page === "overview"
-                  ? "THE WORKSPACE / 01"
-                  : `THE WORKSPACE / ${String(NAV.findIndex((n) => n.id === page) + 1).padStart(2, "0")}`}
+                  ? "KRONO / WORKSPACE 01"
+                  : `KRONO / WORKSPACE ${String(NAV.findIndex((n) => n.id === page) + 1).padStart(2, "0")}`}
               </div>
-              <h1>{TITLES[page][0]}</h1>
+              <h1>
+                {page === "overview" ? (
+                  <>
+                    Command <em>center</em>
+                  </>
+                ) : (
+                  TITLES[page][0]
+                )}
+              </h1>
               <p>{TITLES[page][1]}</p>
             </div>
             <div className="page-actions">
@@ -655,11 +668,7 @@ export default function App() {
             </>
           ) : (
             <div className="initial-loading">
-              <span className="brand-mark">
-                <i />
-                <i />
-                <i />
-              </span>
+              <KronoMark />
               <LoaderCircle size={22} className="spin" />
               <h2>Opening the trading workspace</h2>
               <p>Loading source-tagged records from the backend.</p>
@@ -672,7 +681,7 @@ export default function App() {
               execution
             </span>
             <span>
-              HSK AGENT / v0.1 <span className="footer-divider">|</span>{" "}
+              KRONO / v0.1 <span className="footer-divider">|</span>{" "}
               <StatusBadge value="SIMULATION" />
             </span>
           </footer>
@@ -685,7 +694,7 @@ export default function App() {
           aria-label="Open trading assistant"
         >
           <Bot size={19} />
-          <span>Ask your agent</span>
+          <span>Ask Krono</span>
           <kbd>⌘ K</kbd>
         </button>
       )}

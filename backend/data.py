@@ -294,7 +294,7 @@ class Providers:
             transport=transport,
             follow_redirects=False,
             limits=httpx.Limits(max_connections=4),
-            headers={"User-Agent": "HSK-Agent-Terminal/0.1"},
+            headers={"User-Agent": "Krono-Terminal/0.1"},
         )
         self.news_key = news_key
         self.semaphore = asyncio.Semaphore(3)

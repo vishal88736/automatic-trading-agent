@@ -6,6 +6,8 @@ The original Apache License 2.0 is retained in `LICENSE`. Original documentation
 
 React, TypeScript, Vite, Tailwind CSS, Lucide, FastAPI, Pydantic, LangGraph, pandas, Backtrader and other installed dependencies retain their respective licenses; their source is not vendored into the public repository's runtime cache.
 
+Krono bundles Inter and Instrument Serif through the Fontsource packages. Both fonts retain their SIL Open Font License 1.1, included in the installed packages. The visual direction takes inspiration from [dvklab](https://dvklab.vercel.app/), particularly its editorial typography, dark surfaces and measured spacing. Krono's monogram and terminal layouts are original implementation work.
+
 cryptocurrency.cv is used through its hosted API. Its service source was not copied, redistributed or deployed. News records retain publisher attribution and original links. Synthetic fixture stories were authored for this demo and explicitly use non-real publisher URLs.
 
 HSKChain network/token documentation and HSKSwap application resources were inspected for integration research. No third-party HSKSwap application bundle or unverified router implementation is published in this repository. The terminal logo and interface do not claim endorsement by an exchange or hackathon organizer.

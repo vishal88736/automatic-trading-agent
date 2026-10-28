@@ -1,5 +1,32 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Amount, Candle } from "./types";
+
+// The SVG coordinate system follows its container. Axis labels therefore stay
+// at their declared reading size instead of shrinking with a desktop viewBox.
+function useChartWidth() {
+  const [element, ref] = useState<HTMLDivElement | null>(null);
+  const [width, setWidth] = useState(680);
+  useEffect(() => {
+    if (!element) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry.contentRect.width > 0)
+        setWidth(Math.floor(entry.contentRect.width));
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [element]);
+  return { ref, width };
+}
+
+function chartEma(candles: Candle[], period = 12): (number | null)[] {
+  let value = 0;
+  return candles.map((candle, index) => {
+    const close = Number(candle.close);
+    if (index < period) value += close / period;
+    else value = close * (2 / (period + 1)) + value * (1 - 2 / (period + 1));
+    return index < period - 1 ? null : value;
+  });
+}
 
 export function Sparkline({
   values,
@@ -35,6 +62,10 @@ export function EquityChart({
 }: {
   rows: { at: string; equity: Amount }[];
 }) {
+  const { ref, width } = useChartWidth();
+  const left = 12,
+    right = width - 72,
+    plotWidth = Math.max(1, right - left);
   const values = rows.map((r) => Number(r.equity));
   const minimum = Math.min(...values, 10000) - 2,
     maximum = Math.max(...values, 10000) + 2,
@@ -42,27 +73,32 @@ export function EquityChart({
   const points = rows
     .map(
       (r, i) =>
-        `${54 + (i * 850) / Math.max(1, rows.length - 1)},${225 - ((Number(r.equity) - minimum) * 175) / range}`,
+        `${left + (i * plotWidth) / Math.max(1, rows.length - 1)},${225 - ((Number(r.equity) - minimum) * 175) / range}`,
     )
     .join(" ");
   return (
-    <div className="equity-chart">
+    <div className="equity-chart" ref={ref}>
       <svg
-        viewBox="0 0 980 270"
+        viewBox={`0 0 ${width} 270`}
         role="img"
         aria-label={`Recorded simulation equity history, ${rows.length} snapshots`}
       >
         {[0, 1, 2, 3].map((i) => (
           <g key={i}>
             <line
-              x1="54"
-              x2="914"
+              x1={left}
+              x2={right}
               y1={48 + i * 59}
               y2={48 + i * 59}
               stroke="var(--border)"
               strokeDasharray="3 5"
             />
-            <text x="924" y={53 + i * 59} fill="var(--muted)" fontSize="11">
+            <text
+              x={right + 10}
+              y={53 + i * 59}
+              fill="var(--muted)"
+              fontSize="12"
+            >
               {(maximum - (i * range) / 3).toFixed(0)}
             </text>
           </g>
@@ -78,7 +114,7 @@ export function EquityChart({
         {rows.map((r, i) => (
           <circle
             key={i}
-            cx={54 + (i * 850) / Math.max(1, rows.length - 1)}
+            cx={left + (i * plotWidth) / Math.max(1, rows.length - 1)}
             cy={225 - ((Number(r.equity) - minimum) * 175) / range}
             r="3"
             fill="var(--accent)"
@@ -88,10 +124,16 @@ export function EquityChart({
             </title>
           </circle>
         ))}
-        <text x="54" y="259" fill="var(--muted)" fontSize="11">
-          First recorded mark
+        <text x={left} y="259" fill="var(--muted)" fontSize="12">
+          {width < 480 ? "First mark" : "First recorded mark"}
         </text>
-        <text x="820" y="259" fill="var(--muted)" fontSize="11">
+        <text
+          x={right}
+          y="259"
+          fill="var(--muted)"
+          fontSize="12"
+          textAnchor="end"
+        >
           Latest mark
         </text>
       </svg>
@@ -113,22 +155,31 @@ export function CandleChart({
   limit?: number;
   timeframe?: string;
 }) {
+  const { ref, width: chartWidth } = useChartWidth();
   const [hover, setHover] = useState<number | null>(null);
-  const rows = candles.slice(-limit);
+  const rows = useMemo(() => candles.slice(-limit), [candles, limit]);
+  const emas = useMemo(() => chartEma(candles).slice(-limit), [candles, limit]);
+  const left = 12,
+    right = chartWidth - 76;
+  const plotWidth = Math.max(1, right - left);
   const computed = useMemo(() => {
     if (!rows.length) return null;
-    const low = Math.min(...rows.map((c) => Number(c.low))),
-      high = Math.max(...rows.map((c) => Number(c.high)));
+    const availableEmas = emas.filter(
+      (value): value is number => value !== null,
+    );
+    const low = Math.min(...rows.map((c) => Number(c.low)), ...availableEmas),
+      high = Math.max(...rows.map((c) => Number(c.high)), ...availableEmas);
     const pad = (high - low) * 0.12 || high * 0.01;
     const min = low - pad,
       max = high + pad;
-    const width = 860 / rows.length;
-    let ema = Number(rows[0].close);
-    const points = rows
-      .map((c, i) => {
-        ema = Number(c.close) * (2 / 13) + ema * (11 / 13);
-        return `${42 + (i + 0.5) * width},${226 - ((ema - min) * 198) / (max - min)}`;
-      })
+    const width = plotWidth / rows.length;
+    const points = emas
+      .map((ema, i) =>
+        ema === null
+          ? null
+          : `${left + (i + 0.5) * width},${226 - ((ema - min) * 198) / (max - min)}`,
+      )
+      .filter((point) => point !== null)
       .join(" ");
     return {
       min,
@@ -137,15 +188,21 @@ export function CandleChart({
       points,
       volume: Math.max(...rows.map((c) => Number(c.volume))) || 1,
     };
-  }, [rows]);
+  }, [rows, emas, plotWidth]);
   if (!computed)
-    return <div className="empty">No valid candle history available.</div>;
+    return (
+      <div className="empty" ref={ref}>
+        No valid candle history available.
+      </div>
+    );
   const { min, max, width, points, volume } = computed;
   const y = (value: Amount) =>
     226 - ((Number(value) - min) * 198) / (max - min);
-  const active = rows[hover ?? rows.length - 1];
+  const activeIndex = Math.min(hover ?? rows.length - 1, rows.length - 1);
+  const active = rows[activeIndex];
+  const tickCount = chartWidth < 480 ? 3 : 4;
   return (
-    <div className="candle-wrap">
+    <div className="candle-wrap" ref={ref}>
       <div className="ohlc-line">
         <span>
           {new Date(active.timestamp).toLocaleString("en-US", {
@@ -166,7 +223,7 @@ export function CandleChart({
         ))}
       </div>
       <svg
-        viewBox="0 0 980 320"
+        viewBox={`0 0 ${chartWidth} 320`}
         className="candles"
         tabIndex={0}
         role="img"
@@ -187,11 +244,11 @@ export function CandleChart({
         }}
         onMouseMove={(e) => {
           const rect = e.currentTarget.getBoundingClientRect();
-          const x = ((e.clientX - rect.left) / rect.width) * 980;
+          const x = ((e.clientX - rect.left) / rect.width) * chartWidth;
           setHover(
             Math.max(
               0,
-              Math.min(rows.length - 1, Math.floor((x - 42) / width)),
+              Math.min(rows.length - 1, Math.floor((x - left) / width)),
             ),
           );
         }}
@@ -200,14 +257,19 @@ export function CandleChart({
         {[0, 1, 2, 3, 4].map((i) => (
           <g key={i}>
             <line
-              x1="42"
-              x2="910"
+              x1={left}
+              x2={right}
               y1={28 + i * 49.5}
               y2={28 + i * 49.5}
               stroke="var(--border)"
               strokeDasharray="3 5"
             />
-            <text x="922" y={32 + i * 49.5} fill="var(--muted)" fontSize="10">
+            <text
+              x={right + 10}
+              y={32 + i * 49.5}
+              fill="var(--muted)"
+              fontSize="12"
+            >
               {(max - (i * (max - min)) / 4).toLocaleString("en-US", {
                 maximumFractionDigits: 1,
               })}
@@ -215,7 +277,7 @@ export function CandleChart({
           </g>
         ))}
         {rows.map((c, i) => {
-          const x = 42 + (i + 0.5) * width,
+          const x = left + (i + 0.5) * width,
             up = Number(c.close) >= Number(c.open),
             color = up ? "var(--positive)" : "var(--negative)";
           return (
@@ -255,28 +317,30 @@ export function CandleChart({
         />
         {hover !== null && (
           <line
-            x1={42 + (hover + 0.5) * width}
-            x2={42 + (hover + 0.5) * width}
+            x1={left + (activeIndex + 0.5) * width}
+            x2={left + (activeIndex + 0.5) * width}
             y1="24"
             y2="286"
             stroke="var(--muted)"
             strokeDasharray="3 3"
           />
         )}
-        {[0, 1, 2, 3].map((i) => (
+        {Array.from({ length: tickCount }, (_, i) => (
           <text
             key={i}
-            x={42 + (i * 860) / 3}
+            x={left + (i * plotWidth) / (tickCount - 1)}
             y="311"
             fill="var(--muted)"
-            fontSize="10"
-            textAnchor={i === 3 ? "end" : "start"}
+            fontSize="12"
+            textAnchor={
+              i === tickCount - 1 ? "end" : i === 0 ? "start" : "middle"
+            }
           >
             {new Date(
               rows[
                 Math.min(
                   rows.length - 1,
-                  Math.floor((i * (rows.length - 1)) / 3),
+                  Math.floor((i * (rows.length - 1)) / (tickCount - 1)),
                 )
               ].timestamp,
             ).toLocaleDateString("en-US", {
@@ -289,10 +353,11 @@ export function CandleChart({
       </svg>
       <div className="chart-legend">
         <span className="legend-line" />
-        EMA 12 <span className="volume-key" />
+        {points ? "EMA 12" : "EMA 12 unavailable: fewer than 12 bars"}{" "}
+        <span className="volume-key" />
         Base asset volume{" "}
         <span className="muted right">
-          Closed 1h candles · hover or use arrow keys
+          Closed {timeframe} candles · hover or use arrow keys
         </span>
       </div>
     </div>

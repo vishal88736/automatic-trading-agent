@@ -641,9 +641,9 @@ export function Overview(
           <div className="network-note">
             <Link2 size={16} />
             <div>
-              <strong>HSKChain · 177</strong>
+              <strong>HSKSwap integration</strong>
               <p>
-                Live routes locked pending validation.
+                HSKChain 177 · live routes locked.
                 <br />
                 No wallet signing in simulation.
               </p>

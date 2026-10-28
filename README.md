@@ -1,12 +1,14 @@
-# HSK Agent — an auditable crypto trading terminal
+# Krono — an auditable crypto trading workspace
 
 Research → deterministic strategy → independent risk → quote preview → human authorization → simulated execution → reconciled portfolio.
 
-Built for the HSKSwap AI Agent Trading hackathon track, extending [AlpacaTradingAgent](https://github.com/vishal88736/alpaca-trading-agent). Python, LangGraph, FastAPI and SQLite power a React/TypeScript/Tailwind terminal. The original trading framework, Dash interface and Alpaca utilities remain in the repository.
+Krono is an independent platform built for the HSKSwap AI Agent Trading hackathon track, extending [AlpacaTradingAgent](https://github.com/vishal88736/alpaca-trading-agent). HSKSwap is the target exchange integration on HSKChain. Python, LangGraph, FastAPI and SQLite power a React/TypeScript/Tailwind terminal. The original trading framework, Dash interface and Alpaca utilities remain in the repository.
 
 **The working execution mode is SIMULATION. Live HSKSwap swaps and HSKSwap paper trading are unavailable.** Read-only market/news providers and HSKChain RPC were probed successfully; that does not verify executable DEX routing or wallet signing. No profitability, production readiness or blockchain execution is claimed.
 
-![HSK Agent desktop terminal, captured from the actual simulation workflow](docs/assets/terminal-overview.png)
+![Krono desktop workspace, captured from the actual simulation workflow](docs/assets/terminal-overview.png)
+
+The interface pairs self-hosted Inter with Instrument Serif headings, an original Krono monogram, readable data tables and responsive chart axes. HSKSwap is identified as an exchange integration rather than the platform brand. Fonts are served with the application, without a third-party font request.
 
 ## Start locally
 
@@ -86,7 +88,7 @@ npm run test:e2e
 
 Chromium tests use the installed `/usr/bin/chromium` when available. Otherwise install Playwright's browser into the project cache with `PLAYWRIGHT_BROWSERS_PATH="$PWD/.cache/ms-playwright" npx playwright install chromium`, and keep that variable set for the test command. CI installs its own browser and OS dependencies on its disposable runner.
 
-Recorded local result: **125 tests + 10 subtests**, **six browser workflows**, strict TypeScript/production build, formatting and the production restart smoke test passed. A third-party LangGraph deprecation warning remains. These checks do not verify profitability or live trading. Detailed evidence and exact boundaries: [VERIFICATION.md](docs/VERIFICATION.md).
+Recorded local result: **125 tests + 10 subtests**, **seven browser workflows**, strict TypeScript/production build, formatting and the production restart smoke test passed. Browser checks include bundled font loading, reading sizes, text contrast and responsive chart axes. A third-party LangGraph deprecation warning remains. These checks do not verify profitability or live trading. Detailed evidence and exact boundaries: [VERIFICATION.md](docs/VERIFICATION.md).
 
 Public read-only provider probes are opt-in and separate from offline tests:
 

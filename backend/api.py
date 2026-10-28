@@ -124,7 +124,7 @@ def create_app(db_path=None, *, testing=False, transport=None, api_token=None):
         store.close()
         sessions.clear()
 
-    app = FastAPI(title="HSK Agent Terminal", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="Krono Trading Terminal", version="0.1.0", lifespan=lifespan)
     app.add_middleware(
         TrustedHostMiddleware, allowed_hosts=["localhost", "127.0.0.1", "[::1]", "testserver"]
     )

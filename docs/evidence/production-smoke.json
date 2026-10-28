@@ -1,9 +1,9 @@
 {
-  "verified_at": "2026-10-28T19:03:11.746478+00:00",
+  "verified_at": "2026-10-28T21:24:29.450424+00:00",
   "status": "PASSED",
   "mode": "SIMULATION",
   "frontend_served": true,
-  "frontend_index_sha256": "d1935920cf671398b997120027dab1748152e6fa5edbf5350e064333e1bed0e6",
+  "frontend_index_sha256": "fa4385a43d1f1ebd552433c345dc886a6a9266d0fdcafd6ae8f46236eed859cb",
   "simulated_fills_before_restart": 1,
   "simulated_fills_after_restart": 1,
   "cash_persisted": true,

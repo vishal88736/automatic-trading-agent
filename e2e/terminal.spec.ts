@@ -269,4 +269,163 @@ test("chart timeframe aggregation and aligned correlations are inspectable", asy
   ).json();
   expect(correlation.status).toBe("FIXTURE");
   expect(correlation.observations).toBe(237);
+  await page.getByLabel("Chart candle timeframe").selectOption("1d");
+  await expect(
+    page.getByRole("img", { name: /Daily candlestick/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("EMA 12 unavailable: fewer than 12 bars", { exact: false }),
+  ).toBeVisible();
+});
+
+test("Krono branding and bundled fonts stay readable across desktop and mobile", async ({
+  page,
+}) => {
+  // Blocking external browser requests also verifies that the chosen fonts do
+  // not depend on Google Fonts or another third-party service being reachable.
+  await page.route("**/*", async (route) => {
+    const url = new URL(route.request().url());
+    if (
+      ["http:", "https:"].includes(url.protocol) &&
+      url.hostname !== "127.0.0.1"
+    )
+      await route.abort();
+    else await route.continue();
+  });
+  await page.reload();
+  await expect(page).toHaveTitle("Krono · Crypto Trading Workspace");
+  await expect(
+    page.getByRole("heading", { name: "Command center", exact: true }),
+  ).toBeVisible();
+  await page.evaluate(() => document.fonts.ready);
+  const fonts = await page.evaluate(() =>
+    Array.from(document.fonts)
+      .filter((font) => font.status === "loaded")
+      .map((font) => font.family.replaceAll('"', "")),
+  );
+  expect(fonts).toContain("Inter Variable");
+  expect(fonts).toContain("Instrument Serif");
+  await expect(page.locator("body")).not.toContainText(/HSK\s*AGENT/i);
+  await expect(
+    page.getByText("HSKSwap integration", { exact: true }),
+  ).toBeVisible();
+
+  for (const width of [1512, 1280, 768, 390, 320]) {
+    await page.setViewportSize({ width, height: 982 });
+    await expect(
+      page.getByRole("link", { name: "Krono home" }).filter({ visible: true }),
+    ).toBeVisible();
+    if (width > 760) {
+      const captionFits = await page.locator(".brand").evaluate((brand) => {
+        const caption = brand.querySelector("small")!.getBoundingClientRect();
+        return caption.right <= brand.getBoundingClientRect().right;
+      });
+      expect(captionFits, `Brand caption at ${width}px`).toBe(true);
+    } else {
+      await expect(
+        page.getByRole("navigation", { name: "Main navigation" }),
+      ).toHaveCount(0);
+    }
+    const unreadable = await page.evaluate(() => {
+      const selectors =
+        ".page-heading p, .metric-label, .metric p, .panel-head p, td, .asset-cell small, .news-meta, .news-text strong, .empty p, .ohlc-line";
+      return Array.from(document.querySelectorAll<HTMLElement>(selectors))
+        .filter(
+          (node) =>
+            node.checkVisibility() &&
+            parseFloat(getComputedStyle(node).fontSize) < 11.9,
+        )
+        .map((node) => ({
+          text: node.innerText.slice(0, 60),
+          size: getComputedStyle(node).fontSize,
+        }));
+    });
+    expect(unreadable, `Reading size at ${width}px`).toEqual([]);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth + 1,
+      ),
+      `Page overflow at ${width}px`,
+    ).toBe(true);
+    await expect
+      .poll(() =>
+        page.locator(".candles").evaluate((svg) => {
+          const node = svg as SVGSVGElement;
+          return Math.abs(
+            node.getBoundingClientRect().width - node.viewBox.baseVal.width,
+          );
+        }),
+      )
+      .toBeLessThan(2);
+    const chartTextSizes = await page
+      .locator(".candles text")
+      .evaluateAll((labels) =>
+        labels.map((label) => {
+          const text = label as SVGTextElement;
+          return (
+            parseFloat(getComputedStyle(text).fontSize) *
+            (text.getScreenCTM()?.a ?? 0)
+          );
+        }),
+      );
+    expect(
+      Math.min(...chartTextSizes),
+      `Rendered chart labels at ${width}px`,
+    ).toBeGreaterThanOrEqual(11.9);
+  }
+
+  await page.setViewportSize({ width: 1512, height: 982 });
+  const lowContrast = await page.evaluate(() => {
+    const rgb = (value: string) =>
+      (value.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
+    const luminance = (value: string) =>
+      rgb(value).reduce((sum, channel, index) => {
+        const v = channel / 255;
+        return (
+          sum +
+          (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4) *
+            [0.2126, 0.7152, 0.0722][index]
+        );
+      }, 0);
+    return Array.from(
+      document.querySelectorAll<HTMLElement>(
+        ".page-heading p, .metric-label, .metric p, .panel-head p, .news-meta, .empty p, .ohlc-line",
+      ),
+    )
+      .filter((node) => node.checkVisibility())
+      .map((node) => {
+        let ancestor: HTMLElement | null = node;
+        let background = "rgb(13, 14, 16)";
+        while (ancestor) {
+          const candidate = getComputedStyle(ancestor).backgroundColor;
+          if (candidate !== "rgba(0, 0, 0, 0)" && candidate !== "transparent") {
+            background = candidate;
+            break;
+          }
+          ancestor = ancestor.parentElement;
+        }
+        const text = luminance(getComputedStyle(node).color),
+          surface = luminance(background);
+        return {
+          text: node.innerText.slice(0, 60),
+          contrast:
+            (Math.max(text, surface) + 0.05) / (Math.min(text, surface) + 0.05),
+        };
+      })
+      .filter((result) => result.contrast < 4.5);
+  });
+  expect(lowContrast).toEqual([]);
+
+  await page.getByRole("button", { name: "Equity", exact: true }).click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect
+    .poll(() =>
+      page.locator(".equity-chart svg").evaluate((svg) => {
+        const node = svg as SVGSVGElement;
+        return Math.abs(
+          node.getBoundingClientRect().width - node.viewBox.baseVal.width,
+        );
+      }),
+    )
+    .toBeLessThan(2);
 });

@@ -1,5 +1,5 @@
 {
-  "name": "hsk-agent-terminal",
+  "name": "krono-terminal",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -15,20 +15,22 @@
     "format": "prettier --write frontend/src frontend/index.html docs/*.md README.md"
   },
   "dependencies": {
+    "@fontsource-variable/inter": "^5.3.0",
+    "@fontsource/instrument-serif": "^5.3.0",
+    "lucide-react": "^0.468.0",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "lucide-react": "^0.468.0"
+    "react-dom": "^19.2.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.0",
+    "@tailwindcss/vite": "^4.1.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^4.7.0",
-    "typescript": "~5.9.3",
-    "vite": "^6.4.0",
+    "prettier": "^3.6.0",
     "tailwindcss": "^4.1.0",
-    "@tailwindcss/vite": "^4.1.0",
-    "prettier": "^3.6.0"
+    "typescript": "~5.9.3",
+    "vite": "^6.4.0"
   }
 }
