@@ -1,0 +1,58 @@
+name: Terminal validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      UV_CACHE_DIR: ${{ github.workspace }}/.cache/uv
+      UV_PYTHON_INSTALL_DIR: ${{ github.workspace }}/.python
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.cache/ms-playwright
+      TERMINAL_MODE: SIMULATION
+      MARKET_PROVIDER: fixture
+      NEWS_PROVIDER: fixture
+      RESEARCH_ENABLED: "false"
+      LANGSMITH_TRACING: "false"
+      LANGCHAIN_TRACING_V2: "false"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: "3.12"
+          enable-cache: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: "22"
+          package-manager-cache: false
+      - name: Locked Python dependencies
+        run: uv sync --frozen --python 3.12
+      - name: Locked frontend dependencies
+        run: npm ci
+      - name: Publication-path and credential-pattern check
+        run: .venv/bin/python -m scripts.public_audit
+      - name: Backend style and tests
+        run: |
+          .venv/bin/ruff check backend scripts
+          .venv/bin/ruff format --check backend scripts
+          .venv/bin/python -m pytest backend/tests legacy_tests/test_regime_detection.py legacy_tests/test_backtest_engine.py legacy_tests/test_portfolio_intelligence.py -q
+      - name: Frontend formatting, strict types and production build
+        run: |
+          node_modules/.bin/prettier --check frontend/src frontend/vite.config.ts frontend/tsconfig.json playwright.config.ts e2e scripts/dev.mjs package.json
+          npm run build
+      - name: Install isolated browser
+        run: npx playwright install --with-deps chromium
+      - name: Chromium simulation workflows
+        run: npm run test:e2e
+      - name: Built application and restart persistence
+        run: .venv/bin/python -m scripts.production_smoke

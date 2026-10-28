@@ -1,0 +1,58 @@
+{
+  "retrieved_at": "2026-10-28T18:39:48.047212+00:00",
+  "execution_mode": "READ_ONLY_PROBE",
+  "live_enabled": false,
+  "transaction_submission_attempted": false,
+  "providers": {
+    "coinbase": {
+      "status": "AVAILABLE",
+      "source": "coinbase_exchange",
+      "closed_candles": 300,
+      "price_at": "2026-10-28T18:39:47.296716+00:00",
+      "candle_as_of": "2026-10-28T18:00:00+00:00"
+    },
+    "news": {
+      "status": "AVAILABLE",
+      "source": "cryptocurrency.cv",
+      "normalized_articles": 3,
+      "articles_with_publication_time": 3,
+      "retrieved_at": "2026-10-28T18:39:48.746037+00:00",
+      "error": null
+    },
+    "breaking": {
+      "status": "AVAILABLE",
+      "source": "cryptocurrency.cv",
+      "normalized_articles": 10,
+      "articles_with_publication_time": 10,
+      "retrieved_at": "2026-10-28T18:39:49.988582+00:00",
+      "error": null
+    },
+    "openapi": {
+      "status": "AVAILABLE",
+      "sha256": "832b68032d98562b619abae945b899bafdf3a650daf2233a4d9c03bc2fbb17b1",
+      "parameters": {
+        "/api/news": [
+          "sort",
+          "sources"
+        ],
+        "/api/breaking": [
+          "lang"
+        ],
+        "/api/search": [
+          "semantic"
+        ]
+      }
+    },
+    "hsk_rpc": {
+      "status": "AVAILABLE",
+      "source": "https://mainnet.hsk.xyz",
+      "chain_id": 177,
+      "block": 29432828
+    }
+  },
+  "hsk_live_blockers": [
+    "Independently verified current router ABI and executable quote route",
+    "Quote-to-calldata binding, allowance and L1+L2 fee validation",
+    "Wallet signing authorization and receipt/balance reconciliation integration tests"
+  ]
+}
