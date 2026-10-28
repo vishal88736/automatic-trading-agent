@@ -1,23 +1,34 @@
-from .utils.agent_utils import Toolkit, create_msg_delete
-from .utils.agent_states import AgentState, InvestDebateState, RiskDebateState
-from .utils.memory import FinancialSituationMemory
+"""Lazy exports preserve upstream APIs without loading broker clients for schemas.
 
-from .analysts.fundamentals_analyst import create_fundamentals_analyst
-from .analysts.market_analyst import create_market_analyst
-from .analysts.news_analyst import create_news_analyst
-from .analysts.social_media_analyst import create_social_media_analyst
+Terminal adaptation: importing a schema or researcher must not initialize the
+Alpaca Toolkit, Chroma memory or all analyst dependencies.
+"""
+from importlib import import_module
 
-from .researchers.bear_researcher import create_bear_researcher
-from .researchers.bull_researcher import create_bull_researcher
+_MODULES = {
+    "Toolkit": "utils.agent_utils", "create_msg_delete": "utils.agent_utils",
+    "AgentState": "utils.agent_states", "InvestDebateState": "utils.agent_states",
+    "RiskDebateState": "utils.agent_states", "FinancialSituationMemory": "utils.memory",
+    "create_fundamentals_analyst": "analysts.fundamentals_analyst",
+    "create_market_analyst": "analysts.market_analyst",
+    "create_news_analyst": "analysts.news_analyst",
+    "create_social_media_analyst": "analysts.social_media_analyst",
+    "create_bear_researcher": "researchers.bear_researcher",
+    "create_bull_researcher": "researchers.bull_researcher",
+    "create_risky_debator": "risk_mgmt.aggresive_debator",
+    "create_safe_debator": "risk_mgmt.conservative_debator",
+    "create_neutral_debator": "risk_mgmt.neutral_debator",
+    "create_research_manager": "managers.research_manager",
+    "create_risk_manager": "managers.risk_manager", "create_trader": "trader.trader",
+}
 
-from .risk_mgmt.aggresive_debator import create_risky_debator
-from .risk_mgmt.conservative_debator import create_safe_debator
-from .risk_mgmt.neutral_debator import create_neutral_debator
 
-from .managers.research_manager import create_research_manager
-from .managers.risk_manager import create_risk_manager
-
-from .trader.trader import create_trader
+def __getattr__(name):
+    if name not in _MODULES:
+        raise AttributeError(name)
+    value = getattr(import_module(f"{__name__}.{_MODULES[name]}"), name)
+    globals()[name] = value
+    return value
 
 __all__ = [
     "FinancialSituationMemory",
