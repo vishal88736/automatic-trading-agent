@@ -1,0 +1,36 @@
+# Credentials and local environment
+.env
+.env.*
+!.env.example
+!.env.template
+*.pem
+*.key
+credentials*.json
+secrets*.json
+
+# Python environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Dependencies and build output
+node_modules/
+dist/
+build/
+
+# Local runtime data
+*.log
+logs/
+*.db
+*.sqlite
+*.sqlite3
+
+# Operating system files
+.DS_Store
+Thumbs.db
