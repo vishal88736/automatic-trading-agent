@@ -142,7 +142,10 @@ class Providers:
         async with self.locks.setdefault(key, asyncio.Lock()):
             cached = self.store.get("cache", key)
             if cached and not refresh and (now() - Market.model_validate(cached).retrieved_at).total_seconds() < 300:
-                return Market.model_validate(cached)
+                result = Market.model_validate(cached)
+                if result.price_at is None or (now() - result.price_at).total_seconds() > 300 or result.as_of is None or now() - result.as_of > timedelta(hours=2):
+                    result.status = "STALE"
+                return result
             try:
                 rows, ticker = await asyncio.gather(self.request(f"https://api.exchange.coinbase.com/products/{symbol}-USD/candles", params={"granularity": "3600"}), self.request(f"https://api.exchange.coinbase.com/products/{symbol}-USD/ticker"))
                 if not isinstance(rows, list) or not isinstance(ticker, dict):
@@ -163,7 +166,7 @@ class Providers:
                 price_time = parse_time(ticker.get("time"))
                 if not price_time or price_time > now() + timedelta(minutes=1):
                     raise ValueError("Invalid ticker time")
-                market = Market(asset=ASSETS[symbol], candles=bars, source="coinbase_exchange", retrieved_at=now(), as_of=bars[-1].closed_at, status="STALE" if (now() - price_time).total_seconds() > 300 else "AVAILABLE", price=D(str(ticker["price"])), price_at=price_time, limitation="Coinbase CEX reference price and closed hourly candles. Not an HSKSwap executable quote. DEX liquidity is unavailable.")
+                market = Market(asset=ASSETS[symbol], candles=bars, source="coinbase_exchange", retrieved_at=now(), as_of=bars[-1].closed_at, status="STALE" if (now() - price_time).total_seconds() > 300 or now() - bars[-1].closed_at > timedelta(hours=2) else "AVAILABLE", price=D(str(ticker["price"])), price_at=price_time, limitation="Coinbase CEX reference price and closed hourly candles. Not an HSKSwap executable quote. DEX liquidity is unavailable. Ticker and candle observations are separate; at most two hours of candle lag is accepted.")
                 self.store.put("cache", key, market)
                 return market
             except (httpx.HTTPError, ValueError, TypeError, KeyError, OverflowError):
