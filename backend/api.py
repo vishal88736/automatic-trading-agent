@@ -1,40 +1,60 @@
 from __future__ import annotations
 
 import asyncio
-from decimal import Decimal
-from contextlib import asynccontextmanager
-from datetime import timedelta
 import hmac
 import json
 import logging
 import os
-from pathlib import Path
 import re
 import secrets
+import time
+from contextlib import asynccontextmanager
+from datetime import timedelta
+from decimal import Decimal
+from pathlib import Path
 from typing import Literal
-from urllib.parse import urlsplit
 
 from fastapi import Depends, FastAPI, Query, Request
-from fastapi.encoders import jsonable_encoder
 from fastapi.encoders import ENCODERS_BY_TYPE
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from backend.analytics import aggregate, correlations
 from backend.backtesting import backtest
 from backend.data import ASSETS, Providers
 from backend.engine import Engine
 from backend.exchanges import HSKSwapAdapter
-from backend.models import Authorize, BacktestRequest, ChatRequest, Model, Proposal, RunRequest, SchedulerAction, StrategyConfig, VersionedRisk, VersionedStrategy, now, uid
+from backend.models import (
+    Authorize,
+    BacktestRequest,
+    ChatRequest,
+    Model,
+    Proposal,
+    RunRequest,
+    SchedulerAction,
+    StrategyConfig,
+    VersionedNewsScoring,
+    VersionedRisk,
+    VersionedStrategy,
+    now,
+    uid,
+)
 from backend.storage import Store
 from backend.strategies import indicators
 
 logger = logging.getLogger("terminal")
+logger.setLevel(logging.WARNING if os.getenv("TERMINAL_QUIET_LOGS") == "true" else logging.INFO)
+if not logger.handlers:
+    logger.addHandler(logging.StreamHandler())
+logger.propagate = False
 # Decimal quantities cross the JSON boundary as strings, preserving exact amounts.
 ENCODERS_BY_TYPE[Decimal] = str
 ROOT = Path(__file__).resolve().parents[1]
-TRUSTED_ORIGINS = {f"http://{host}:{port}" for host in ("localhost", "127.0.0.1") for port in (5173, 8787)}
+TRUSTED_ORIGINS = {
+    f"http://{host}:{port}" for host in ("localhost", "127.0.0.1") for port in (5173, 8787)
+}
 
 
 class PreviewRequest(Model):
@@ -49,16 +69,38 @@ class ProviderSettings(Model):
 
 def create_app(db_path=None, *, testing=False, transport=None, api_token=None):
     sessions = {}
+    counters = {"requests": 0, "errors": 0}
     bearer_token = api_token if api_token is not None else os.getenv("TERMINAL_API_TOKEN", "")
+    ui_port = int(os.getenv("TERMINAL_UI_PORT", "5173"))
+    if not 1 <= ui_port <= 65535:
+        raise ValueError("Invalid local frontend port")
+    allowed_origins = TRUSTED_ORIGINS | {
+        f"http://{host}:{ui_port}" for host in ("127.0.0.1", "localhost")
+    }
 
     @asynccontextmanager
     async def lifespan(app):
         path = db_path or os.getenv("TERMINAL_DB", str(ROOT / ".runtime/terminal.sqlite3"))
         store = Store(path)
-        configured, _ = store.config("providers", {"market": "fixture" if testing else os.getenv("MARKET_PROVIDER", "fixture"), "news": "fixture" if testing else os.getenv("NEWS_PROVIDER", "fixture")})
-        if configured["market"] not in {"fixture", "coinbase"} or configured["news"] not in {"fixture", "cryptocurrency.cv"}:
+        configured, _ = store.config(
+            "providers",
+            {
+                "market": "fixture" if testing else os.getenv("MARKET_PROVIDER", "fixture"),
+                "news": "fixture" if testing else os.getenv("NEWS_PROVIDER", "fixture"),
+            },
+        )
+        if configured["market"] not in {"fixture", "coinbase"} or configured["news"] not in {
+            "fixture",
+            "cryptocurrency.cv",
+        }:
             raise ValueError("Unsupported data provider configuration")
-        providers = Providers(store, configured["market"], configured["news"], transport=transport, news_key=os.getenv("NEWS_API_KEY", ""))
+        providers = Providers(
+            store,
+            configured["market"],
+            configured["news"],
+            transport=transport,
+            news_key=os.getenv("NEWS_API_KEY", ""),
+        )
         engine = Engine(store, providers)
         app.state.engine, app.state.store = engine, store
         app.state.exchange = HSKSwapAdapter(transport=transport)
@@ -66,7 +108,14 @@ def create_app(db_path=None, *, testing=False, transport=None, api_token=None):
         await engine.refresh_markets()
         if not store.history("snapshots", 1)["items"]:
             engine.portfolio.snapshot(engine.markets)
-        store.audit("application.started", {"mode": "SIMULATION", "requested_mode": os.getenv("TERMINAL_MODE", "SIMULATION"), "live_enabled": False})
+        store.audit(
+            "application.started",
+            {
+                "mode": "SIMULATION",
+                "requested_mode": os.getenv("TERMINAL_MODE", "SIMULATION"),
+                "live_enabled": False,
+            },
+        )
         if not testing:
             engine.scheduler_task = asyncio.create_task(engine.scheduler_loop())
         yield
@@ -76,16 +125,30 @@ def create_app(db_path=None, *, testing=False, transport=None, api_token=None):
         sessions.clear()
 
     app = FastAPI(title="HSK Agent Terminal", version="0.1.0", lifespan=lifespan)
-    app.add_middleware(TrustedHostMiddleware, allowed_hosts=["localhost", "127.0.0.1", "[::1]", "testserver"])
+    app.add_middleware(
+        TrustedHostMiddleware, allowed_hosts=["localhost", "127.0.0.1", "[::1]", "testserver"]
+    )
 
     def error(request, code, message, status=400, details=None):
-        return JSONResponse({"error": {"code": code, "message": message, "request_id": getattr(request.state, "request_id", None), "details": details}}, status_code=status)
+        return JSONResponse(
+            {
+                "error": {
+                    "code": code,
+                    "message": message,
+                    "request_id": getattr(request.state, "request_id", None),
+                    "details": details,
+                }
+            },
+            status_code=status,
+        )
 
     def origin_allowed(request):
         origin = request.headers.get("origin")
         host = request.headers.get("host", "")
         own = f"{request.url.scheme}://{host}"
-        return (origin is None or origin in TRUSTED_ORIGINS or origin == own) and request.headers.get("sec-fetch-site") != "cross-site"
+        return (
+            origin is None or origin in allowed_origins or origin == own
+        ) and request.headers.get("sec-fetch-site") != "cross-site"
 
     async def authorize_api(request: Request):
         authorization = request.headers.get("authorization", "")
@@ -96,28 +159,87 @@ def create_app(db_path=None, *, testing=False, transport=None, api_token=None):
         session = sessions.get(request.cookies.get("terminal_session", ""))
         if not session or session["expires"] < now() or not origin_allowed(request):
             return False
-        if request.method not in {"GET", "HEAD"} and not hmac.compare_digest(request.headers.get("x-terminal-csrf", ""), session["csrf"]):
+        if request.method not in {"GET", "HEAD"} and not hmac.compare_digest(
+            request.headers.get("x-terminal-csrf", ""), session["csrf"]
+        ):
             return False
         return True
 
     @app.middleware("http")
     async def boundary(request: Request, call_next):
+        started = time.monotonic()
+        counters["requests"] += 1
         request.state.request_id = uid()
-        public = request.url.path in {"/api/health", "/api/ready", "/api/session", "/openapi.json", "/docs", "/docs/oauth2-redirect", "/redoc"}
+        public = request.url.path in {
+            "/api/health",
+            "/api/ready",
+            "/api/session",
+            "/openapi.json",
+            "/docs",
+            "/docs/oauth2-redirect",
+            "/redoc",
+        }
         if request.url.path.startswith("/api/") and not public and not await authorize_api(request):
-            return error(request, "UNAUTHORIZED", "A local same-origin session with CSRF protection or a server-configured bearer token is required.", 401)
+            counters["errors"] += 1
+            logger.warning(
+                json.dumps(
+                    {
+                        "event": "request.denied",
+                        "request_id": request.state.request_id,
+                        "path": request.url.path,
+                        "status": 401,
+                    }
+                )
+            )
+            return error(
+                request,
+                "UNAUTHORIZED",
+                "A local same-origin session with CSRF protection or a server-configured bearer token is required.",
+                401,
+            )
         try:
             response = await call_next(request)
         except Exception as exc:
-            logger.error(json.dumps({"event": "request.failed", "request_id": request.state.request_id, "error_type": type(exc).__name__}))
-            return error(request, "INTERNAL_ERROR", "Request failed safely; review the server audit history.", 500)
+            counters["errors"] += 1
+            logger.error(
+                json.dumps(
+                    {
+                        "event": "request.failed",
+                        "request_id": request.state.request_id,
+                        "error_type": type(exc).__name__,
+                    }
+                )
+            )
+            return error(
+                request,
+                "INTERNAL_ERROR",
+                "Request failed safely; review the server audit history.",
+                500,
+            )
         response.headers["X-Request-ID"] = request.state.request_id
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["X-Frame-Options"] = "DENY"
-        response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' ws://127.0.0.1:5173 ws://localhost:5173; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' ws://127.0.0.1:5173 ws://localhost:5173; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+        )
         if request.url.path.startswith("/api/"):
             response.headers["Cache-Control"] = "no-store"
+            if response.status_code >= 400:
+                counters["errors"] += 1
+            logger.info(
+                json.dumps(
+                    {
+                        "event": "request.completed",
+                        "request_id": request.state.request_id,
+                        "method": request.method,
+                        "path": request.url.path,
+                        "status": response.status_code,
+                        "duration_ms": round((time.monotonic() - started) * 1000, 2),
+                    }
+                )
+            )
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
         return response
 
     @app.exception_handler(ValueError)
@@ -126,15 +248,33 @@ def create_app(db_path=None, *, testing=False, transport=None, api_token=None):
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(request, exc):
-        return error(request, "INVALID_REQUEST", "Request failed schema validation", 422, [{"location": list(e["loc"]), "type": e["type"], "message": e["msg"]} for e in exc.errors()])
+        return error(
+            request,
+            "INVALID_REQUEST",
+            "Request failed schema validation",
+            422,
+            [
+                {"location": list(e["loc"]), "type": e["type"], "message": e["msg"]}
+                for e in exc.errors()
+            ],
+        )
 
     def engine(request: Request) -> Engine:
         return request.app.state.engine
 
     @app.post("/api/session")
     async def session(request: Request):
-        if not origin_allowed(request) or request.client.host not in {"127.0.0.1", "::1", "testclient"}:
-            return error(request, "ORIGIN_DENIED", "Browser sessions are restricted to the local terminal.", 403)
+        if not origin_allowed(request) or request.client.host not in {
+            "127.0.0.1",
+            "::1",
+            "testclient",
+        }:
+            return error(
+                request,
+                "ORIGIN_DENIED",
+                "Browser sessions are restricted to the local terminal.",
+                403,
+            )
         expired = [key for key, val in sessions.items() if val["expires"] < now()]
         for key in expired:
             sessions.pop(key, None)
@@ -142,8 +282,23 @@ def create_app(db_path=None, *, testing=False, transport=None, api_token=None):
             return error(request, "SESSION_LIMIT", "Too many local sessions", 429)
         key, csrf = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
         sessions[key] = {"csrf": csrf, "expires": now() + timedelta(hours=8)}
-        response = JSONResponse({"csrf_token": csrf, "expires_in_seconds": 28800, "scope": "single local operator", "conversation_policy": "Browser memory for this tab only; raw conversations are not persisted by the server."})
-        response.set_cookie("terminal_session", key, httponly=True, samesite="strict", secure=request.url.scheme == "https", max_age=28800, path="/api")
+        response = JSONResponse(
+            {
+                "csrf_token": csrf,
+                "expires_in_seconds": 28800,
+                "scope": "single local operator",
+                "conversation_policy": "Browser memory for this tab only; raw conversations are not persisted by the server.",
+            }
+        )
+        response.set_cookie(
+            "terminal_session",
+            key,
+            httponly=True,
+            samesite="strict",
+            secure=request.url.scheme == "https",
+            max_age=28800,
+            path="/api",
+        )
         return response
 
     @app.get("/api/health")
@@ -152,7 +307,13 @@ def create_app(db_path=None, *, testing=False, transport=None, api_token=None):
 
     @app.get("/api/ready")
     async def ready(e: Engine = Depends(engine)):
-        return {"ready": True, "simulation_ready": True, "live_ready": False, "storage": "sqlite", "scheduler_state": e.state()["state"]}
+        return {
+            "ready": True,
+            "simulation_ready": True,
+            "live_ready": False,
+            "storage": "sqlite",
+            "scheduler_state": e.state()["state"],
+        }
 
     def market_summary(market):
         metrics = None
@@ -161,36 +322,115 @@ def create_app(db_path=None, *, testing=False, transport=None, api_token=None):
         except ValueError:
             pass
         candles = market.candles
-        change = (market.price / candles[-25].close - 1) if market.price and len(candles) >= 25 else None
-        return {"asset": market.asset, "price": market.price, "price_at": market.price_at, "change_24h": change, "source": market.source, "status": market.status, "as_of": market.as_of, "retrieved_at": market.retrieved_at, "liquidity_usd": market.liquidity_usd, "volume_24h_base": sum((b.volume for b in candles[-24:]), 0) if len(candles) >= 24 else None, "indicators": metrics, "limitation": market.limitation, "sparkline": [str(b.close) for b in candles[-36:]]}
+        change = (
+            (market.price / candles[-25].close - 1) if market.price and len(candles) >= 25 else None
+        )
+        return {
+            "asset": market.asset,
+            "price": market.price,
+            "price_at": market.price_at,
+            "change_24h": change,
+            "source": market.source,
+            "status": market.status,
+            "as_of": market.as_of,
+            "retrieved_at": market.retrieved_at,
+            "liquidity_usd": market.liquidity_usd,
+            "volume_24h_base": sum((b.volume for b in candles[-24:]), 0)
+            if len(candles) >= 24
+            else None,
+            "indicators": metrics,
+            "limitation": market.limitation,
+            "sparkline": [str(b.close) for b in candles[-36:]],
+        }
 
     @app.get("/api/status")
     async def status(request: Request, e: Engine = Depends(engine)):
         providers, version = e.store.config("providers")
-        return {"mode": "SIMULATION", "live_enabled": False, "live_blockers": request.app.state.exchange.missing, "scheduler": e.state(), "providers": {**providers, "version": version, "errors": e.providers.errors}, "exchange": request.app.state.exchange.configuration(), "research": {"enabled": e.research.llm is not None, "reason": e.research.error}, "conversation_policy": "Tab memory only. Typed tool audit events are persisted; raw messages are not.", "at": now()}
+        counts = {
+            state: sum(i["state"] == state for i in e.store.history("intents", 100000)["items"])
+            for state in (
+                "RECONCILED",
+                "REJECTED",
+                "REVERTED",
+                "TIMED_OUT",
+                "RECONCILIATION_REQUIRED",
+            )
+        }
+        return {
+            "mode": "SIMULATION",
+            "live_enabled": False,
+            "live_blockers": request.app.state.exchange.missing,
+            "scheduler": e.state(),
+            "providers": {**providers, "version": version, "errors": e.providers.errors},
+            "provider_health": {symbol: market.status for symbol, market in e.markets.items()},
+            "metrics": {
+                **counters,
+                "execution_states": counts,
+                "risk_decisions": e.store.history("risks", 1)["total"],
+            },
+            "exchange": request.app.state.exchange.configuration(),
+            "research": {"enabled": e.research.llm is not None, "reason": e.research.error},
+            "conversation_policy": "Tab memory only. Typed tool audit events are persisted; raw messages are not.",
+            "at": now(),
+        }
 
     @app.get("/api/dashboard")
     async def dashboard(e: Engine = Depends(engine)):
         await e.refresh_markets()
         news = await e.providers.news()
         latest = e.store.history("runs", 1)["items"]
-        return {"portfolio": e.portfolio.view(e.markets), "equity_history": list(reversed(e.store.history("snapshots", 1000)["items"])), "markets": [market_summary(m) for m in e.markets.values()], "news": news, "strategies": e.strategies(), "latest_run": latest[0] if latest else None, "executions": e.store.history("intents", 20), "audit": e.store.history("audit", 20), "risk": {"config": e.execution.risk()[0], "version": e.execution.risk()[1]}, "scheduler": e.state(), "mode": "SIMULATION"}
+        return {
+            "portfolio": e.portfolio.view(e.markets),
+            "equity_history": list(reversed(e.store.history("snapshots", 1000)["items"])),
+            "markets": [market_summary(m) for m in e.markets.values()],
+            "news": news,
+            "strategies": e.strategies(),
+            "latest_run": latest[0] if latest else None,
+            "executions": e.store.history("intents", 20),
+            "audit": e.store.history("audit", 20),
+            "risk": {"config": e.execution.risk()[0], "version": e.execution.risk()[1]},
+            "scheduler": e.state(),
+            "mode": "SIMULATION",
+        }
 
     @app.get("/api/markets")
     async def markets(e: Engine = Depends(engine)):
         return {"items": [market_summary(m) for m in await e.refresh_markets()]}
 
+    @app.get("/api/correlations")
+    async def correlation_data(e: Engine = Depends(engine)):
+        await e.refresh_markets()
+        return correlations(e.markets)
+
     @app.get("/api/markets/{symbol}")
-    async def market(symbol: Literal["BTC", "ETH", "SOL"], e: Engine = Depends(engine)):
+    async def market(
+        symbol: Literal["BTC", "ETH", "SOL"],
+        timeframe: Literal["1h", "4h", "1d"] = "1h",
+        e: Engine = Depends(engine),
+    ):
         data = await e.providers.market(symbol)
         e.markets[symbol] = data
-        return {"market": data, "summary": market_summary(data)}
+        return {"market": aggregate(data, timeframe), "summary": market_summary(data)}
 
     @app.get("/api/news")
-    async def news(breaking: bool = False, q: str = Query(default="", max_length=200), asset: str = Query(default="", max_length=20), e: Engine = Depends(engine)):
+    async def news(
+        breaking: bool = False,
+        q: str = Query(default="", max_length=200),
+        asset: str = Query(default="", max_length=20),
+        e: Engine = Depends(engine),
+    ):
         feed = await e.providers.news(breaking)
         if q or asset:
-            feed = feed.model_copy(update={"articles": [a for a in feed.articles if (not q or q.lower() in (a.title + a.summary).lower()) and (not asset or asset.upper() in a.assets)]})
+            feed = feed.model_copy(
+                update={
+                    "articles": [
+                        a
+                        for a in feed.articles
+                        if (not q or q.lower() in (a.title + a.summary).lower())
+                        and (not asset or asset.upper() in a.assets)
+                    ]
+                }
+            )
         return feed
 
     @app.post("/api/news/refresh")
@@ -203,19 +443,38 @@ def create_app(db_path=None, *, testing=False, transport=None, api_token=None):
         match = next((a for feed in feeds for a in feed.articles if a.id == article_id), None)
         if match is None:
             raise ValueError("Article is unavailable in the current normalized feeds")
-        return {"article": match, "facts": [match.title, match.summary], "interpretation": {"bullish": "Potential adoption or demand effects require independent corroboration and market confirmation.", "bearish": "The report may be incomplete, already priced in, contradicted or incorrectly associated with an asset.", "missing": match.limitations + ["Full-article factual verification, independent source agreement and a compatible executable DEX route."], "actionable": False, "method": "Template interpretation, not a model prediction. Strategy actionability is recorded only by an analysis run."}}
+        return {
+            "article": match,
+            "facts": [match.title, match.summary],
+            "interpretation": {
+                "bullish": "Potential adoption or demand effects require independent corroboration and market confirmation.",
+                "bearish": "The report may be incomplete, already priced in, contradicted or incorrectly associated with an asset.",
+                "missing": match.limitations
+                + [
+                    "Full-article factual verification, independent source agreement and a compatible executable DEX route."
+                ],
+                "actionable": False,
+                "method": "Template interpretation, not a model prediction. Strategy actionability is recorded only by an analysis run.",
+            },
+        }
 
     @app.get("/api/strategies")
     async def strategies(e: Engine = Depends(engine)):
         return {"items": e.strategies()}
 
     @app.put("/api/strategies/{strategy_id}")
-    async def strategy_config(strategy_id: str, body: VersionedStrategy, e: Engine = Depends(engine)):
+    async def strategy_config(
+        strategy_id: str, body: VersionedStrategy, e: Engine = Depends(engine)
+    ):
         if strategy_id not in {s["id"] for s in e.strategies()}:
             raise ValueError("Unknown strategy")
         if strategy_id == "spread_research_v1" and body.config.enabled:
-            raise ValueError("Spread research cannot be enabled until compatible verified quotes exist")
-        version = e.store.update_config("strategy:" + strategy_id, body.config.model_dump(mode="json"), body.expected_version)
+            raise ValueError(
+                "Spread research cannot be enabled until compatible verified quotes exist"
+            )
+        version = e.store.update_config(
+            "strategy:" + strategy_id, body.config.model_dump(mode="json"), body.expected_version
+        )
         return {"config": body.config, "version": version}
 
     @app.post("/api/runs")
@@ -231,11 +490,17 @@ def create_app(db_path=None, *, testing=False, transport=None, api_token=None):
 
     @app.get("/api/risk")
     async def risk(e: Engine = Depends(engine)):
-        return {"config": e.execution.risk()[0], "version": e.execution.risk()[1], "portfolio": e.portfolio.view(e.markets)}
+        return {
+            "config": e.execution.risk()[0],
+            "version": e.execution.risk()[1],
+            "portfolio": e.portfolio.view(e.markets),
+        }
 
     @app.put("/api/risk")
     async def risk_config(body: VersionedRisk, e: Engine = Depends(engine)):
-        version = e.store.update_config("risk", body.config.model_dump(mode="json"), body.expected_version)
+        version = e.store.update_config(
+            "risk", body.config.model_dump(mode="json"), body.expected_version
+        )
         return {"config": body.config, "version": version}
 
     @app.get("/api/portfolio")
@@ -246,16 +511,49 @@ def create_app(db_path=None, *, testing=False, transport=None, api_token=None):
     @app.post("/api/positions/{symbol}/exit-preview")
     async def exit_preview(symbol: Literal["BTC", "ETH", "SOL"], e: Engine = Depends(engine)):
         await e.refresh_markets()
-        position = next((p for p in e.portfolio.view(e.markets)["positions"] if p["asset"]["asset_id"] == symbol), None)
+        position = next(
+            (
+                p
+                for p in e.portfolio.view(e.markets)["positions"]
+                if p["asset"]["asset_id"] == symbol
+            ),
+            None,
+        )
         if not position or not position["valuation_complete"]:
             raise ValueError("A marked owned position is required")
-        _, version = e.store.config("strategy:manual_exit_v1", StrategyConfig().model_dump(mode="json"))
+        _, version = e.store.config(
+            "strategy:manual_exit_v1", StrategyConfig().model_dump(mode="json")
+        )
         market = e.markets[symbol]
-        proposal = Proposal(id="exit-" + uid(), asset=market.asset, side="SELL", strategy_ids=["manual_exit_v1"], signal_at=now(), expires_at=now() + timedelta(seconds=120), evidence=["Owned simulation ledger position", market.source], rationale="User-requested owned-inventory exit preview", exit_policy=position["exit_policy"], stop_price=position["stop_price"], notional=position["value"].quantize(Decimal("0.00000001")), reference_price=market.price, expected_costs=(position["value"] * Decimal("0.002")).quantize(Decimal("0.00000001")), market_source=market.source, market_as_of=market.price_at, candle_count=len(market.candles), mode="SIMULATION", config_versions={"manual_exit_v1": version, "risk": e.execution.risk()[1]})
+        proposal = Proposal(
+            id="exit-" + uid(),
+            asset=market.asset,
+            side="SELL",
+            strategy_ids=["manual_exit_v1"],
+            signal_at=now(),
+            expires_at=now() + timedelta(seconds=120),
+            evidence=["Owned simulation ledger position", market.source],
+            rationale="User-requested owned-inventory exit preview",
+            exit_policy=position["exit_policy"],
+            stop_price=position["stop_price"],
+            notional=position["value"].quantize(Decimal("0.00000001")),
+            reference_price=market.price,
+            expected_costs=(position["value"] * Decimal("0.002")).quantize(Decimal("0.00000001")),
+            market_source=market.source,
+            market_as_of=market.price_at,
+            candle_count=len(market.candles),
+            mode="SIMULATION",
+            config_versions={"manual_exit_v1": version, "risk": e.execution.risk()[1]},
+        )
         return await e.execution.preview(proposal)
 
     @app.get("/api/history/{kind}")
-    async def history(kind: Literal["runs", "risks", "intents", "ledger", "audit", "snapshots"], limit: int = Query(default=50, ge=1, le=200), offset: int = Query(default=0, ge=0), e: Engine = Depends(engine)):
+    async def history(
+        kind: Literal["runs", "risks", "intents", "ledger", "audit", "snapshots"],
+        limit: int = Query(default=50, ge=1, le=200),
+        offset: int = Query(default=0, ge=0),
+        e: Engine = Depends(engine),
+    ):
         return e.store.history(kind, limit, offset)
 
     @app.post("/api/execution/preview")
@@ -285,21 +583,56 @@ def create_app(db_path=None, *, testing=False, transport=None, api_token=None):
     async def backtests(body: BacktestRequest, e: Engine = Depends(engine)):
         market, feed = await asyncio.gather(e.providers.market(body.symbol), e.providers.news())
         config, version = e.store.config("strategy:" + body.strategy_id)
-        result = await asyncio.to_thread(backtest, market, feed, body, StrategyConfig.model_validate(config), e.execution.risk()[0])
+        result = await asyncio.to_thread(
+            backtest,
+            market,
+            feed,
+            body,
+            StrategyConfig.model_validate(config),
+            e.execution.risk()[0],
+        )
         result["config_version"] = version
-        e.store.audit("backtest.completed", {"strategy_id": body.strategy_id, "symbol": body.symbol, "source": market.source, "out_of_sample": result["out_of_sample"]["total_return"]})
+        e.store.audit(
+            "backtest.completed",
+            {
+                "strategy_id": body.strategy_id,
+                "symbol": body.symbol,
+                "source": market.source,
+                "out_of_sample": result["out_of_sample"]["total_return"],
+            },
+        )
         return result
 
     @app.put("/api/settings/providers")
     async def provider_settings(body: ProviderSettings, e: Engine = Depends(engine)):
         previous, _ = e.store.config("providers")
         if body.market != previous["market"] and e.store.history("ledger", 1)["total"]:
-            raise ValueError("Use a new database for a different market source after fills, to preserve comparable P&L provenance")
-        version = e.store.update_config("providers", {"market": body.market, "news": body.news}, body.expected_version)
+            raise ValueError(
+                "Use a new database for a different market source after fills, to preserve comparable P&L provenance"
+            )
+        version = e.store.update_config(
+            "providers", {"market": body.market, "news": body.news}, body.expected_version
+        )
         e.providers.market_provider, e.providers.news_provider = body.market, body.news
         e.markets.clear()
         await e.refresh_markets()
         return {"market": body.market, "news": body.news, "version": version}
+
+    @app.get("/api/settings/news-scoring")
+    async def news_scoring(e: Engine = Depends(engine)):
+        config, version = e.store.config("news_scoring")
+        return {
+            "config": config,
+            "version": version,
+            "method": "Exact bounded lexicon matches. Mixed polarity is uncertain. Confidence is a heuristic, not a probability. Relevance is 0.8 for an explicit supported-asset mention, otherwise 0.",
+        }
+
+    @app.put("/api/settings/news-scoring")
+    async def change_news_scoring(body: VersionedNewsScoring, e: Engine = Depends(engine)):
+        version = e.store.update_config(
+            "news_scoring", body.config.model_dump(mode="json"), body.expected_version
+        )
+        return {"config": body.config, "version": version}
 
     @app.get("/api/wallet/{address}")
     async def wallet(address: str, request: Request):
@@ -314,7 +647,18 @@ def create_app(db_path=None, *, testing=False, transport=None, api_token=None):
     async def chat(body: ChatRequest, e: Engine = Depends(engine)):
         message = body.message.lower().strip()
         tool, data, response = "read_status", {}, ""
-        if any(word in message for word in ("buy ", "sell ", "place a trade", "execute", "disable risk", "increase", "private key")):
+        if any(
+            word in message
+            for word in (
+                "buy ",
+                "sell ",
+                "place a trade",
+                "execute",
+                "disable risk",
+                "increase",
+                "private key",
+            )
+        ):
             response = "Use Analyze → Risk review → Quote preview → Authorize simulation. Chat cannot sign, submit trades, disable safeguards or increase risk permissions."
         elif "pause" in message or "stop new" in message:
             tool = "pause_entries"
@@ -322,16 +666,52 @@ def create_app(db_path=None, *, testing=False, transport=None, api_token=None):
             response = "New entries are paused at the backend. Existing positions are held for review; no liquidation was sent."
         elif "lower" in message and (match := re.search(r"(\d+(?:\.\d+)?)\s*%", message)):
             from decimal import Decimal
+
             fraction = Decimal(match.group(1)) / 100
             current, version = e.execution.risk()
             if not 0 < fraction < current.max_equity_per_trade:
-                raise ValueError("The assistant can only lower the current positive equity-per-trade limit")
-            updated = type(current).model_validate({**current.model_dump(), "max_equity_per_trade": fraction})
+                raise ValueError(
+                    "The assistant can only lower the current positive equity-per-trade limit"
+                )
+            updated = type(current).model_validate(
+                {**current.model_dump(), "max_equity_per_trade": fraction}
+            )
             tool = "lower_equity_per_trade"
-            data = {"version": e.store.update_config("risk", updated.model_dump(mode="json"), version), "max_equity_per_trade": str(fraction)}
+            data = {
+                "version": e.store.update_config("risk", updated.model_dump(mode="json"), version),
+                "max_equity_per_trade": str(fraction),
+            }
             response = f"Maximum trade allocation is now {fraction * 100}% of equity. This is versioned and audited; pending previews require fresh analysis."
+        elif match := re.fullmatch(
+            r"(?:please )?(enable|disable) (momentum|mean[- ]reversion|news(?:[- ]aware)?)(?: strategy)?[.!]?",
+            message,
+        ):
+            key = match.group(2)
+            strategy_id = (
+                "momentum_v1"
+                if key == "momentum"
+                else "mean_reversion_v1"
+                if key.startswith("mean")
+                else "news_aware_v1"
+            )
+            current, version = e.store.config("strategy:" + strategy_id)
+            updated = StrategyConfig.model_validate(
+                {**current, "enabled": match.group(1) == "enable"}
+            )
+            tool = "set_strategy_enabled"
+            data = {
+                "strategy_id": strategy_id,
+                "enabled": updated.enabled,
+                "version": e.store.update_config(
+                    "strategy:" + strategy_id, updated.model_dump(mode="json"), version
+                ),
+            }
+            response = f"{strategy_id} is now {'enabled' if updated.enabled else 'disabled'}. Configuration is versioned and audited. Risk limits and execution permissions are unchanged."
         elif "analy" in message:
-            symbol = next((s for s in ASSETS if s.lower() in message or ASSETS[s].name.lower() in message), "BTC")
+            symbol = next(
+                (s for s in ASSETS if s.lower() in message or ASSETS[s].name.lower() in message),
+                "BTC",
+            )
             tool = "analyze_asset"
             data = await e.run(RunRequest(symbol=symbol))
             response = f"{symbol}: {data.get('decision', 'UNAVAILABLE')}. Run {data['id'][:8]} recorded. Risk: {data.get('risk', {}).get('verdict', 'no candidate')}. Open the Observatory and execution preview for the evidence."
@@ -339,7 +719,11 @@ def create_app(db_path=None, *, testing=False, transport=None, api_token=None):
             tool = "read_news"
             feed = await e.providers.news("breaking" in message)
             data = feed.model_dump(mode="json")
-            response = f"News status: {feed.status}. " + " | ".join(a.title for a in feed.articles[:3]) + " Sources and timestamps are available in News Intelligence. Excerpts and sentiment estimates are not verified predictions."
+            response = (
+                f"News status: {feed.status}. "
+                + " | ".join(a.title for a in feed.articles[:3])
+                + " Sources and timestamps are available in News Intelligence. Excerpts and sentiment estimates are not verified predictions."
+            )
         elif "compar" in message:
             tool = "compare_strategies"
             data = {"strategies": e.strategies()}
@@ -347,29 +731,64 @@ def create_app(db_path=None, *, testing=False, transport=None, api_token=None):
         elif "exposure" in message or "portfolio" in message or "holding" in message:
             tool = "read_portfolio"
             data = e.portfolio.view(e.markets)
-            response = f"Simulation equity: {data['equity']}; exposure: {data['exposure']}; positions: {len(data['positions'])}. " + "; ".join(f"{s}: {v}" for s, v in data["asset_values"].items())
+            response = (
+                f"Simulation equity: {data['equity']}; exposure: {data['exposure']}; positions: {len(data['positions'])}. "
+                + "; ".join(f"{s}: {v}" for s, v in data["asset_values"].items())
+            )
         elif "reject" in message:
             tool = "read_risk_decisions"
             data = e.store.history("risks", 1)
-            response = "; ".join(data["items"][0]["reasons"]) if data["items"] else "No risk decisions have been recorded yet."
+            response = (
+                "; ".join(data["items"][0]["reasons"])
+                if data["items"]
+                else "No risk decisions have been recorded yet."
+            )
         else:
             tool = "read_latest_run"
             data = e.store.history("runs", 1)
-            response = "Inspect recorded signals in the Observatory. " + ("Latest rationale: " + data["items"][0].get("proposal", {}).get("rationale", "No executable consensus.") if data["items"] else "Run Analyze BTC to create an evidence packet.")
-        e.store.audit("assistant.tool", {"tool": tool, "read_only": tool not in {"pause_entries", "lower_equity_per_trade", "analyze_asset"}})
-        return {"id": uid(), "response": response, "tool": tool, "data": data, "engine": "validated command router; not an LLM chat model", "storage_policy": "Raw messages are not stored; typed tool audit events persist."}
+            response = "Inspect recorded signals in the Observatory. " + (
+                "Latest rationale: "
+                + data["items"][0].get("proposal", {}).get("rationale", "No executable consensus.")
+                if data["items"]
+                else "Run Analyze BTC to create an evidence packet."
+            )
+        e.store.audit(
+            "assistant.tool",
+            {
+                "tool": tool,
+                "read_only": tool
+                not in {
+                    "pause_entries",
+                    "lower_equity_per_trade",
+                    "analyze_asset",
+                    "set_strategy_enabled",
+                },
+            },
+        )
+        return {
+            "id": uid(),
+            "response": response,
+            "tool": tool,
+            "data": data,
+            "engine": "validated command router; not an LLM chat model",
+            "storage_policy": "Raw messages are not stored; typed tool audit events persist.",
+        }
 
     @app.get("/{path:path}")
     async def frontend(path: str):
         if path.startswith("api/"):
-            return JSONResponse({"error": {"code": "NOT_FOUND", "message": "Unknown API route"}}, 404)
+            return JSONResponse(
+                {"error": {"code": "NOT_FOUND", "message": "Unknown API route"}}, 404
+            )
         dist = ROOT / "frontend/dist"
         candidate = (dist / path).resolve()
         if candidate.is_relative_to(dist.resolve()) and candidate.is_file():
             return FileResponse(candidate)
         if (dist / "index.html").is_file():
             return FileResponse(dist / "index.html")
-        return JSONResponse({"message": "Build the frontend with npm run build, or start npm run dev."}, 503)
+        return JSONResponse(
+            {"message": "Build the frontend with npm run build, or start npm run dev."}, 503
+        )
 
     return app
 

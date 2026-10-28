@@ -1,17 +1,17 @@
 from __future__ import annotations
 
+import json
+import sqlite3
+import threading
 from contextlib import contextmanager
 from datetime import timedelta
 from decimal import Decimal
-import json
 from pathlib import Path
-import sqlite3
-import threading
 from typing import Any
 
 from pydantic import BaseModel
 
-from backend.models import now, uid
+from backend.models import ExecutionIntent, now, uid
 
 
 def json_default(value):
@@ -31,7 +31,12 @@ def encode(value) -> str:
 def safe(value: Any):
     if isinstance(value, dict):
         return {
-            key: "[REDACTED]" if any(s in key.lower() for s in ("secret", "password", "api_key", "private_key", "seed", "authorization")) else safe(val)
+            key: "[REDACTED]"
+            if any(
+                s in key.lower()
+                for s in ("secret", "password", "api_key", "private_key", "seed", "authorization")
+            )
+            else safe(val)
             for key, val in value.items()
         }
     if isinstance(value, list):
@@ -82,11 +87,15 @@ class Store:
 
     def config(self, name: str, default=None) -> tuple[Any, int]:
         with self.lock:
-            row = self.db.execute("SELECT payload,version FROM config WHERE name=?", (name,)).fetchone()
+            row = self.db.execute(
+                "SELECT payload,version FROM config WHERE name=?", (name,)
+            ).fetchone()
             if row:
                 return json.loads(row["payload"]), row["version"]
             if default is not None:
-                self.db.execute("INSERT OR IGNORE INTO config VALUES (?,1,?)", (name, encode(default)))
+                self.db.execute(
+                    "INSERT OR IGNORE INTO config VALUES (?,1,?)", (name, encode(default))
+                )
                 return default, 1
             return None, 0
 
@@ -96,36 +105,64 @@ class Store:
             if expected is not None and expected != version:
                 raise ValueError("Configuration changed; reload before saving")
             next_version = version + 1
-            self.db.execute("INSERT INTO config VALUES (?,?,?) ON CONFLICT(name) DO UPDATE SET version=excluded.version,payload=excluded.payload", (name, next_version, encode(value)))
-            self.audit("configuration.updated", {"name": name, "version": next_version, "value": value})
+            self.db.execute(
+                "INSERT INTO config VALUES (?,?,?) ON CONFLICT(name) DO UPDATE SET version=excluded.version,payload=excluded.payload",
+                (name, next_version, encode(value)),
+            )
+            self.audit(
+                "configuration.updated", {"name": name, "version": next_version, "value": value}
+            )
             return next_version
 
     def audit(self, kind: str, payload):
         with self.lock:
-            self.db.execute("INSERT INTO audit(id,at,kind,payload) VALUES (?,?,?,?)", (uid(), now().isoformat(), kind, encode(safe(payload))))
+            self.db.execute(
+                "INSERT INTO audit(id,at,kind,payload) VALUES (?,?,?,?)",
+                (uid(), now().isoformat(), kind, encode(safe(payload))),
+            )
 
     def put(self, table: str, identifier: str, payload, *, state: str = "", proposal_id: str = ""):
         if table not in {"runs", "proposals", "risks", "intents", "ledger", "cache"}:
             raise ValueError("Unknown record type")
+        if table == "intents":
+            payload = ExecutionIntent.model_validate(payload).model_dump(mode="json")
+            state, proposal_id = payload["state"], payload["proposal_id"]
         data = encode(payload)
         with self.lock:
             if table == "intents":
-                self.db.execute("INSERT INTO intents VALUES (?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET state=excluded.state,payload=excluded.payload", (identifier, proposal_id, state, now().isoformat(), data))
+                self.db.execute(
+                    "INSERT INTO intents VALUES (?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET state=excluded.state,payload=excluded.payload",
+                    (identifier, proposal_id, state, now().isoformat(), data),
+                )
             elif table == "risks":
-                self.db.execute("INSERT INTO risks VALUES (?,?,?,?)", (identifier, now().isoformat(), proposal_id, data))
+                self.db.execute(
+                    "INSERT INTO risks VALUES (?,?,?,?)",
+                    (identifier, now().isoformat(), proposal_id, data),
+                )
             elif table == "ledger":
-                self.db.execute("INSERT INTO ledger VALUES (?,?,?,?)", (identifier, payload["intent_id"], payload["at"], data))
+                self.db.execute(
+                    "INSERT INTO ledger VALUES (?,?,?,?)",
+                    (identifier, payload["intent_id"], payload["at"], data),
+                )
             elif table == "cache":
-                self.db.execute("INSERT INTO cache VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET at=excluded.at,payload=excluded.payload", (identifier, now().isoformat(), data))
+                self.db.execute(
+                    "INSERT INTO cache VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET at=excluded.at,payload=excluded.payload",
+                    (identifier, now().isoformat(), data),
+                )
             else:
-                self.db.execute(f"INSERT INTO {table} VALUES (?,?,?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload", (identifier, now().isoformat(), data))
+                self.db.execute(
+                    f"INSERT INTO {table} VALUES (?,?,?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload",
+                    (identifier, now().isoformat(), data),
+                )
 
     def get(self, table: str, identifier: str):
         if table not in {"runs", "proposals", "intents", "cache"}:
             raise ValueError("Unknown record type")
         key = "key" if table == "cache" else "id"
         with self.lock:
-            row = self.db.execute(f"SELECT payload FROM {table} WHERE {key}=?", (identifier,)).fetchone()
+            row = self.db.execute(
+                f"SELECT payload FROM {table} WHERE {key}=?", (identifier,)
+            ).fetchone()
             return json.loads(row[0]) if row else None
 
     def history(self, table: str, limit=50, offset=0):
@@ -133,7 +170,9 @@ class Store:
             raise ValueError("Unknown history")
         order = "seq" if table in {"audit", "snapshots"} else "at"
         with self.lock:
-            rows = self.db.execute(f"SELECT * FROM {table} ORDER BY {order} DESC LIMIT ? OFFSET ?", (limit, offset)).fetchall()
+            rows = self.db.execute(
+                f"SELECT * FROM {table} ORDER BY {order} DESC LIMIT ? OFFSET ?", (limit, offset)
+            ).fetchall()
             total = self.db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
         items = []
         for row in rows:
@@ -145,8 +184,14 @@ class Store:
 
     def snapshot(self, payload):
         with self.lock:
-            self.db.execute("INSERT INTO snapshots(at,payload) VALUES (?,?)", (now().isoformat(), encode(payload)))
+            self.db.execute(
+                "INSERT INTO snapshots(at,payload) VALUES (?,?)",
+                (now().isoformat(), encode(payload)),
+            )
 
     def prune_chat(self):
         # Chat is deliberately session-only. There is no persisted raw conversation table.
-        self.db.execute("DELETE FROM cache WHERE key LIKE 'chat:%' AND at < ?", ((now() - timedelta(hours=24)).isoformat(),))
+        self.db.execute(
+            "DELETE FROM cache WHERE key LIKE 'chat:%' AND at < ?",
+            ((now() - timedelta(hours=24)).isoformat(),),
+        )

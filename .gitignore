@@ -45,3 +45,4 @@ playwright-report/
 test-results/
 .env.local
 *.egg-info/
+.venv-legacy/

@@ -16,7 +16,7 @@ except ImportError:
         pass
 
 
-def create_bull_researcher(llm, memory):
+def create_bull_researcher(llm, memory, *, capture_prompt=capture_agent_prompt):
     def bull_node(state) -> dict:
         investment_debate_state = state["investment_debate_state"]
         history = investment_debate_state.get("history", "")
@@ -53,7 +53,7 @@ def create_bull_researcher(llm, memory):
 
         # Capture the COMPLETE prompt that gets sent to the LLM (including all dynamic content)
         ticker = state.get("company_of_interest", "")
-        capture_agent_prompt("bull_report", prompt, ticker)
+        capture_prompt("bull_report", prompt, ticker)
 
         response = llm.invoke(prompt)
 

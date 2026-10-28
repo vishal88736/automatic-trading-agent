@@ -1,11 +1,17 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import tailwindcss from '@tailwindcss/vite';
-import { fileURLToPath } from 'node:url';
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+import { fileURLToPath } from "node:url";
 
 export default defineConfig({
-  root: fileURLToPath(new URL('.', import.meta.url)),
+  root: fileURLToPath(new URL(".", import.meta.url)),
   plugins: [react(), tailwindcss()],
-  server: { port: 5173, strictPort: true, proxy: { '/api': 'http://127.0.0.1:8787' } },
-  build: { outDir: 'dist', emptyOutDir: true },
+  server: {
+    port: Number(process.env.TERMINAL_UI_PORT ?? 5173),
+    strictPort: true,
+    proxy: {
+      "/api": process.env.TERMINAL_BACKEND_URL ?? "http://127.0.0.1:8787",
+    },
+  },
+  build: { outDir: "dist", emptyOutDir: true },
 });

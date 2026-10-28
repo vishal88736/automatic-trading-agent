@@ -24,7 +24,11 @@ async def preview(engine):
     run = await engine.run(RunRequest())
     assert run["decision"] == "BUY" and run["intent"]["state"] == "AWAITING_AUTHORIZATION"
     intent = run["intent"]
-    return Authorize(intent_id=intent["id"], quote_id=intent["quote"]["id"], acknowledgement="AUTHORIZE_SIMULATION")
+    return Authorize(
+        intent_id=intent["id"],
+        quote_id=intent["quote"]["id"],
+        acknowledgement="AUTHORIZE_SIMULATION",
+    )
 
 
 async def test_full_graph_fill_reconciliation_and_duplicate_guard(engine):
@@ -39,13 +43,23 @@ async def test_full_graph_fill_reconciliation_and_duplicate_guard(engine):
     with pytest.raises(ValueError, match="already processed"):
         await engine.authorize(request)
     latest = engine.store.history("runs", 1)["items"][0]
-    assert all(s["status"] == "COMPLETED" for s in latest["stages"] if s["name"] in {"Executor", "Reconciliation"})
-    assert {a["kind"] for a in engine.store.history("audit", 200)["items"]} >= {"risk.approved", "execution.authorized", "portfolio.reconciled"}
+    assert all(
+        s["status"] == "COMPLETED"
+        for s in latest["stages"]
+        if s["name"] in {"Executor", "Reconciliation"}
+    )
+    assert {a["kind"] for a in engine.store.history("audit", 200)["items"]} >= {
+        "risk.approved",
+        "execution.authorized",
+        "portfolio.reconciled",
+    }
 
 
 async def test_concurrent_authorization_only_fills_once(engine):
     request = await preview(engine)
-    results = await asyncio.gather(engine.authorize(request), engine.authorize(request), return_exceptions=True)
+    results = await asyncio.gather(
+        engine.authorize(request), engine.authorize(request), return_exceptions=True
+    )
     assert sum(isinstance(result, dict) for result in results) == 1
     assert engine.store.history("ledger")["total"] == 1
 
@@ -66,7 +80,9 @@ async def test_stale_quote_and_configuration_changes_fail_closed(engine):
     request = await preview(engine)
     intent = engine.store.get("intents", request.intent_id)
     intent["quote"]["expires_at"] = (now() - timedelta(seconds=1)).isoformat()
-    engine.store.put("intents", intent["id"], intent, state=intent["state"], proposal_id=intent["proposal_id"])
+    engine.store.put(
+        "intents", intent["id"], intent, state=intent["state"], proposal_id=intent["proposal_id"]
+    )
     with pytest.raises(ValueError, match="expired"):
         await engine.authorize(request)
     current, version = engine.execution.risk()
@@ -79,7 +95,9 @@ async def test_restart_recovers_pending_without_resubmission(engine):
     request = await preview(engine)
     intent = engine.store.get("intents", request.intent_id)
     intent["state"] = "SUBMITTED"
-    engine.store.put("intents", intent["id"], intent, state=intent["state"], proposal_id=intent["proposal_id"])
+    engine.store.put(
+        "intents", intent["id"], intent, state=intent["state"], proposal_id=intent["proposal_id"]
+    )
     engine.control(SchedulerAction(action="start"))
     engine.recover()
     assert engine.state()["state"] == "PAUSED"
@@ -90,9 +108,11 @@ async def test_restart_recovers_pending_without_resubmission(engine):
 
 async def test_empty_data_blocks_executable_candidates(engine):
     original = engine.providers.market
+
     async def unavailable(symbol):
         market = await original(symbol)
         return market.model_copy(update={"candles": [], "status": "UNAVAILABLE", "price": None})
+
     engine.providers.market = unavailable
     run = await engine.run(RunRequest())
     assert run.get("decision") == "HOLD" and not run.get("intent_id")

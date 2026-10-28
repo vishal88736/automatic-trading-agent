@@ -14,11 +14,40 @@ D = Decimal
 
 def proposal(notional="100", side="BUY"):
     market = fixture_market("BTC")
-    return Proposal(id="proposal-test", asset=market.asset, side=side, strategy_ids=["momentum_v1"], signal_at=now(), expires_at=now() + timedelta(minutes=2), evidence=["synthetic_fixture_v1"], rationale="Validated momentum filters", exit_policy="Exit below ATR stop or EMA invalidation.", stop_price=D("70000"), notional=D(notional), reference_price=market.price, expected_costs=D("0.2"), market_source=market.source, market_as_of=market.as_of, candle_count=len(market.candles), mode=Mode.SIMULATION, config_versions={"risk": 1, "momentum_v1": 1})
+    return Proposal(
+        id="proposal-test",
+        asset=market.asset,
+        side=side,
+        strategy_ids=["momentum_v1"],
+        signal_at=now(),
+        expires_at=now() + timedelta(minutes=2),
+        evidence=["synthetic_fixture_v1"],
+        rationale="Validated momentum filters",
+        exit_policy="Exit below ATR stop or EMA invalidation.",
+        stop_price=D("70000"),
+        notional=D(notional),
+        reference_price=market.price,
+        expected_costs=D("0.2"),
+        market_source=market.source,
+        market_as_of=market.as_of,
+        candle_count=len(market.candles),
+        mode=Mode.SIMULATION,
+        config_versions={"risk": 1, "momentum_v1": 1},
+    )
 
 
 def portfolio(**overrides):
-    return {"equity": "10000", "cash": "10000", "exposure": "0", "asset_values": {}, "positions": [], "daily_return": "0", "drawdown": "0", "valuation_complete": True, **overrides}
+    return {
+        "equity": "10000",
+        "cash": "10000",
+        "exposure": "0",
+        "asset_values": {},
+        "positions": [],
+        "daily_return": "0",
+        "drawdown": "0",
+        "valuation_complete": True,
+        **overrides,
+    }
 
 
 def test_real_strategy_rules_and_insufficient_history():
@@ -26,8 +55,13 @@ def test_real_strategy_rules_and_insufficient_history():
     signal = evaluate("momentum_v1", market, fixture_news(), StrategyConfig())
     assert signal.signal == "BUY" and signal.entry_conditions_met
     assert signal.stop_price < market.price
-    assert evaluate("momentum_v1", market, fixture_news(), StrategyConfig(enabled=False)).signal == "HOLD"
-    assert evaluate("momentum_v1", fixture_market("BTC", 20), fixture_news(), StrategyConfig()).risk_flags == ["INSUFFICIENT_HISTORY"]
+    assert (
+        evaluate("momentum_v1", market, fixture_news(), StrategyConfig(enabled=False)).signal
+        == "HOLD"
+    )
+    assert evaluate(
+        "momentum_v1", fixture_market("BTC", 20), fixture_news(), StrategyConfig()
+    ).risk_flags == ["INSUFFICIENT_HISTORY"]
     assert evaluate("spread_research_v1", market, fixture_news(), StrategyConfig()).signal == "HOLD"
 
 
@@ -57,8 +91,26 @@ def test_exit_rules_do_not_short():
     config = StrategyConfig(rsi_exit=50)
     signal = evaluate("momentum_v1", market, fixture_news(), config, holding=True)
     assert signal.signal in {"SELL", "HOLD"}
-    assert evaluate("mean_reversion_v1", fixture_market("BTC"), fixture_news(), StrategyConfig(), holding=True).signal == "SELL"
-    assert evaluate("mean_reversion_v1", fixture_market("BTC"), fixture_news(), StrategyConfig(), holding=False).signal == "HOLD"
+    assert (
+        evaluate(
+            "mean_reversion_v1",
+            fixture_market("BTC"),
+            fixture_news(),
+            StrategyConfig(),
+            holding=True,
+        ).signal
+        == "SELL"
+    )
+    assert (
+        evaluate(
+            "mean_reversion_v1",
+            fixture_market("BTC"),
+            fixture_news(),
+            StrategyConfig(),
+            holding=False,
+        ).signal
+        == "HOLD"
+    )
 
 
 def test_sizing_reduces_and_hard_limits_validate():
@@ -69,19 +121,48 @@ def test_sizing_reduces_and_hard_limits_validate():
     with pytest.raises(ValueError):
         StrategyConfig(fast_period=30, slow_period=20)
     with pytest.raises(ValueError):
-        Signal(strategy_id="x", symbol="BTC", signal="BUY", confidence=1.1, timestamp=now(), rationale="x")
+        Signal(
+            strategy_id="x",
+            symbol="BTC",
+            signal="BUY",
+            confidence=1.1,
+            timestamp=now(),
+            rationale="x",
+        )
 
 
-@pytest.mark.parametrize("values,kwargs", [({"daily_return": "-0.04"}, {}), ({"drawdown": "0.11"}, {}), ({"cash": "0"}, {}), ({}, {"stopped": True}), ({}, {"pending": True}), ({}, {"recent_failures": 3}), ({"valuation_complete": False, "equity": None}, {}), ({}, {"last_trade": now()})])
+@pytest.mark.parametrize(
+    "values,kwargs",
+    [
+        ({"daily_return": "-0.04"}, {}),
+        ({"drawdown": "0.11"}, {}),
+        ({"cash": "0"}, {}),
+        ({}, {"stopped": True}),
+        ({}, {"pending": True}),
+        ({}, {"recent_failures": 3}),
+        ({"valuation_complete": False, "equity": None}, {}),
+        ({}, {"last_trade": now()}),
+    ],
+)
 def test_risk_enforces_independent_limits(values, kwargs):
     assert assess(proposal(), portfolio(**values), RiskConfig(), 1, **kwargs).verdict == "REJECTED"
 
 
 def test_live_mode_and_stale_data_rejected():
-    candidate = proposal().model_copy(update={"mode": Mode.LIVE, "market_source": "coinbase_exchange", "market_as_of": now() - timedelta(days=1)})
+    candidate = proposal().model_copy(
+        update={
+            "mode": Mode.LIVE,
+            "market_source": "coinbase_exchange",
+            "market_as_of": now() - timedelta(days=1),
+        }
+    )
     result = assess(candidate, portfolio(), RiskConfig(), 1)
     assert result.verdict == "REJECTED"
-    assert {c.code for c in result.checks if not c.passed} >= {"SUPPORTED_MODE", "TOKEN_IDENTITY", "MARKET_FRESHNESS"}
+    assert {c.code for c in result.checks if not c.passed} >= {
+        "SUPPORTED_MODE",
+        "TOKEN_IDENTITY",
+        "MARKET_FRESHNESS",
+    }
 
 
 async def test_quote_validation_and_expiration():
@@ -95,4 +176,8 @@ async def test_quote_validation_and_expiration():
     quote.chain_id = 177
     quote.slippage_bps = 500
     errors = validate_quote(quote, candidate, risk, config)
-    assert "Unexpected input amount" in errors and "Chain mismatch" in errors and "Slippage ceiling exceeded" in errors
+    assert (
+        "Unexpected input amount" in errors
+        and "Chain mismatch" in errors
+        and "Slippage ceiling exceeded" in errors
+    )

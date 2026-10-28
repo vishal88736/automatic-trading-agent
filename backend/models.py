@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 from decimal import Decimal
 from enum import StrEnum
-import re
 from typing import Annotated, Any, Literal
 from uuid import uuid4
 
@@ -107,7 +107,9 @@ class Article(Model):
     relevance: float = Field(default=0, ge=0, le=1)
     urgency: Literal["normal", "breaking", "unknown"] = "normal"
     summary: str = ""
-    summary_kind: Literal["publisher_excerpt", "model_interpretation", "fixture"] = "publisher_excerpt"
+    summary_kind: Literal["publisher_excerpt", "model_interpretation", "fixture"] = (
+        "publisher_excerpt"
+    )
     fixture: bool = False
     stale: bool = False
     actionable_content: bool = True
@@ -120,11 +122,61 @@ class NewsFeed(Model):
     source: str
     retrieved_at: AwareDatetime
     error: str | None = None
+    scoring_version: int = 1
+
+
+class NewsScoring(Model):
+    positive_terms: list[Annotated[str, Field(pattern=r"^[a-z]{2,30}$")]] = Field(
+        default_factory=lambda: [
+            "approval",
+            "approved",
+            "inflows",
+            "growth",
+            "rally",
+            "adoption",
+            "surge",
+            "upgrade",
+        ],
+        min_length=1,
+        max_length=40,
+    )
+    negative_terms: list[Annotated[str, Field(pattern=r"^[a-z]{2,30}$")]] = Field(
+        default_factory=lambda: [
+            "hack",
+            "exploit",
+            "outflows",
+            "ban",
+            "rejected",
+            "lawsuit",
+            "crash",
+            "breach",
+        ],
+        min_length=1,
+        max_length=40,
+    )
+    base_confidence: float = Field(default=0.35, ge=0.1, le=0.5)
+    term_weight: float = Field(default=0.1, ge=0.01, le=0.2)
+    maximum_confidence: float = Field(default=0.65, ge=0.3, le=0.8)
+
+    @model_validator(mode="after")
+    def validate_terms(self):
+        if set(self.positive_terms) & set(self.negative_terms):
+            raise ValueError("Positive and negative terms must be disjoint")
+        if self.base_confidence > self.maximum_confidence:
+            raise ValueError("Base confidence cannot exceed its ceiling")
+        return self
+
+
+class VersionedNewsScoring(Model):
+    expected_version: int = Field(ge=1)
+    config: NewsScoring
 
 
 class StrategyConfig(Model):
     enabled: bool = True
-    assets: list[Literal["BTC", "ETH", "SOL"]] = Field(default_factory=lambda: ["BTC", "ETH", "SOL"])
+    assets: list[Literal["BTC", "ETH", "SOL"]] = Field(
+        default_factory=lambda: ["BTC", "ETH", "SOL"]
+    )
     fast_period: int = Field(default=12, ge=5, le=30)
     slow_period: int = Field(default=26, ge=20, le=60)
     rsi_entry: float = Field(default=68, ge=45, le=75)
@@ -169,6 +221,7 @@ class RiskConfig(Model):
     max_daily_loss: Positive = Field(default=Decimal("0.03"), le=Decimal("0.05"))
     max_drawdown: Positive = Field(default=Decimal("0.10"), le=Decimal("0.20"))
     max_slippage_bps: int = Field(default=50, ge=1, le=100)
+    max_trading_fee_bps: int = Field(default=30, ge=1, le=100)
     max_price_impact: Positive = Field(default=Decimal("0.005"), le=Decimal("0.02"))
     min_liquidity_usd: Positive = Field(default=Decimal("50000"), ge=10000)
     max_network_fee: Positive = Field(default=Decimal("2"), le=10)
@@ -248,6 +301,75 @@ class Quote(Model):
     wallet: str | None = None
 
 
+class IntentState(StrEnum):
+    RISK_APPROVED = "RISK_APPROVED"
+    AWAITING_AUTHORIZATION = "AWAITING_AUTHORIZATION"
+    AUTHORIZED = "AUTHORIZED"
+    SUBMITTED = "SUBMITTED"
+    CONFIRMED = "CONFIRMED"
+    RECONCILED = "RECONCILED"
+    REJECTED = "REJECTED"
+    REVERTED = "REVERTED"
+    FAILED = "FAILED"
+    TIMED_OUT = "TIMED_OUT"
+    RECONCILIATION_REQUIRED = "RECONCILIATION_REQUIRED"
+
+
+class Position(Model):
+    asset: Token
+    quantity: Annotated[Decimal, Field(gt=0)]
+    cost_basis: Annotated[Decimal, Field(ge=0)]
+    entry_price: Annotated[Decimal, Field(gt=0)]
+    mark: Annotated[Decimal, Field(gt=0)] | None
+    price_at: AwareDatetime | None
+    source: str | None
+    value: Annotated[Decimal, Field(ge=0)] | None
+    unrealized_pnl: Decimal | None
+    exit_policy: str
+    stop_price: Positive
+    strategy_ids: list[str]
+    valuation_complete: bool
+    mode: Literal["SIMULATION"] = "SIMULATION"
+
+
+class StageTiming(Model):
+    started_at: AwareDatetime
+    ended_at: AwareDatetime
+    duration_ms: float = Field(ge=0)
+
+
+class ExecutionIntent(Model):
+    id: str
+    proposal_id: str
+    proposal: Proposal
+    state: IntentState
+    risk: RiskDecision
+    quote: Quote | None = None
+    mode: Mode
+    receipt_id: str | None = None
+    transaction_hash: str | None = Field(default=None, pattern=r"^0x[0-9a-fA-F]{64}$")
+    created_at: AwareDatetime
+    updated_at: AwareDatetime
+    quote_errors: list[str] = Field(default_factory=list)
+    timings: dict[str, StageTiming] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def consistent_intent(self):
+        if self.proposal.id != self.proposal_id or self.risk.proposal_id != self.proposal_id:
+            raise ValueError("Intent references must match the proposal")
+        if self.mode != self.proposal.mode or self.quote and self.mode != self.quote.mode:
+            raise ValueError("Execution modes cannot be mixed")
+        if self.mode == Mode.SIMULATION and self.transaction_hash:
+            raise ValueError("Simulation cannot claim a blockchain transaction")
+        if self.quote and self.quote.proposal_id != self.proposal_id:
+            raise ValueError("Quote must reference the same proposal")
+        if self.state in {IntentState.CONFIRMED, IntentState.RECONCILED} and not (
+            self.receipt_id if self.mode == Mode.SIMULATION else self.transaction_hash
+        ):
+            raise ValueError("Confirmation requires a recorded receipt or transaction identifier")
+        return self
+
+
 class RunRequest(Model):
     symbol: Literal["BTC", "ETH", "SOL"] = "BTC"
     notional: Positive = Field(default=Decimal("100"), le=10000)
@@ -270,10 +392,15 @@ class Authorize(Model):
 
 
 class SchedulerAction(Model):
-    action: Literal["start", "pause", "resume", "stop", "shutdown", "emergency_stop", "clear_emergency"]
+    action: Literal[
+        "start", "pause", "resume", "stop", "shutdown", "emergency_stop", "clear_emergency"
+    ]
     interval_seconds: int = Field(default=300, ge=30, le=86400)
     auto_simulate: bool = False
     acknowledge: bool = False
+    symbols: list[Literal["BTC", "ETH", "SOL"]] = Field(
+        default_factory=lambda: ["BTC", "ETH", "SOL"], min_length=1, max_length=3
+    )
 
 
 class ChatRequest(Model):

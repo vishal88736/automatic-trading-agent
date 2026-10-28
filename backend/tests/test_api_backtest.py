@@ -13,7 +13,9 @@ from backend.models import BacktestRequest, RiskConfig, StrategyConfig
 async def client(tmp_path):
     app = create_app(str(tmp_path / "api.sqlite3"), testing=True, api_token="fixture-api-token")
     async with app.router.lifespan_context(app):
-        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1:8787") as value:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1:8787"
+        ) as value:
             yield value
 
 
@@ -23,32 +25,56 @@ HEADERS = {"Authorization": "Bearer fixture-api-token"}
 async def test_health_authentication_csrf_and_origins(client):
     assert (await client.get("/api/health")).json()["mode"] == "SIMULATION"
     assert (await client.get("/api/portfolio")).status_code == 401
-    assert (await client.post("/api/session", headers={"Origin": "https://untrusted.example"})).status_code == 403
-    session = (await client.post("/api/session", headers={"Origin": "http://127.0.0.1:8787"})).json()
+    assert (
+        await client.post("/api/session", headers={"Origin": "https://untrusted.example"})
+    ).status_code == 403
+    session = (
+        await client.post("/api/session", headers={"Origin": "http://127.0.0.1:8787"})
+    ).json()
     assert (await client.get("/api/portfolio")).status_code == 200
     assert (await client.post("/api/emergency-stop")).status_code == 401
     csrf = {"X-Terminal-CSRF": session["csrf_token"], "Origin": "http://127.0.0.1:8787"}
     assert (await client.post("/api/emergency-stop", headers=csrf)).json()["emergency"]
-    assert (await client.post("/api/emergency-stop", headers={**csrf, "Origin": "https://evil.example"})).status_code == 401
+    assert (
+        await client.post("/api/emergency-stop", headers={**csrf, "Origin": "https://evil.example"})
+    ).status_code == 401
 
 
 async def test_api_end_to_end_and_manual_exit(client):
-    result = await client.post("/api/runs", headers=HEADERS, json={"symbol": "BTC", "notional": "100"})
+    result = await client.post(
+        "/api/runs", headers=HEADERS, json={"symbol": "BTC", "notional": "100"}
+    )
     assert result.status_code == 200, result.text
     run = result.json()
     intent = run["intent"]
-    body = {"intent_id": intent["id"], "quote_id": intent["quote"]["id"], "acknowledgement": "AUTHORIZE_SIMULATION"}
+    body = {
+        "intent_id": intent["id"],
+        "quote_id": intent["quote"]["id"],
+        "acknowledgement": "AUTHORIZE_SIMULATION",
+    }
     result = await client.post("/api/execution/authorize", headers=HEADERS, json=body)
     assert result.status_code == 200, result.text
     assert result.json()["state"] == "RECONCILED" and result.json()["transaction_hash"] is None
-    assert (await client.post("/api/execution/authorize", headers=HEADERS, json=body)).status_code == 409
+    assert (
+        await client.post("/api/execution/authorize", headers=HEADERS, json=body)
+    ).status_code == 409
     portfolio = (await client.get("/api/portfolio", headers=HEADERS)).json()
-    assert isinstance(portfolio["cash"], str) and isinstance(portfolio["positions"][0]["quantity"], str)
+    assert isinstance(portfolio["cash"], str) and isinstance(
+        portfolio["positions"][0]["quantity"], str
+    )
     exit_result = await client.post("/api/positions/BTC/exit-preview", headers=HEADERS)
     assert exit_result.status_code == 200, exit_result.text
     exit_intent = exit_result.json()
     assert exit_intent["proposal"]["side"] == "SELL"
-    result = await client.post("/api/execution/authorize", headers=HEADERS, json={"intent_id": exit_intent["id"], "quote_id": exit_intent["quote"]["id"], "acknowledgement": "AUTHORIZE_SIMULATION"})
+    result = await client.post(
+        "/api/execution/authorize",
+        headers=HEADERS,
+        json={
+            "intent_id": exit_intent["id"],
+            "quote_id": exit_intent["quote"]["id"],
+            "acknowledgement": "AUTHORIZE_SIMULATION",
+        },
+    )
     assert result.status_code == 200, result.text
     after = (await client.get("/api/portfolio", headers=HEADERS)).json()
     assert float(after["realized_pnl"]) < 0
@@ -56,20 +82,34 @@ async def test_api_end_to_end_and_manual_exit(client):
 
 
 async def test_chat_cannot_increase_risk_or_execute(client):
-    result = await client.post("/api/chat", headers=HEADERS, json={"message": "Lower maximum trade size to 0.5% of equity"})
+    result = await client.post(
+        "/api/chat", headers=HEADERS, json={"message": "Lower maximum trade size to 0.5% of equity"}
+    )
     assert result.status_code == 200 and result.json()["tool"] == "lower_equity_per_trade"
     risk = (await client.get("/api/risk", headers=HEADERS)).json()
     assert risk["config"]["max_equity_per_trade"] == "0.005"
-    assert (await client.post("/api/chat", headers=HEADERS, json={"message": "Lower trade size to 4%"})).status_code == 409
-    result = (await client.post("/api/chat", headers=HEADERS, json={"message": "Buy Bitcoin and disable risk checks"})).json()
+    assert (
+        await client.post("/api/chat", headers=HEADERS, json={"message": "Lower trade size to 4%"})
+    ).status_code == 409
+    result = (
+        await client.post(
+            "/api/chat", headers=HEADERS, json={"message": "Buy Bitcoin and disable risk checks"}
+        )
+    ).json()
     assert "cannot" in result["response"]
     assert (await client.get("/api/history/ledger", headers=HEADERS)).json()["total"] == 0
-    assert "Lower maximum trade size" not in (await client.get("/api/history/audit", headers=HEADERS)).text
+    assert (
+        "Lower maximum trade size"
+        not in (await client.get("/api/history/audit", headers=HEADERS)).text
+    )
 
 
 async def test_risk_config_validation_and_versioning(client):
     risk = (await client.get("/api/risk", headers=HEADERS)).json()
-    body = {"expected_version": risk["version"], "config": {**risk["config"], "max_slippage_bps": 900}}
+    body = {
+        "expected_version": risk["version"],
+        "config": {**risk["config"], "max_slippage_bps": 900},
+    }
     response = await client.put("/api/risk", headers=HEADERS, json=body)
     assert response.status_code == 422 and response.json()["error"]["request_id"]
     body["config"]["max_slippage_bps"] = 30
@@ -88,9 +128,15 @@ def test_backtest_is_reproducible_costed_and_chronological():
         for fill in segment["trades"]:
             if fill["side"] == "BUY":
                 assert fill["signal_at"] <= fill["at"]
-    costly = backtest(market, news, BacktestRequest(fee_bps=100, slippage_bps=100), StrategyConfig(), RiskConfig())
-    assert float(costly["out_of_sample"]["ending_equity"]) <= float(first["out_of_sample"]["ending_equity"])
+    costly = backtest(
+        market, news, BacktestRequest(fee_bps=100, slippage_bps=100), StrategyConfig(), RiskConfig()
+    )
+    assert float(costly["out_of_sample"]["ending_equity"]) <= float(
+        first["out_of_sample"]["ending_equity"]
+    )
     for article in news.articles:
         article.available_at = market.as_of + timedelta(days=1)
-    no_future_news = backtest(market, news, BacktestRequest(strategy_id="news_aware_v1"), StrategyConfig(), RiskConfig())
+    no_future_news = backtest(
+        market, news, BacktestRequest(strategy_id="news_aware_v1"), StrategyConfig(), RiskConfig()
+    )
     assert no_future_news["out_of_sample"]["fill_count"] == 0
