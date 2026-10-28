@@ -1,0 +1,32 @@
+[project]
+name = "hsk-agent-terminal"
+version = "0.1.0"
+description = "Auditable crypto research terminal with deterministic risk and simulation execution"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "uvicorn>=0.34,<1",
+  "httpx>=0.28,<1",
+  "pydantic>=2.10,<3",
+  "pandas>=2.2,<3",
+  "langgraph>=0.6.6,<0.7",
+  "langchain-core>=0.3.84,<1",
+  "backtrader>=1.9.78",
+]
+
+[dependency-groups]
+dev = ["pytest>=8,<10", "pytest-asyncio>=0.25,<2", "ruff>=0.12,<1"]
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+asyncio_mode = "auto"
+pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+include = ["backend/**/*.py", "scripts/**/*.py"]
+
+[tool.uv]
+package = false
+
