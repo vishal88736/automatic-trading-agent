@@ -28,6 +28,7 @@ test("complete research, risk, authorization, simulated fill, ledger and audit w
     path: "artifacts/terminal-overview-desktop.png",
     fullPage: true,
   });
+  await page.screenshot({ path: "artifacts/krono-discovery-desktop.png" });
   await page.getByRole("button", { name: "Analyze BTC", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Review trade preview" }),
@@ -124,6 +125,7 @@ test("strategy configuration is versioned and backtests report measured holdout 
   await expect(
     page.getByText("synthetic_fixture_v1 · SYNTHETIC", { exact: true }),
   ).toBeVisible();
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
   await page.screenshot({
     path: "artifacts/terminal-strategies.png",
     fullPage: true,
@@ -232,6 +234,7 @@ test("responsive navigation exposes every workspace and wallet disconnect is hon
     path: "artifacts/terminal-overview-mobile.png",
     fullPage: true,
   });
+  await page.screenshot({ path: "artifacts/krono-discovery-mobile.png" });
   await page.getByRole("button", { name: "Toggle navigation" }).click();
   await page
     .getByRole("navigation")
@@ -304,7 +307,6 @@ test("Krono branding and bundled fonts stay readable across desktop and mobile",
       .map((font) => font.family.replaceAll('"', "")),
   );
   expect(fonts).toContain("Inter Variable");
-  expect(fonts).toContain("Instrument Serif");
   await expect(page.locator("body")).not.toContainText(/HSK\s*AGENT/i);
   await expect(
     page.getByText("HSKSwap integration", { exact: true }),
@@ -314,13 +316,10 @@ test("Krono branding and bundled fonts stay readable across desktop and mobile",
     await page.setViewportSize({ width, height: 982 });
     await expect(
       page.getByRole("link", { name: "Krono home" }).filter({ visible: true }),
-    ).toBeVisible();
+    ).toHaveCount(width > 760 ? 2 : 1);
     if (width > 760) {
-      const captionFits = await page.locator(".brand").evaluate((brand) => {
-        const caption = brand.querySelector("small")!.getBoundingClientRect();
-        return caption.right <= brand.getBoundingClientRect().right;
-      });
-      expect(captionFits, `Brand caption at ${width}px`).toBe(true);
+      const rail = await page.locator(".sidebar").boundingBox();
+      expect(rail!.width, `Icon rail at ${width}px`).toBeLessThanOrEqual(112);
     } else {
       await expect(
         page.getByRole("navigation", { name: "Main navigation" }),
@@ -428,4 +427,125 @@ test("Krono branding and bundled fonts stay readable across desktop and mobile",
       }),
     )
     .toBeLessThan(2);
+});
+
+test("discovery filters, sorting, measured metrics and view controls use real records", async ({
+  page,
+}) => {
+  await expect(page.locator(".hero-art img")).toHaveJSProperty(
+    "complete",
+    true,
+  );
+  expect(
+    await page
+      .locator(".hero-art img")
+      .evaluate((image) => (image as HTMLImageElement).naturalWidth),
+  ).toBeGreaterThan(0);
+  await page
+    .getByRole("navigation")
+    .getByRole("button", { name: "Strategies", exact: true })
+    .click();
+  await expect(page.locator(".strategy-card")).toHaveCount(4);
+  await expect(
+    page
+      .locator(".strategy-card .performance-preview figcaption")
+      .filter({ hasText: "not strategy P&L" }),
+  ).toHaveCount(4);
+  expect(
+    await page.locator(".strategy-performance strong").allTextContents(),
+  ).toEqual(Array(8).fill("—"));
+  await page.getByRole("button", { name: "Momentum", exact: true }).click();
+  await expect(page.locator(".strategy-card")).toHaveCount(1);
+  await expect(page.locator(".strategy-card h2")).toHaveText(
+    "Trend & momentum",
+  );
+  const before = await (await page.request.get("/api/dashboard")).json();
+  const count = before.strategies.filter(
+    (strategy: { config: { enabled: boolean } }) => strategy.config.enabled,
+  ).length;
+  const enabled = before.strategies.find(
+    (strategy: { id: string }) => strategy.id === "momentum_v1",
+  ).config.enabled;
+  const toggle = page.getByRole("switch", {
+    name: "Enable Trend & momentum",
+    exact: true,
+  });
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-checked", String(!enabled));
+  await expect(
+    page.getByRole("meter", { name: "Enabled strategy coverage" }),
+  ).toHaveAttribute("aria-valuenow", String(count + (enabled ? -1 : 1)));
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-checked", String(enabled));
+  await page
+    .getByRole("button", { name: "All strategies", exact: true })
+    .click();
+  await page.getByLabel("Sort strategies").selectOption("name");
+  const names = await page.locator(".strategy-card h2").allTextContents();
+  expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)));
+  await page
+    .getByRole("button", { name: "Show strategy list", exact: true })
+    .click();
+  expect(
+    (await page.locator(".strategy-card").first().boundingBox())!.width,
+  ).toBeGreaterThan(700);
+  await page
+    .getByRole("button", { name: "Show strategy grid", exact: true })
+    .click();
+  expect(
+    (await page.locator(".strategy-card").first().boundingBox())!.width,
+  ).toBeLessThan(600);
+  await page.getByRole("button", { name: "Spread", exact: true }).click();
+  await expect(page.locator(".strategy-card")).toHaveCount(1);
+  await expect(
+    page.getByRole("button", {
+      name: "Backtest Price-spread research",
+      exact: true,
+    }),
+  ).toBeDisabled();
+});
+
+test("workspace search opens actual markets and remains accessible from mobile navigation", async ({
+  page,
+}) => {
+  await page
+    .getByRole("button", { name: "Search workspace", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", {
+    name: "Search workspace",
+    exact: true,
+  });
+  await dialog
+    .getByLabel("Search pages, markets and strategies")
+    .fill("Ethereum");
+  await dialog.getByRole("button").filter({ hasText: "Ethereum" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Market intelligence", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".asset-heading")).toContainText("Ethereum");
+  await page.keyboard.press("/");
+  await dialog
+    .getByLabel("Search pages, markets and strategies")
+    .fill("news intelligence");
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByRole("heading", { name: "News intelligence", exact: true }),
+  ).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page
+    .getByRole("button", { name: "Toggle navigation", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Search workspace", exact: true })
+    .click();
+  await expect(
+    page.getByRole("navigation", { name: "Main navigation" }),
+  ).toHaveCount(0);
+  await dialog
+    .getByLabel("Search pages, markets and strategies")
+    .fill("risk controls");
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByRole("heading", { name: "Risk controls", exact: true }),
+  ).toBeVisible();
 });

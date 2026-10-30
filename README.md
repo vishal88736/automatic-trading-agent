@@ -8,7 +8,7 @@ Krono is an independent platform built for the HSKSwap AI Agent Trading hackatho
 
 ![Krono desktop workspace, captured from the actual simulation workflow](docs/assets/terminal-overview.png)
 
-The interface pairs self-hosted Inter with Instrument Serif headings, an original Krono monogram, readable data tables and responsive chart axes. HSKSwap is identified as an exchange integration rather than the platform brand. Fonts are served with the application, without a third-party font request.
+The interface uses self-hosted Inter, brighter charcoal surfaces, lavender controls, a compact icon rail and original dimensional coin artwork. The discovery cards support filtering, sorting, grid/list views, versioned configuration and measured backtests. Reference-price previews are explicitly distinguished from strategy performance. Workspace search opens real markets and application sections. HSKSwap is identified as an exchange integration rather than the platform brand.
 
 ## Start locally
 
@@ -88,7 +88,7 @@ npm run test:e2e
 
 Chromium tests use the installed `/usr/bin/chromium` when available. Otherwise install Playwright's browser into the project cache with `PLAYWRIGHT_BROWSERS_PATH="$PWD/.cache/ms-playwright" npx playwright install chromium`, and keep that variable set for the test command. CI installs its own browser and OS dependencies on its disposable runner.
 
-Recorded local result: **125 tests + 10 subtests**, **seven browser workflows**, strict TypeScript/production build, formatting and the production restart smoke test passed. Browser checks include bundled font loading, reading sizes, text contrast and responsive chart axes. A third-party LangGraph deprecation warning remains. These checks do not verify profitability or live trading. Detailed evidence and exact boundaries: [VERIFICATION.md](docs/VERIFICATION.md).
+Recorded validation: **125 tests + 10 subtests**, **nine browser workflows**, strict TypeScript/production build, formatting and the production restart smoke test passed. Browser checks include bundled font loading, reading sizes, text contrast, responsive charts, discovery controls and workspace search. A third-party LangGraph deprecation warning remains. These checks do not verify profitability or live trading. Detailed evidence and exact boundaries: [VERIFICATION.md](docs/VERIFICATION.md).
 
 Public read-only provider probes are opt-in and separate from offline tests:
 

@@ -17,6 +17,7 @@ import {
   MessageSquare,
   Newspaper,
   Radio,
+  Search,
   Send,
   Settings2,
   ShieldCheck,
@@ -28,6 +29,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { api } from "./api";
 import { KronoBrand, KronoMark } from "./brand";
+import { WorkspaceHighlights, WorkspaceSearch } from "./discovery";
 import type {
   Dashboard,
   Intent,
@@ -43,6 +45,7 @@ import {
   NewsWorkspace,
   Observatory,
   Overview,
+  PortfolioMetrics,
   Positions,
   RiskWorkspace,
   Settings,
@@ -266,6 +269,7 @@ export default function App() {
     [toast, setToast] = useState<{ text: string; error: boolean } | null>(null),
     [connectionError, setConnectionError] = useState<string | null>(null),
     [chat, setChat] = useState(false),
+    [search, setSearch] = useState(false),
     [sidebar, setSidebar] = useState(false),
     [override, setOverride] = useState<Intent | null>(null),
     [account, setAccount] = useState<string | null>(null);
@@ -331,6 +335,18 @@ export default function App() {
       if (event.key === "Escape") {
         setSidebar(false);
         setChat(false);
+        setSearch(false);
+      }
+      if (
+        event.key === "/" &&
+        !(
+          event.target instanceof HTMLElement &&
+          (event.target.isContentEditable ||
+            ["INPUT", "SELECT", "TEXTAREA"].includes(event.target.tagName))
+        )
+      ) {
+        event.preventDefault();
+        setSearch(true);
       }
     };
     window.addEventListener("keydown", listener);
@@ -395,7 +411,9 @@ export default function App() {
       : null;
   const nav = NAV.find((n) => n.id === page)!;
   return (
-    <div className="app-shell">
+    <div
+      className={`app-shell rail-shell ${page === "overview" || page === "strategies" ? "discovery-page" : ""}`}
+    >
       <aside className={`sidebar ${sidebar ? "is-open" : ""}`}>
         <a
           href="#/overview"
@@ -415,6 +433,16 @@ export default function App() {
           </div>
           <ChevronDown size={13} />
         </div>
+        <button
+          className="sidebar-search"
+          onClick={() => {
+            setSidebar(false);
+            setSearch(true);
+          }}
+        >
+          <Search size={17} />
+          Search workspace
+        </button>
         <nav aria-label="Main navigation">
           <span className="nav-section">WORKSPACE</span>
           {NAV.map((item) => (
@@ -423,10 +451,12 @@ export default function App() {
               <button
                 className={page === item.id ? "nav-item active" : "nav-item"}
                 onClick={() => navigate(item.id)}
+                aria-label={item.name}
+                title={item.name}
                 aria-current={page === item.id ? "page" : undefined}
               >
                 <item.icon size={17} />
-                <span>{item.name}</span>
+                <span className="nav-label">{item.name}</span>
                 {item.id === "observatory" && (
                   <span
                     className={`nav-dot ${data?.scheduler.state === "RUNNING" ? "running" : ""}`}
@@ -438,7 +468,10 @@ export default function App() {
         </nav>
         <div className="sidebar-bottom">
           <div className="sidebar-agent">
-            <span className="agent-dot" />
+            <Radio size={20} className="sidebar-status-icon" />
+            <span
+              className={`agent-dot ${data?.scheduler.state === "RUNNING" ? "is-running" : ""}`}
+            />
             <div>
               <strong>
                 Agent{" "}
@@ -487,6 +520,7 @@ export default function App() {
             className="icon-button mobile-menu"
             onClick={() => setSidebar(!sidebar)}
             aria-label="Toggle navigation"
+            aria-expanded={sidebar}
           >
             <Menu size={19} />
           </button>
@@ -505,6 +539,15 @@ export default function App() {
             <strong>{nav.name}</strong>
           </div>
           <div className="header-controls">
+            <button
+              className="header-search"
+              onClick={() => setSearch(true)}
+              aria-label="Search workspace"
+            >
+              <Search size={18} />
+              <span>Search</span>
+              <kbd>/</kbd>
+            </button>
             <span className="network-pill">
               <span className="network-dot" />
               <Globe2 size={13} />
@@ -546,58 +589,69 @@ export default function App() {
           </div>
         </header>
         <main>
-          <div className="page-heading">
-            <div>
-              <div className="eyebrow page-kicker">
-                {page === "overview"
-                  ? "KRONO / WORKSPACE 01"
-                  : `KRONO / WORKSPACE ${String(NAV.findIndex((n) => n.id === page) + 1).padStart(2, "0")}`}
+          <section
+            className={`workspace-intro ${page === "overview" || page === "strategies" ? "discovery-intro" : ""}`}
+          >
+            {(page === "overview" || page === "strategies") && (
+              <div className="hero-art" aria-hidden="true">
+                <img
+                  src="/art/krono-orbit.webp"
+                  alt=""
+                  fetchPriority="high"
+                  width="720"
+                  height="720"
+                />
               </div>
-              <h1>
-                {page === "overview" ? (
-                  <>
-                    Command <em>center</em>
-                  </>
-                ) : (
-                  TITLES[page][0]
-                )}
-              </h1>
-              <p>{TITLES[page][1]}</p>
+            )}
+            <div className="page-heading">
+              <div>
+                <div className="eyebrow page-kicker">
+                  {page === "overview"
+                    ? "KRONO / WORKSPACE 01"
+                    : `KRONO / WORKSPACE ${String(NAV.findIndex((n) => n.id === page) + 1).padStart(2, "0")}`}
+                </div>
+                <h1>{TITLES[page][0]}</h1>
+                <p>{TITLES[page][1]}</p>
+              </div>
+              <div className="page-actions">
+                <button
+                  className="button secondary assistant-shortcut"
+                  onClick={() => setChat(true)}
+                >
+                  <MessageSquare size={14} />
+                  Ask agent
+                  <kbd>
+                    <Command size={10} />K
+                  </kbd>
+                </button>
+                <select
+                  aria-label="Analysis asset"
+                  value={selected}
+                  onChange={(e) => setSelected(e.target.value)}
+                >
+                  {["BTC", "ETH", "SOL"].map((s) => (
+                    <option key={s}>{s}</option>
+                  ))}
+                </select>
+                <button
+                  className="button primary analyze-button"
+                  disabled={busy || !data}
+                  onClick={analyze}
+                >
+                  {busy ? (
+                    <LoaderCircle size={14} className="spin" />
+                  ) : (
+                    <Activity size={14} />
+                  )}
+                  <span>{busy ? "Processing…" : "Run analysis"}</span>
+                </button>
+              </div>
             </div>
-            <div className="page-actions">
-              <button
-                className="button secondary assistant-shortcut"
-                onClick={() => setChat(true)}
-              >
-                <MessageSquare size={14} />
-                Ask agent
-                <kbd>
-                  <Command size={10} />K
-                </kbd>
-              </button>
-              <select
-                aria-label="Analysis asset"
-                value={selected}
-                onChange={(e) => setSelected(e.target.value)}
-              >
-                {["BTC", "ETH", "SOL"].map((s) => (
-                  <option key={s}>{s}</option>
-                ))}
-              </select>
-              <button
-                className="button primary analyze-button"
-                disabled={busy || !data}
-                onClick={analyze}
-              >
-                {busy ? (
-                  <LoaderCircle size={14} className="spin" />
-                ) : (
-                  <Activity size={14} />
-                )}
-                <span>{busy ? "Processing…" : "Run analysis"}</span>
-              </button>
-            </div>
-          </div>
+            {data && (page === "overview" || page === "strategies") && (
+              <WorkspaceHighlights data={data} page={page} />
+            )}
+            {data && page === "overview" && <PortfolioMetrics data={data} />}
+          </section>
           {connectionError && (
             <div className="connection-warning" role="alert">
               Backend connection interrupted: {connectionError}.{" "}
@@ -699,6 +753,15 @@ export default function App() {
         </button>
       )}
       {chat && <Chat close={() => setChat(false)} act={act} />}{" "}
+      {search && (
+        <WorkspaceSearch
+          data={data}
+          pages={NAV}
+          close={() => setSearch(false)}
+          navigate={navigate}
+          setSelected={setSelected}
+        />
+      )}
       {toast && (
         <div
           className={`toast ${toast.error ? "error" : ""}`}

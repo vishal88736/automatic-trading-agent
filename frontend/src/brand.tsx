@@ -9,12 +9,12 @@ export function KronoMark({ className = "" }: { className?: string }) {
       <rect x="1" y="1" width="46" height="46" rx="14" fill="currentColor" />
       <path
         d="M14 12v24m17-21L22 24l11 11M14 24h8"
-        stroke="#151210"
+        stroke="#21192f"
         strokeWidth="4.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <circle cx="35" cy="11" r="2.5" fill="#151210" />
+      <circle cx="35" cy="11" r="2.5" fill="#21192f" />
     </svg>
   );
 }

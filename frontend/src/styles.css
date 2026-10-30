@@ -2520,7 +2520,7 @@ td > small {
 :root {
   --sidebar-width: 244px;
   --font-sans: "Inter Variable", system-ui, -apple-system, sans-serif;
-  --font-editorial: "Instrument Serif", Georgia, serif;
+  --font-editorial: var(--font-sans);
   line-height: 1.5;
 }
 .sidebar {

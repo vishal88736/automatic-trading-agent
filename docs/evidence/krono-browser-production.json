@@ -1,22 +1,20 @@
 {
-  "verified_at": "2026-10-28T21:29:52.206Z",
+  "verified_at": "2026-10-30T08:34:07.625Z",
   "status": "PASSED",
   "mode": "SIMULATION",
   "built_frontend": true,
   "external_browser_requests_blocked": true,
   "font_policy": "font-src 'self'",
-  "loaded_fonts": ["Inter Variable", "Instrument Serif"],
+  "loaded_fonts": ["Inter Variable"],
   "font_responses": [
     {
       "asset": "/assets/inter-latin-wght-normal-Dx4kXJAl.woff2",
       "status": 200
-    },
+    }
+  ],
+  "artwork_responses": [
     {
-      "asset": "/assets/instrument-serif-latin-400-normal-DnYpCC2O.woff2",
-      "status": 200
-    },
-    {
-      "asset": "/assets/instrument-serif-latin-400-italic-DKMiL14s.woff2",
+      "asset": "/art/krono-orbit.webp",
       "status": 200
     }
   ],

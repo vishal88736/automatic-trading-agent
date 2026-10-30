@@ -6,7 +6,7 @@ The original Apache License 2.0 is retained in `LICENSE`. Original documentation
 
 React, TypeScript, Vite, Tailwind CSS, Lucide, FastAPI, Pydantic, LangGraph, pandas, Backtrader and other installed dependencies retain their respective licenses; their source is not vendored into the public repository's runtime cache.
 
-Krono bundles Inter and Instrument Serif through the Fontsource packages. Both fonts retain their SIL Open Font License 1.1, included in the installed packages. The visual direction takes inspiration from [dvklab](https://dvklab.vercel.app/), particularly its editorial typography, dark surfaces and measured spacing. Krono's monogram and terminal layouts are original implementation work.
+Krono bundles Inter through Fontsource under the SIL Open Font License 1.1, included in the installed package. The current charcoal/lavender interface follows the user's supplied dashboard reference. Krono's monogram and terminal layouts are original implementation work. The decorative hero coin illustration was generated for this project with OpenAI's image-generation tool and is stored locally as an optimized transparent WebP.
 
 cryptocurrency.cv is used through its hosted API. Its service source was not copied, redistributed or deployed. News records retain publisher attribution and original links. Synthetic fixture stories were authored for this demo and explicitly use non-real publisher URLs.
 

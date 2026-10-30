@@ -13,6 +13,8 @@ import {
   FlaskConical,
   Link2,
   LockKeyhole,
+  LayoutGrid,
+  List,
   Play,
   RefreshCw,
   Search,
@@ -24,6 +26,7 @@ import {
 } from "lucide-react";
 import { api } from "./api";
 import { CandleChart, EquityChart, Sparkline } from "./charts";
+import { PerformancePreview } from "./discovery";
 import type {
   Article,
   Backtest,
@@ -446,7 +449,7 @@ export function Overview(
     : null;
   return (
     <>
-      <PortfolioMetrics data={data} />
+      <Strategies {...props} embedded />
       <div className="command-grid">
         <div className="main-stack">
           <MarketChart detail={detail} data={data} />
@@ -1027,11 +1030,42 @@ export function NewsWorkspace({ data, act }: WorkspaceProps) {
   );
 }
 
-export function Strategies({ data, selected, act, busy }: WorkspaceProps) {
+export function Strategies({
+  data,
+  selected,
+  act,
+  busy,
+  navigate,
+  embedded = false,
+}: WorkspaceProps & { embedded?: boolean }) {
   const [editing, setEditing] = useState<Strategy | null>(null),
     [draft, setDraft] = useState<Strategy["config"] | null>(null),
     [results, setResults] = useState<Record<string, Backtest>>({}),
-    [comparison, setComparison] = useState(false);
+    [comparison, setComparison] = useState(false),
+    [filter, setFilter] = useState("all"),
+    [sort, setSort] = useState("registry"),
+    [list, setList] = useState(false);
+  const filters = [
+    ["all", "All strategies"],
+    ["momentum_v1", "Momentum"],
+    ["mean_reversion_v1", "Reversion"],
+    ["news_aware_v1", "News-aware"],
+    ["spread_research_v1", "Spread"],
+  ];
+  const filtered = data.strategies.filter(
+    (strategy) => filter === "all" || strategy.id === filter,
+  );
+  const ordered = [...filtered].sort((a, b) =>
+    sort === "name"
+      ? a.name.localeCompare(b.name)
+      : sort === "enabled"
+        ? Number(b.config.enabled) - Number(a.config.enabled)
+        : 0,
+  );
+  const shown = embedded && filter === "all" ? ordered.slice(0, 3) : ordered;
+  const reference = data.markets.find(
+    (market) => market.asset.symbol === selected,
+  );
   const open = (strategy: Strategy) => {
     setEditing(strategy);
     setDraft({ ...strategy.config });
@@ -1047,98 +1081,189 @@ export function Strategies({ data, selected, act, busy }: WorkspaceProps) {
     }, "Chronological backtest completed");
   return (
     <>
-      <div className="toolbar">
-        <div className="inline gap">
-          <Badge tone="accent">Strategy registry</Badge>
-          <span className="muted">
-            Signals propose. Risk decides. Wallet authorizes.
-          </span>
-        </div>
-        <button
-          className="button secondary"
-          onClick={() => setComparison(!comparison)}
-        >
-          <ArrowDownUp size={14} />
-          Compare evaluations
-        </button>
-      </div>
-      <div className="strategy-grid">
-        {data.strategies.map((s, i) => (
-          <section className="panel strategy-card" key={s.id}>
-            <div className="strategy-card-top">
-              <span className={`strategy-icon strategy-icon-${i}`}>
-                <Activity size={21} />
-              </span>
-              <span className="eyebrow">
-                0{i + 1} / {s.regime}
-              </span>
+      <div className={`discovery-panel ${embedded ? "is-embedded" : ""}`}>
+        <div className="strategy-toolbar">
+          <h2>Strategies</h2>
+          <div className="strategy-tabs" aria-label="Strategy type filters">
+            {filters.map(([id, label]) => (
               <button
-                className={`switch ${s.config.enabled ? "on" : ""}`}
-                aria-label={`Enable ${s.name}`}
-                role="switch"
-                aria-checked={s.config.enabled}
-                disabled={busy || s.id === "spread_research_v1"}
-                onClick={() =>
-                  void act(
-                    () =>
-                      api(`/strategies/${s.id}`, "PUT", {
-                        expected_version: s.version,
-                        config: { ...s.config, enabled: !s.config.enabled },
-                      }),
-                    "Strategy configuration versioned",
-                  )
-                }
+                key={id}
+                aria-pressed={filter === id}
+                onClick={() => setFilter(id)}
               >
-                <i />
+                {id === "all" ? (
+                  <LayoutGrid size={15} />
+                ) : (
+                  <Activity size={15} />
+                )}{" "}
+                {label}
               </button>
-            </div>
-            <h2>{s.name}</h2>
-            <p>{s.description}</p>
-            <div className="strategy-data">
-              <span>
-                Assets<b>{s.config.assets.join(" · ")}</b>
-              </span>
-              <span>
-                Timeframe<b>{s.timeframe}</b>
-              </span>
-              <span>
-                Current signal
-                <b>
+            ))}
+          </div>
+          <div className="strategy-view-controls">
+            {embedded ? (
+              <button
+                className="icon-button"
+                aria-label="Open Strategy Lab"
+                title="Open Strategy Lab"
+                onClick={() => navigate("strategies")}
+              >
+                <ArrowUpRight size={18} />
+              </button>
+            ) : (
+              <button
+                className="icon-button"
+                aria-label="Compare evaluations"
+                aria-pressed={comparison}
+                title="Compare evaluations"
+                onClick={() => setComparison(!comparison)}
+              >
+                <ArrowDownUp size={17} />
+              </button>
+            )}
+            <button
+              className="icon-button"
+              aria-label={list ? "Show strategy grid" : "Show strategy list"}
+              aria-pressed={list}
+              title={list ? "Grid view" : "List view"}
+              onClick={() => setList(!list)}
+            >
+              {list ? <LayoutGrid size={18} /> : <List size={18} />}
+            </button>
+            <select
+              aria-label="Sort strategies"
+              value={sort}
+              onChange={(event) => setSort(event.target.value)}
+            >
+              <option value="registry">Sort: registry</option>
+              <option value="name">Name A–Z</option>
+              <option value="enabled">Enabled first</option>
+            </select>
+          </div>
+        </div>
+        <div className={`strategy-grid ${list ? "list-view" : ""}`}>
+          {shown.map((s) => {
+            const i = data.strategies.findIndex(
+              (strategy) => strategy.id === s.id,
+            );
+            const result = results[s.id]?.out_of_sample;
+            return (
+              <section className="panel strategy-card" key={s.id}>
+                <div className="strategy-card-top">
+                  <span className={`strategy-icon strategy-icon-${i}`}>
+                    <Activity size={21} />
+                  </span>
+                  <span className="strategy-owner">
+                    Krono research<small>{s.regime}</small>
+                  </span>
+                  <button
+                    className={`switch ${s.config.enabled ? "on" : ""}`}
+                    aria-label={`Enable ${s.name}`}
+                    role="switch"
+                    aria-checked={s.config.enabled}
+                    disabled={busy || s.id === "spread_research_v1"}
+                    onClick={() =>
+                      void act(
+                        () =>
+                          api(`/strategies/${s.id}`, "PUT", {
+                            expected_version: s.version,
+                            config: { ...s.config, enabled: !s.config.enabled },
+                          }),
+                        "Strategy configuration versioned",
+                      )
+                    }
+                  >
+                    <i />
+                  </button>
+                </div>
+                <h2>{s.name}</h2>
+                <p className="strategy-description">{s.description}</p>
+                <div className="strategy-meta">
+                  <span>
+                    <Activity size={13} />
+                    {s.config.assets.join(" · ")}
+                  </span>
+                  <span>{s.timeframe} bars</span>
+                  <span>v{s.version}</span>
+                </div>
+                <div className="strategy-signal-row">
                   <StatusBadge
                     value={s.latest_signal?.signal ?? "NOT EVALUATED"}
                   />
-                </b>
-              </span>
-              <span>
-                Last evaluated
-                <b>
-                  {s.latest_signal
-                    ? timestamp(s.latest_signal.timestamp)
-                    : "No run yet"}
-                </b>
-              </span>
-            </div>
-            <div className="strategy-entry">
-              <span>ENTRY</span>
-              <p>{s.entry}</p>
-            </div>
-            <div className="strategy-actions">
-              <button className="text-button" onClick={() => open(s)}>
-                <SlidersHorizontal size={13} />
-                Configure
-                <ChevronRight size={13} />
-              </button>
-              <button
-                className="icon-button"
-                aria-label={`Backtest ${s.name}`}
-                disabled={busy || s.id === "spread_research_v1"}
-                onClick={() => runBacktest(s.id)}
-              >
-                <FlaskConical size={16} />
-              </button>
-            </div>
-          </section>
-        ))}
+                  <span>
+                    {s.latest_signal
+                      ? timestamp(s.latest_signal.timestamp)
+                      : "Awaiting first analysis"}
+                  </span>
+                </div>
+                <div className="strategy-performance">
+                  <div>
+                    <span>Holdout return</span>
+                    <strong
+                      className={
+                        result && Number(result.total_return) < 0
+                          ? "text-negative"
+                          : ""
+                      }
+                    >
+                      {percent(result?.total_return)}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>Max. drawdown</span>
+                    <strong>{percent(result?.maximum_drawdown)}</strong>
+                  </div>
+                </div>
+                <PerformancePreview
+                  values={
+                    result
+                      ? result.equity_history.map((row) => row.equity)
+                      : (reference?.sparkline ?? [])
+                  }
+                  label={
+                    result
+                      ? `Holdout equity · ${results[s.id].fixture ? "synthetic fixture" : "historical simulation"}`
+                      : `${selected} reference · ${reference?.status === "FIXTURE" ? "synthetic" : (reference?.status?.toLowerCase() ?? "unavailable")} · not strategy P&L`
+                  }
+                />
+                <details className="strategy-entry">
+                  <summary>
+                    Entry & exit policy
+                    <ChevronRight size={14} />
+                  </summary>
+                  <div>
+                    <span>ENTRY</span>
+                    <p>{s.entry}</p>
+                    <span>EXIT / INVALIDATION</span>
+                    <p>{s.exit}</p>
+                    <small>{s.performance_note}</small>
+                  </div>
+                </details>
+                <div className="strategy-actions">
+                  <button className="text-button" onClick={() => open(s)}>
+                    <SlidersHorizontal size={13} />
+                    Configure
+                    <ChevronRight size={13} />
+                  </button>
+                  <button
+                    className="icon-button"
+                    aria-label={`Backtest ${s.name}`}
+                    disabled={busy || s.id === "spread_research_v1"}
+                    onClick={() => runBacktest(s.id)}
+                  >
+                    <FlaskConical size={16} />
+                  </button>
+                </div>
+              </section>
+            );
+          })}
+        </div>
+        {!shown.length && (
+          <Empty
+            title="No strategies in this view"
+            description="Choose another strategy filter to inspect the registry."
+          />
+        )}
       </div>
       {comparison && (
         <Panel
