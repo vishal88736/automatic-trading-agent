@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "providers": {
+    "market": "coinbase",
+    "news": "cryptocurrency.cv",
+    "market_base_url": "https://api.exchange.coinbase.com",
+    "news_base_url": "https://cryptocurrency.cv",
+    "timeout_seconds": 8,
+    "connect_timeout_seconds": 4,
+    "max_connections": 4,
+    "concurrency": 3,
+    "read_attempts": 2,
+    "retry_delay_seconds": 0.2,
+    "refresh": {
+      "ticker_seconds": 5,
+      "candles_seconds": 300,
+      "news_seconds": 60,
+      "failure_retry_seconds": 15
+    },
+    "assets": {
+      "BTC": { "name": "Bitcoin", "product_id": "BTC-USD" },
+      "ETH": { "name": "Ethereum", "product_id": "ETH-USD" },
+      "SOL": { "name": "Solana", "product_id": "SOL-USD" }
+    }
+  },
+  "simulation": {
+    "initial_equity": "10000",
+    "fee_bps": 10,
+    "slippage_bps": 10,
+    "liquidity_usd": "1000000",
+    "network_fee_usd": "0",
+    "quote_ttl_seconds": 20,
+    "deadline_seconds": 30,
+    "proposal_ttl_seconds": 120,
+    "mark_snapshot_seconds": 60
+  },
+  "scheduler": { "interval_seconds": 300, "default_asset": "BTC" },
+  "hsk": {
+    "chain_id": 177,
+    "rpc_url": "https://mainnet.hsk.xyz",
+    "explorer": "https://hashkey.blockscout.com",
+    "native_symbol": "HSK",
+    "native_decimals": 18,
+    "network_source": "https://docs.hskchain.net/docs/Build-on-HashKey-Chain/network-info",
+    "token_source": "https://docs.hskchain.net/docs/Build-on-HashKey-Chain/Token-Contracts",
+    "tokens": {
+      "WHSK": {
+        "address": "0xB210D2120d57b758EE163cFfb43e73728c471Cf1",
+        "name": "Wrapped HSK"
+      },
+      "WETH": {
+        "address": "0xefd4bC9afD210517803f293ABABd701CaeeCdfd0",
+        "name": "Bridged WETH"
+      },
+      "USDT": {
+        "address": "0xf1b50ed67a9e2cc94ad3c477779e2d4cbfff9029",
+        "name": "Bridged USDT"
+      },
+      "WBTC": {
+        "address": "0x6119ca49a79f5825c8b345f8d7ac36b272565b14",
+        "name": "Bridged WBTC"
+      },
+      "USDC": {
+        "address": "0x054ed45810DbBAb8B27668922D110669c9D88D0a",
+        "name": "Bridged USDC"
+      }
+    }
+  }
+}

@@ -22,6 +22,64 @@ async def client(tmp_path):
 HEADERS = {"Authorization": "Bearer fixture-api-token"}
 
 
+async def test_workspace_read_contracts_and_versioned_refresh_settings(client):
+    for path in [
+        "/api/status",
+        "/api/dashboard",
+        "/api/markets",
+        "/api/markets/ETH?timeframe=4h",
+        "/api/correlations",
+        "/api/news",
+        "/api/news?breaking=true",
+        "/api/strategies",
+        "/api/portfolio",
+        "/api/risk",
+        "/api/alerts",
+        "/api/settings/news-scoring",
+        "/api/settings/provider-refresh",
+        *[
+            f"/api/history/{kind}"
+            for kind in ["runs", "risks", "intents", "ledger", "audit", "snapshots"]
+        ],
+    ]:
+        response = await client.get(path, headers=HEADERS)
+        assert response.status_code == 200, (path, response.text)
+    current = (await client.get("/api/settings/provider-refresh", headers=HEADERS)).json()
+    payload = {
+        "expected_version": current["version"],
+        "config": {**current["config"], "ticker_seconds": 10},
+    }
+    assert (
+        await client.put("/api/settings/provider-refresh", headers=HEADERS, json=payload)
+    ).status_code == 200
+    assert (
+        await client.put("/api/settings/provider-refresh", headers=HEADERS, json=payload)
+    ).status_code == 409
+    payload["expected_version"] += 1
+    payload["config"]["ticker_seconds"] = 0
+    assert (
+        await client.put("/api/settings/provider-refresh", headers=HEADERS, json=payload)
+    ).status_code == 422
+
+
+async def test_chat_uses_actual_strategy_registry_and_same_eligibility_guard_as_api(client):
+    for name in ["momentum", "mean reversion", "trend following", "breakout"]:
+        response = await client.post(
+            "/api/chat", headers=HEADERS, json={"message": f"disable {name} strategy"}
+        )
+        assert response.status_code == 200, response.text
+        assert response.json()["data"]["enabled"] is False
+    for message in ["disable news strategy", "enable arbitrage detection strategy"]:
+        response = await client.post("/api/chat", headers=HEADERS, json={"message": message})
+        assert response.status_code == 409, response.text
+    spread = next(
+        s
+        for s in (await client.get("/api/strategies", headers=HEADERS)).json()["items"]
+        if s["id"] == "spread_research_v1"
+    )
+    assert spread["config"]["enabled"] is False
+
+
 async def test_health_authentication_csrf_and_origins(client):
     assert (await client.get("/api/health")).json()["mode"] == "SIMULATION"
     assert (await client.get("/api/portfolio")).status_code == 401

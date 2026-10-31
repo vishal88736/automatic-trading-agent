@@ -9,18 +9,10 @@ import httpx
 
 from backend.data import USD
 from backend.models import Mode, Proposal, Quote, Token, now
+from backend.settings import NetworkSettings, SimulationSettings, get_settings
 
 D = Decimal
 PRECISION = D("0.000000000000000001")
-NETWORK_SOURCE = "https://docs.hskchain.net/docs/Build-on-HashKey-Chain/network-info"
-TOKEN_SOURCE = "https://docs.hskchain.net/docs/Build-on-HashKey-Chain/Token-Contracts"
-HSK_TOKENS = {
-    "WHSK": ("0xB210D2120d57b758EE163cFfb43e73728c471Cf1", "Wrapped HSK"),
-    "WETH": ("0xefd4bC9afD210517803f293ABABd701CaeeCdfd0", "Bridged WETH"),
-    "USDT": ("0xf1b50ed67a9e2cc94ad3c477779e2d4cbfff9029", "Bridged USDT"),
-    "WBTC": ("0x6119ca49a79f5825c8b345f8d7ac36b272565b14", "Bridged WBTC"),
-    "USDC": ("0x054ed45810DbBAb8B27668922D110669c9D88D0a", "Bridged USDC"),
-}
 
 
 class IntegrationUnavailable(ValueError):
@@ -46,13 +38,29 @@ class ExchangeAdapter(QuoteProvider, TransactionStatusProvider, Protocol):
 class SimulationAdapter:
     name = "simulation"
 
+    def __init__(self, settings: SimulationSettings | None = None):
+        self.settings = settings or get_settings().simulation
+
+    def estimate_costs(self, notional: Decimal, side: str) -> Decimal:
+        fee = notional * D(self.settings.fee_bps) / 10000
+        drift = D(self.settings.slippage_bps) / 10000 + notional / self.settings.liquidity_usd
+        shortfall = (
+            notional - (notional - fee) / (1 + drift) if side == "BUY" else notional * drift + fee
+        )
+        return (shortfall + self.settings.network_fee_usd).quantize(PRECISION, rounding=ROUND_UP)
+
     async def quote(self, proposal: Proposal, notional: Decimal) -> Quote:
         if proposal.mode != Mode.SIMULATION:
             raise IntegrationUnavailable("Simulation adapter rejects other execution modes")
-        fee = (notional * D("0.001")).quantize(PRECISION, rounding=ROUND_UP)
-        impact = notional / D("1000000")
+        fee = (notional * D(self.settings.fee_bps) / 10000).quantize(PRECISION, rounding=ROUND_UP)
+        slippage = D(self.settings.slippage_bps) / 10000
+        impact = notional / self.settings.liquidity_usd
+        if slippage + impact >= 1:
+            raise IntegrationUnavailable(
+                "Notional exceeds the configured simulation liquidity model"
+            )
         price = proposal.reference_price * (
-            D(1) + D("0.001") + impact if proposal.side == "BUY" else D(1) - D("0.001") - impact
+            D(1) + slippage + impact if proposal.side == "BUY" else D(1) - slippage - impact
         )
         price = price.quantize(PRECISION)
         input_amount = (
@@ -63,7 +71,7 @@ class SimulationAdapter:
         output = (
             (notional - fee) / price if proposal.side == "BUY" else input_amount * price - fee
         ).quantize(PRECISION, rounding=ROUND_DOWN)
-        minimum = (output * D("0.999")).quantize(PRECISION, rounding=ROUND_UP)
+        minimum = (output * (1 - slippage)).quantize(PRECISION, rounding=ROUND_UP)
         timestamp = now()
         return Quote(
             proposal_id=proposal.id,
@@ -76,18 +84,18 @@ class SimulationAdapter:
             minimum_output=minimum,
             notional=notional,
             price=price,
-            slippage_bps=10,
+            slippage_bps=self.settings.slippage_bps,
             price_impact=impact,
-            network_fee_usd=D(0),
+            network_fee_usd=self.settings.network_fee_usd,
             trading_fee_usd=fee,
-            liquidity_usd=D("1000000"),
+            liquidity_usd=self.settings.liquidity_usd,
             created_at=timestamp,
-            expires_at=timestamp + timedelta(seconds=20),
-            deadline=timestamp + timedelta(seconds=30),
+            expires_at=timestamp + timedelta(seconds=self.settings.quote_ttl_seconds),
+            deadline=timestamp + timedelta(seconds=self.settings.deadline_seconds),
             source="simulation_fill_model_v1",
             route=[
                 "Simulated spot fill",
-                "10 bps fee + 10 bps slippage + size/$1m impact; assumed liquidity; no blockchain",
+                f"{self.settings.fee_bps} bps fee + {self.settings.slippage_bps} bps slippage + size/{self.settings.liquidity_usd} USD impact; assumed liquidity; no blockchain",
             ],
         )
 
@@ -100,9 +108,6 @@ class SimulationAdapter:
 
 class HSKSwapAdapter:
     name = "hskswap"
-    chain_id = 177
-    rpc_url = "https://mainnet.hsk.xyz"
-    explorer = "https://hashkey.blockscout.com"
     missing = [
         "On-chain token decimals and metadata validation against the documented registry",
         "Independently verified current router ABI and executable quote route",
@@ -110,7 +115,13 @@ class HSKSwapAdapter:
         "Wallet signing authorization and receipt/balance reconciliation integration tests",
     ]
 
-    def __init__(self, transport=None):
+    def __init__(self, transport=None, settings: NetworkSettings | None = None):
+        self.settings = settings or get_settings().hsk
+        self.chain_id, self.rpc_url, self.explorer = (
+            self.settings.chain_id,
+            self.settings.rpc_url,
+            self.settings.explorer,
+        )
         self.client = httpx.AsyncClient(
             timeout=8,
             transport=transport,
@@ -129,8 +140,8 @@ class HSKSwapAdapter:
             "chain_id": self.chain_id,
             "rpc_url": self.rpc_url,
             "explorer": self.explorer,
-            "network_source": NETWORK_SOURCE,
-            "token_source": TOKEN_SOURCE,
+            "network_source": self.settings.network_source,
+            "token_source": self.settings.token_source,
             "execution_enabled": False,
             "quote_enabled": False,
             "missing_requirements": self.missing,
@@ -138,13 +149,13 @@ class HSKSwapAdapter:
                 Token(
                     asset_id=symbol,
                     symbol=symbol,
-                    name=name,
-                    chain_id=177,
-                    address=address,
+                    name=token.name,
+                    chain_id=self.chain_id,
+                    address=token.address,
                     kind="erc20",
-                    metadata_source=TOKEN_SOURCE,
+                    metadata_source=self.settings.token_source,
                 ).model_dump(mode="json")
-                for symbol, (address, name) in HSK_TOKENS.items()
+                for symbol, token in self.settings.tokens.items()
             ],
             "note": "Documented addresses; decimals and bytecode require RPC verification. Symbols are not interchangeable with CEX reference assets.",
         }
@@ -176,19 +187,19 @@ class HSKSwapAdapter:
 
         if not re.fullmatch(r"0x[0-9a-fA-F]{40}", address) or int(address, 16) == 0:
             raise ValueError("Invalid wallet address")
-        chain, balance, block = await asyncio.gather(
+        chain, block = await asyncio.gather(
             self.rpc("eth_chainId", []),
-            self.rpc("eth_getBalance", [address, "latest"]),
             self.rpc("eth_blockNumber", []),
         )
         if int(chain, 16) != self.chain_id:
             raise IntegrationUnavailable("RPC chain mismatch")
+        balance = await self.rpc("eth_getBalance", [address, block])
         return {
             "address": address,
             "chain_id": self.chain_id,
-            "native_symbol": "HSK",
+            "native_symbol": self.settings.native_symbol,
             "native_balance_raw": str(int(balance, 16)),
-            "native_balance": str(D(int(balance, 16)) / D(10**18)),
+            "native_balance": str(D(int(balance, 16)) / D(10**self.settings.native_decimals)),
             "block": int(block, 16),
             "retrieved_at": now(),
             "source": self.rpc_url,

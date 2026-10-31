@@ -9,6 +9,8 @@ from uuid import uuid4
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
+from backend.settings import get_settings
+
 
 def now() -> datetime:
     return datetime.now(timezone.utc)
@@ -123,6 +125,11 @@ class NewsFeed(Model):
     retrieved_at: AwareDatetime
     error: str | None = None
     scoring_version: int = 1
+    source_fetched_at: AwareDatetime | None = None
+    limited: bool = False
+    max_results: int | None = Field(default=None, ge=0)
+    provider_total: int | None = Field(default=None, ge=0)
+    limitation: str | None = None
 
 
 class NewsScoring(Model):
@@ -264,6 +271,7 @@ class Proposal(Model):
     candle_count: int = Field(ge=0)
     mode: Mode
     config_versions: dict[str, int]
+    runtime_fingerprint: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
     risk_result: dict[str, Any] | None = None
 
 
@@ -406,11 +414,11 @@ class SchedulerAction(Model):
     action: Literal[
         "start", "pause", "resume", "stop", "shutdown", "emergency_stop", "clear_emergency"
     ]
-    interval_seconds: int = Field(default=300, ge=30, le=86400)
-    auto_simulate: bool = False
+    interval_seconds: int | None = Field(default=None, ge=30, le=86400)
+    auto_simulate: bool | None = None
     acknowledge: bool = False
-    symbols: list[Literal["BTC", "ETH", "SOL"]] = Field(
-        default_factory=lambda: ["BTC", "ETH", "SOL"], min_length=1, max_length=3
+    symbols: list[Literal["BTC", "ETH", "SOL"]] | None = Field(
+        default=None, min_length=1, max_length=3
     )
 
 
@@ -423,6 +431,11 @@ class BacktestRequest(Model):
     strategy_id: Literal[
         "momentum_v1", "mean_reversion_v1", "trend_following_v1", "breakout_v1", "news_aware_v1"
     ] = "momentum_v1"
-    fee_bps: int = Field(default=10, ge=0, le=100)
-    slippage_bps: int = Field(default=10, ge=0, le=100)
+    initial_equity: Positive = Field(
+        default_factory=lambda: get_settings().simulation.initial_equity, le=100000000
+    )
+    fee_bps: int = Field(default_factory=lambda: get_settings().simulation.fee_bps, ge=0, le=100)
+    slippage_bps: int = Field(
+        default_factory=lambda: get_settings().simulation.slippage_bps, ge=0, le=100
+    )
     holdout_fraction: float = Field(default=0.3, ge=0.2, le=0.5)

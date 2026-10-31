@@ -8,6 +8,7 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-cache
 COPY backend backend
 COPY tradingagents tradingagents
+COPY config config
 ENV PATH=/app/.venv/bin:$PATH
 VOLUME ["/app/.runtime"]
 USER 10001

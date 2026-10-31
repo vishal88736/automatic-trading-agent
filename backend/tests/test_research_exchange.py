@@ -106,6 +106,32 @@ async def test_wrong_chain_wallet_and_missing_connection_remain_blocked():
     await adapter.close()
 
 
+async def test_wallet_balance_is_bound_to_the_reported_block():
+    import json
+
+    calls = []
+
+    async def handle(request):
+        packet = json.loads(request.content)
+        calls.append(packet)
+        values = {
+            "eth_chainId": "0xb1",
+            "eth_blockNumber": "0x123",
+            "eth_getBalance": "0xde0b6b3a7640000",
+        }
+        return httpx.Response(200, json={"result": values[packet["method"]]})
+
+    adapter = HSKSwapAdapter(httpx.MockTransport(handle))
+    try:
+        wallet = await adapter.wallet("0x" + "1" * 40)
+        request = next(c for c in calls if c["method"] == "eth_getBalance")
+        assert request["params"][1] == "0x123"
+        assert wallet["block"] == 291 and wallet["native_balance"] == "1"
+        assert wallet["read_only"] and not wallet["ownership_verified"]
+    finally:
+        await adapter.close()
+
+
 def test_news_scoring_is_validated_and_indicators_do_not_invent_flat_momentum():
     from backend.models import Candle
     from backend.strategies import indicators

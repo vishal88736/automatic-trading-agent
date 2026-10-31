@@ -74,12 +74,17 @@ class Store:
     @contextmanager
     def transaction(self):
         with self.lock:
-            self.db.execute("BEGIN IMMEDIATE")
+            savepoint = "nested_" + uid().replace("-", "") if self.db.in_transaction else None
+            self.db.execute(f"SAVEPOINT {savepoint}" if savepoint else "BEGIN IMMEDIATE")
             try:
                 yield self
-                self.db.execute("COMMIT")
+                self.db.execute(f"RELEASE SAVEPOINT {savepoint}" if savepoint else "COMMIT")
             except BaseException:
-                self.db.execute("ROLLBACK")
+                if savepoint:
+                    self.db.execute(f"ROLLBACK TO SAVEPOINT {savepoint}")
+                    self.db.execute(f"RELEASE SAVEPOINT {savepoint}")
+                else:
+                    self.db.execute("ROLLBACK")
                 raise
 
     def close(self):
@@ -164,6 +169,15 @@ class Store:
                 f"SELECT payload FROM {table} WHERE {key}=?", (identifier,)
             ).fetchone()
             return json.loads(row[0]) if row else None
+
+    def financial_history(self, table: str):
+        """Account over complete financial records, independently of display pagination."""
+        if table not in {"ledger", "snapshots"}:
+            raise ValueError("Unknown financial history")
+        order = "seq" if table == "snapshots" else "at, rowid"
+        with self.lock:
+            rows = self.db.execute(f"SELECT payload FROM {table} ORDER BY {order}").fetchall()
+        return [json.loads(row[0]) for row in rows]
 
     def history(self, table: str, limit=50, offset=0):
         if table not in {"audit", "runs", "risks", "intents", "ledger", "snapshots"}:

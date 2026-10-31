@@ -64,6 +64,77 @@ async def test_concurrent_authorization_only_fills_once(engine):
     assert engine.store.history("ledger")["total"] == 1
 
 
+async def test_provider_revision_and_source_changes_invalidate_old_previews(engine):
+    request = await preview(engine)
+    engine.store.update_config("providers", {"market": "fixture", "news": "fixture"})
+    with pytest.raises(ValueError, match="provider configuration changed"):
+        await engine.authorize(request)
+    assert engine.store.history("ledger")["total"] == 0
+    request = await preview(engine)
+    original = engine.providers.market
+
+    async def changed(symbol):
+        return (await original(symbol)).model_copy(update={"source": "changed_reference_source"})
+
+    engine.providers.market = changed
+    with pytest.raises(ValueError, match="Market source changed"):
+        await engine.authorize(request)
+    assert engine.store.history("ledger")["total"] == 0
+
+
+async def test_different_candidate_sizes_do_not_overwrite_one_proposal(engine):
+    first = await engine.run(RunRequest(notional=100))
+    second = await engine.run(RunRequest(notional=200))
+    assert first["proposal"]["id"] != second["proposal"]["id"]
+    assert engine.store.get("proposals", first["proposal"]["id"])["notional"] == "100"
+
+
+async def test_new_price_is_checked_at_authorization(engine):
+    from decimal import Decimal
+
+    request = await preview(engine)
+    original = engine.providers.market
+
+    async def moved(symbol):
+        market = await original(symbol)
+        return market.model_copy(update={"price": market.price * Decimal("1.01")})
+
+    engine.providers.market = moved
+    with pytest.raises(ValueError, match="price moved"):
+        await engine.authorize(request)
+    assert engine.store.history("ledger")["total"] == 0
+
+
+def test_resume_preserves_saved_scheduler_parameters(engine):
+    engine.control(SchedulerAction(action="start", interval_seconds=90, symbols=["ETH"]))
+    engine.control(SchedulerAction(action="pause"))
+    state = engine.control(SchedulerAction(action="resume"))
+    assert state["interval_seconds"] == 90 and state["symbols"] == ["ETH"]
+    assert state["auto_simulate"] is False
+
+
+async def test_drawdown_retains_an_observed_peak_between_chart_snapshots(engine):
+    from decimal import Decimal
+
+    request = await preview(engine)
+    await engine.authorize(request)
+    original = engine.providers.market
+    multiplier = Decimal("1.2")
+
+    async def marked(symbol):
+        market = await original(symbol)
+        return market.model_copy(update={"price": market.price * multiplier})
+
+    engine.providers.market = marked
+    await engine.refresh_markets()
+    peak = engine.portfolio.view(engine.markets)["equity"]
+    multiplier = Decimal(1)
+    await engine.refresh_markets()
+    view = engine.portfolio.view(engine.markets)
+    assert view["highwater_equity"] == peak
+    assert view["drawdown"] > Decimal("0.0015")
+
+
 async def test_emergency_stop_latches_and_blocks_pending_authorization(engine):
     request = await preview(engine)
     engine.control(SchedulerAction(action="emergency_stop"))

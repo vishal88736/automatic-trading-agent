@@ -27,6 +27,7 @@ from backend.models import (
 from backend.portfolio import Portfolio
 from backend.research import ResearchBridge
 from backend.selection import SelectionConfig, rank_strategies
+from backend.settings import get_settings
 from backend.storage import Store, encode
 from backend.strategies import REGISTRY, indicators
 from backend.strategy_registry import RuleStrategy
@@ -108,6 +109,14 @@ class Engine:
         results = await asyncio.gather(*(self.providers.market(symbol) for symbol in ASSETS))
         self.markets.update({market.asset.asset_id: market for market in results})
         self.alerts.evaluate(self.markets)
+        view = self.portfolio.observe(self.markets)
+        latest = self.store.history("snapshots", 1)["items"]
+        if view["valuation_complete"] and (
+            not latest
+            or (now() - datetime.fromisoformat(latest[0]["at"])).total_seconds()
+            >= get_settings().simulation.mark_snapshot_seconds
+        ):
+            self.portfolio.snapshot(self.markets)
         return results
 
     def _persist(self, run):
@@ -312,14 +321,27 @@ class Engine:
             selected = [s for s in active if s.signal == action]
             versions = {s.strategy_id: ctx["versions"][s.strategy_id] for s in selected}
             versions["risk"] = self.execution.risk()[1]
-            key = encode([request.symbol, action, ctx["market"].as_of, versions, "SIMULATION"])
+            versions["providers"] = self.store.config("providers")[1]
+            settings = get_settings()
+            key = encode(
+                [
+                    request.symbol,
+                    action,
+                    ctx["market"].as_of,
+                    ctx["market"].source,
+                    request.notional,
+                    versions,
+                    settings.fingerprint,
+                    "SIMULATION",
+                ]
+            )
             proposal = Proposal(
                 id=hashlib.sha256(key.encode()).hexdigest()[:24],
                 asset=ctx["market"].asset,
                 side=action,
                 strategy_ids=[s.strategy_id for s in selected],
                 signal_at=now(),
-                expires_at=now() + timedelta(seconds=120),
+                expires_at=now() + timedelta(seconds=settings.simulation.proposal_ttl_seconds),
                 evidence=list(
                     dict.fromkeys(
                         [e for s in selected for e in s.evidence]
@@ -334,12 +356,13 @@ class Engine:
                 stop_price=min(s.stop_price for s in selected),
                 notional=request.notional,
                 reference_price=ctx["market"].price,
-                expected_costs=request.notional * D("0.002"),
+                expected_costs=self.execution.adapter.estimate_costs(request.notional, action),
                 market_source=ctx["market"].source,
                 market_as_of=ctx["market"].price_at or ctx["market"].as_of,
                 candle_count=len(ctx["market"].candles),
                 mode=Mode.SIMULATION,
                 config_versions=versions,
+                runtime_fingerprint=settings.fingerprint,
             )
             ctx["proposal"] = proposal
             run["proposal"] = proposal.model_dump(mode="json")
@@ -382,6 +405,8 @@ class Engine:
         }
 
     async def run(self, request: RunRequest, *, external_evidence=None):
+        if request.symbol not in ASSETS:
+            raise ValueError("The asset is not enabled in the configured reference universe")
         evidence = [ResearchEvidence.model_validate(v) for v in (external_evidence or [])[:10]]
         if any(v.symbol != request.symbol for v in evidence):
             raise ValueError("Coordinated evidence must match the requested asset")
@@ -428,6 +453,7 @@ class Engine:
             return run
 
     async def authorize(self, request: Authorize):
+        await self.refresh_markets()
         result = await self.execution.authorize(request)
         for run in self.store.history("runs", 1000)["items"]:
             if run.get("intent_id") == request.intent_id:
@@ -473,14 +499,28 @@ class Engine:
                 emergency=True, entries_paused=True, state="EMERGENCY_STOP", auto_simulate=False
             )
         elif action in {"start", "resume"}:
-            if request.auto_simulate and not request.acknowledge:
+            auto_simulate = (
+                current["auto_simulate"] if request.auto_simulate is None else request.auto_simulate
+            )
+            if auto_simulate and not request.acknowledge:
                 raise ValueError("Automatic simulation fills require explicit acknowledgement")
+            symbols = (
+                request.symbols
+                if request.symbols is not None
+                else current.get("symbols", list(ASSETS))
+            )
+            if not set(symbols) <= ASSETS.keys():
+                raise ValueError(
+                    "Scheduler assets must belong to the configured reference universe"
+                )
             current.update(
                 state="RUNNING",
                 entries_paused=False,
-                interval_seconds=request.interval_seconds,
-                auto_simulate=request.auto_simulate,
-                symbols=list(dict.fromkeys(request.symbols)),
+                interval_seconds=request.interval_seconds
+                if request.interval_seconds is not None
+                else current["interval_seconds"],
+                auto_simulate=auto_simulate,
+                symbols=list(dict.fromkeys(symbols)),
                 last_error=None,
             )
         elif action == "pause":

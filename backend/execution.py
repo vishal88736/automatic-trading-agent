@@ -10,6 +10,7 @@ from backend.exchanges import SimulationAdapter
 from backend.models import Authorize, Proposal, Quote, RiskConfig, now, uid
 from backend.portfolio import Portfolio
 from backend.risk import assess, validate_quote
+from backend.settings import get_settings
 from backend.storage import Store
 
 D = Decimal
@@ -27,7 +28,7 @@ class Execution:
                 "state": "STOPPED",
                 "entries_paused": False,
                 "emergency": False,
-                "interval_seconds": 300,
+                "interval_seconds": get_settings().scheduler.interval_seconds,
                 "auto_simulate": False,
                 "last_run": None,
                 "last_error": None,
@@ -96,7 +97,33 @@ class Execution:
         async with self.lock:
             return await self._preview(proposal)
 
+    def validate_context(self, proposal: Proposal):
+        market = self.markets.get(proposal.asset.asset_id)
+        if not market or market.status not in {"AVAILABLE", "FIXTURE"}:
+            raise ValueError("Current market data is unavailable; request a fresh analysis")
+        if market.source != proposal.market_source:
+            raise ValueError("Market source changed; request a fresh analysis")
+        if (
+            market.price is None
+            or abs(market.price / proposal.reference_price - 1)
+            > D(self.risk()[0].max_slippage_bps) / 10000
+        ):
+            raise ValueError(
+                "Reference price moved beyond the slippage limit; request a fresh analysis"
+            )
+        if (
+            "providers" in proposal.config_versions
+            and proposal.config_versions["providers"] != self.store.config("providers")[1]
+        ):
+            raise ValueError("Data provider configuration changed; request a fresh analysis")
+        if (
+            proposal.runtime_fingerprint
+            and proposal.runtime_fingerprint != get_settings().fingerprint
+        ):
+            raise ValueError("Runtime configuration changed; request a fresh analysis")
+
     async def _preview(self, proposal: Proposal):
+        self.validate_context(proposal)
         if (
             any(
                 self.store.config("strategy:" + sid)[1] != proposal.config_versions[sid]
@@ -145,6 +172,7 @@ class Execution:
                 if not intent or intent["state"] != "AWAITING_AUTHORIZATION":
                     raise ValueError("Intent is missing, already processed or not authorizable")
                 proposal = Proposal.model_validate(intent["proposal"])
+                self.validate_context(proposal)
                 quote = Quote.model_validate(intent["quote"])
                 if request.quote_id != quote.id:
                     raise ValueError("Quote identity mismatch")

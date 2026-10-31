@@ -42,8 +42,9 @@ from backend.models import (
     now,
     uid,
 )
+from backend.settings import ProviderRefresh, get_settings
 from backend.storage import Store
-from backend.strategies import indicators
+from backend.strategies import REGISTRY, indicators
 
 logger = logging.getLogger("terminal")
 logger.setLevel(logging.WARNING if os.getenv("TERMINAL_QUIET_LOGS") == "true" else logging.INFO)
@@ -68,7 +69,13 @@ class ProviderSettings(Model):
     news: Literal["fixture", "cryptocurrency.cv"]
 
 
+class RefreshSettings(Model):
+    expected_version: int = Field(ge=1)
+    config: ProviderRefresh
+
+
 def create_app(db_path=None, *, testing=False, transport=None, api_token=None):
+    settings = get_settings()
     sessions = {}
     counters = {"requests": 0, "errors": 0}
     bearer_token = api_token if api_token is not None else os.getenv("TERMINAL_API_TOKEN", "")
@@ -86,8 +93,12 @@ def create_app(db_path=None, *, testing=False, transport=None, api_token=None):
         configured, _ = store.config(
             "providers",
             {
-                "market": "fixture" if testing else os.getenv("MARKET_PROVIDER", "fixture"),
-                "news": "fixture" if testing else os.getenv("NEWS_PROVIDER", "fixture"),
+                "market": "fixture"
+                if testing
+                else os.getenv("MARKET_PROVIDER", settings.providers.market),
+                "news": "fixture"
+                if testing
+                else os.getenv("NEWS_PROVIDER", settings.providers.news),
             },
         )
         if configured["market"] not in {"fixture", "coinbase"} or configured["news"] not in {
@@ -115,6 +126,7 @@ def create_app(db_path=None, *, testing=False, transport=None, api_token=None):
                 "mode": "SIMULATION",
                 "requested_mode": os.getenv("TERMINAL_MODE", "SIMULATION"),
                 "live_enabled": False,
+                "configuration_fingerprint": settings.fingerprint,
             },
         )
         if not testing:
@@ -362,8 +374,17 @@ def create_app(db_path=None, *, testing=False, transport=None, api_token=None):
             "live_enabled": False,
             "live_blockers": request.app.state.exchange.missing,
             "scheduler": e.state(),
-            "providers": {**providers, "version": version, "errors": e.providers.errors},
+            "providers": {
+                **providers,
+                "version": version,
+                "errors": e.providers.errors,
+                "refresh": e.providers.refresh,
+            },
             "provider_health": {symbol: market.status for symbol, market in e.markets.items()},
+            "configuration": {
+                "schema_version": settings.schema_version,
+                "fingerprint": settings.fingerprint,
+            },
             "metrics": {
                 **counters,
                 "execution_states": counts,
@@ -486,19 +507,22 @@ def create_app(db_path=None, *, testing=False, transport=None, api_token=None):
     async def strategies(e: Engine = Depends(engine)):
         return {"items": e.strategies()}
 
+    def save_strategy(e: Engine, strategy_id: str, config: StrategyConfig, expected_version: int):
+        if strategy_id not in REGISTRY:
+            raise ValueError("Unknown strategy")
+        if strategy_id == "spread_research_v1" and config.enabled:
+            raise ValueError(
+                "Spread research cannot be enabled until compatible verified quotes exist"
+            )
+        return e.store.update_config(
+            "strategy:" + strategy_id, config.model_dump(mode="json"), expected_version
+        )
+
     @app.put("/api/strategies/{strategy_id}")
     async def strategy_config(
         strategy_id: str, body: VersionedStrategy, e: Engine = Depends(engine)
     ):
-        if strategy_id not in {s["id"] for s in e.strategies()}:
-            raise ValueError("Unknown strategy")
-        if strategy_id == "spread_research_v1" and body.config.enabled:
-            raise ValueError(
-                "Spread research cannot be enabled until compatible verified quotes exist"
-            )
-        version = e.store.update_config(
-            "strategy:" + strategy_id, body.config.model_dump(mode="json"), body.expected_version
-        )
+        version = save_strategy(e, strategy_id, body.config, body.expected_version)
         return {"config": body.config, "version": version}
 
     @app.post("/api/runs")
@@ -555,19 +579,24 @@ def create_app(db_path=None, *, testing=False, transport=None, api_token=None):
             side="SELL",
             strategy_ids=["manual_exit_v1"],
             signal_at=now(),
-            expires_at=now() + timedelta(seconds=120),
+            expires_at=now() + timedelta(seconds=settings.simulation.proposal_ttl_seconds),
             evidence=["Owned simulation ledger position", market.source],
             rationale="User-requested owned-inventory exit preview",
             exit_policy=position["exit_policy"],
             stop_price=position["stop_price"],
             notional=position["value"].quantize(Decimal("0.00000001")),
             reference_price=market.price,
-            expected_costs=(position["value"] * Decimal("0.002")).quantize(Decimal("0.00000001")),
+            expected_costs=e.execution.adapter.estimate_costs(position["value"], "SELL"),
             market_source=market.source,
             market_as_of=market.price_at,
             candle_count=len(market.candles),
             mode="SIMULATION",
-            config_versions={"manual_exit_v1": version, "risk": e.execution.risk()[1]},
+            config_versions={
+                "manual_exit_v1": version,
+                "risk": e.execution.risk()[1],
+                "providers": e.store.config("providers")[1],
+            },
+            runtime_fingerprint=settings.fingerprint,
         )
         return await e.execution.preview(proposal)
 
@@ -585,6 +614,7 @@ def create_app(db_path=None, *, testing=False, transport=None, api_token=None):
         raw = e.store.get("proposals", body.proposal_id)
         if not raw:
             raise ValueError("Unknown proposal; run an analysis first")
+        await e.refresh_markets()
         return await e.execution.preview(Proposal.model_validate(raw))
 
     @app.post("/api/execution/authorize")
@@ -663,6 +693,19 @@ def create_app(db_path=None, *, testing=False, transport=None, api_token=None):
             "method": "Exact bounded lexicon matches. Mixed polarity is uncertain. Confidence is a heuristic, not a probability. Relevance is 0.8 for an explicit supported-asset mention, otherwise 0.",
         }
 
+    @app.get("/api/settings/provider-refresh")
+    async def provider_refresh(e: Engine = Depends(engine)):
+        config, version = e.store.config("provider_refresh")
+        return {"config": config, "version": version}
+
+    @app.put("/api/settings/provider-refresh")
+    async def change_provider_refresh(body: RefreshSettings, e: Engine = Depends(engine)):
+        version = e.store.update_config(
+            "provider_refresh", body.config.model_dump(mode="json"), body.expected_version
+        )
+        e.providers.refresh = body.config
+        return {"config": body.config, "version": version}
+
     @app.put("/api/settings/news-scoring")
     async def change_news_scoring(body: VersionedNewsScoring, e: Engine = Depends(engine)):
         version = e.store.update_config(
@@ -719,17 +762,32 @@ def create_app(db_path=None, *, testing=False, transport=None, api_token=None):
             }
             response = f"Maximum trade allocation is now {fraction * 100}% of equity. This is versioned and audited; pending previews require fresh analysis."
         elif match := re.fullmatch(
-            r"(?:please )?(enable|disable) (momentum|mean[- ]reversion|news(?:[- ]aware)?)(?: strategy)?[.!]?",
+            r"(?:please )?(enable|disable) (.+?)(?: strategy)?[.!]?",
             message,
         ):
-            key = match.group(2)
-            strategy_id = (
-                "momentum_v1"
-                if key == "momentum"
-                else "mean_reversion_v1"
-                if key.startswith("mean")
-                else "news_aware_v1"
+
+            def normalize(name):
+                return re.sub(r"[^a-z0-9]", "", name.lower())
+
+            key = normalize(match.group(2))
+            strategy_id = next(
+                (
+                    sid
+                    for sid, metadata in REGISTRY.items()
+                    if key
+                    in {
+                        normalize(sid),
+                        normalize(sid.removesuffix("_v1")),
+                        normalize(metadata["name"]),
+                    }
+                ),
+                None,
             )
+            if strategy_id is None:
+                raise ValueError(
+                    "Unknown or retired strategy. Available: "
+                    + ", ".join(v["name"] for v in REGISTRY.values())
+                )
             current, version = e.store.config("strategy:" + strategy_id)
             updated = StrategyConfig.model_validate(
                 {**current, "enabled": match.group(1) == "enable"}
@@ -738,15 +796,13 @@ def create_app(db_path=None, *, testing=False, transport=None, api_token=None):
             data = {
                 "strategy_id": strategy_id,
                 "enabled": updated.enabled,
-                "version": e.store.update_config(
-                    "strategy:" + strategy_id, updated.model_dump(mode="json"), version
-                ),
+                "version": save_strategy(e, strategy_id, updated, version),
             }
             response = f"{strategy_id} is now {'enabled' if updated.enabled else 'disabled'}. Configuration is versioned and audited. Risk limits and execution permissions are unchanged."
         elif "analy" in message:
             symbol = next(
                 (s for s in ASSETS if s.lower() in message or ASSETS[s].name.lower() in message),
-                "BTC",
+                settings.scheduler.default_asset,
             )
             tool = "analyze_asset"
             data = await e.run(RunRequest(symbol=symbol))
@@ -763,7 +819,10 @@ def create_app(db_path=None, *, testing=False, transport=None, api_token=None):
         elif "compar" in message:
             tool = "compare_strategies"
             data = {"strategies": e.strategies()}
-            response = "Momentum requires trend, MACD, RSI and volume confirmation. Mean reversion requires range displacement and excludes strong trend or turbulent conditions. Run comparable chronological holdouts before interpreting performance."
+            response = (
+                " | ".join(f"{s['name']}: {s['description']}" for s in data["strategies"])
+                + ". Run comparable chronological holdouts before interpreting performance."
+            )
         elif "exposure" in message or "portfolio" in message or "holding" in message:
             tool = "read_portfolio"
             data = e.portfolio.view(e.markets)

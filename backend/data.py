@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import math
 import re
+import time
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from html import unescape
@@ -12,13 +13,13 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 import httpx
 
 from backend.models import Article, Candle, Market, NewsFeed, NewsScoring, Token, now
+from backend.settings import ProviderRefresh, get_settings
 from backend.storage import Store
 
 D = Decimal
 ASSETS = {
-    "BTC": Token(asset_id="BTC", symbol="BTC", name="Bitcoin"),
-    "ETH": Token(asset_id="ETH", symbol="ETH", name="Ethereum"),
-    "SOL": Token(asset_id="SOL", symbol="SOL", name="Solana"),
+    symbol: Token(asset_id=symbol, symbol=symbol, name=asset.name)
+    for symbol, asset in get_settings().providers.assets.items()
 }
 USD = Token(asset_id="USD", symbol="USD", name="Simulated US dollar")
 FIXTURE_START = datetime(2026, 1, 10, tzinfo=timezone.utc)
@@ -288,19 +289,28 @@ class Providers:
         news_provider="fixture",
         transport=None,
         news_key="",
+        refresh: ProviderRefresh | None = None,
     ):
         self.store, self.market_provider, self.news_provider = store, market_provider, news_provider
+        self.settings = get_settings().providers
         self.client = httpx.AsyncClient(
-            timeout=httpx.Timeout(8, connect=4),
+            timeout=httpx.Timeout(
+                self.settings.timeout_seconds, connect=self.settings.connect_timeout_seconds
+            ),
             transport=transport,
             follow_redirects=False,
-            limits=httpx.Limits(max_connections=4),
+            limits=httpx.Limits(max_connections=self.settings.max_connections),
             headers={"User-Agent": "Krono-Terminal/0.1"},
         )
         self.news_key = news_key
-        self.semaphore = asyncio.Semaphore(3)
+        self.semaphore = asyncio.Semaphore(self.settings.concurrency)
         self.locks: dict[str, asyncio.Lock] = {}
         self.errors: dict[str, int] = {}
+        self.retry_after: dict[str, float] = {}
+        refresh_config, _ = self.store.config(
+            "provider_refresh", (refresh or self.settings.refresh).model_dump(mode="json")
+        )
+        self.refresh = ProviderRefresh.model_validate(refresh_config)
         self.store.config("news_scoring", NewsScoring().model_dump(mode="json"))
 
     async def close(self):
@@ -308,7 +318,7 @@ class Providers:
 
     async def request(self, url, **kwargs):
         async with self.semaphore:
-            for attempt in range(2):
+            for attempt in range(self.settings.read_attempts):
                 try:
                     result = await self.client.get(url, **kwargs)
                     result.raise_for_status()
@@ -316,9 +326,60 @@ class Providers:
                 except (httpx.TimeoutException, httpx.NetworkError, httpx.HTTPStatusError) as exc:
                     if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code < 500:
                         raise
-                    if attempt:
+                    if attempt + 1 >= self.settings.read_attempts:
                         raise
-                    await asyncio.sleep(0.2)
+                    await asyncio.sleep(self.settings.retry_delay_seconds * 2**attempt)
+
+    async def _candles(self, symbol: str, refresh: bool) -> list[Candle]:
+        key = f"market_candles:{symbol}"
+        cached = self.store.get("cache", key)
+        if cached and not refresh:
+            retrieved = datetime.fromisoformat(cached["retrieved_at"])
+            if 0 <= (now() - retrieved).total_seconds() < self.refresh.candles_seconds:
+                return [Candle.model_validate(c) for c in cached["candles"]]
+        rows = await self.request(
+            f"{self.settings.market_base_url}/products/{self.settings.assets[symbol].product_id}/candles",
+            params={"granularity": "3600"},
+        )
+        if not isinstance(rows, list):
+            raise ValueError("Malformed candle response")
+        unique = {}
+        for row in rows[:1000]:
+            if not isinstance(row, list) or len(row) != 6:
+                raise ValueError("Invalid candle shape")
+            start = datetime.fromtimestamp(float(row[0]), timezone.utc)
+            bar = Candle(
+                timestamp=start,
+                closed_at=start + timedelta(hours=1),
+                low=D(str(row[1])),
+                high=D(str(row[2])),
+                open=D(str(row[3])),
+                close=D(str(row[4])),
+                volume=D(str(row[5])),
+            )
+            if bar.closed_at <= now():
+                if start in unique and unique[start] != bar:
+                    raise ValueError("Conflicting duplicate candles")
+                unique[start] = bar
+        bars = sorted(unique.values(), key=lambda c: c.timestamp)[-300:]
+        if not bars:
+            raise ValueError("No closed candles")
+        self.store.put("cache", key, {"candles": bars, "retrieved_at": now()})
+        return bars
+
+    def _cached_market(self, cached, *, failed: bool = False) -> Market:
+        result = Market.model_validate(cached)
+        if (
+            failed
+            or result.price_at is None
+            or (now() - result.price_at).total_seconds() > 300
+            or result.as_of is None
+            or now() - result.as_of > timedelta(hours=2)
+        ):
+            result.status = "STALE"
+        if failed:
+            result.limitation = "Provider unavailable; cached reference data. No executable quote."
+        return result
 
     async def market(self, symbol: str, refresh=False) -> Market:
         if symbol not in ASSETS:
@@ -328,51 +389,28 @@ class Providers:
         key = f"market:{symbol}"
         async with self.locks.setdefault(key, asyncio.Lock()):
             cached = self.store.get("cache", key)
+            cooling_down = self.retry_after.get(key, 0) > time.monotonic()
+            if cached and cooling_down:
+                return self._cached_market(cached, failed=True)
             if (
                 cached
                 and not refresh
-                and (now() - Market.model_validate(cached).retrieved_at).total_seconds() < 300
+                and 0
+                <= (now() - Market.model_validate(cached).retrieved_at).total_seconds()
+                < self.refresh.ticker_seconds
             ):
-                result = Market.model_validate(cached)
-                if (
-                    result.price_at is None
-                    or (now() - result.price_at).total_seconds() > 300
-                    or result.as_of is None
-                    or now() - result.as_of > timedelta(hours=2)
-                ):
-                    result.status = "STALE"
-                return result
+                return self._cached_market(cached)
             try:
-                rows, ticker = await asyncio.gather(
+                if cooling_down:
+                    raise ValueError("Market provider retry cooldown")
+                bars, ticker = await asyncio.gather(
+                    self._candles(symbol, refresh),
                     self.request(
-                        f"https://api.exchange.coinbase.com/products/{symbol}-USD/candles",
-                        params={"granularity": "3600"},
+                        f"{self.settings.market_base_url}/products/{self.settings.assets[symbol].product_id}/ticker"
                     ),
-                    self.request(f"https://api.exchange.coinbase.com/products/{symbol}-USD/ticker"),
                 )
-                if not isinstance(rows, list) or not isinstance(ticker, dict):
+                if not isinstance(ticker, dict):
                     raise ValueError("Malformed market response")
-                unique = {}
-                for row in rows[:1000]:
-                    if not isinstance(row, list) or len(row) != 6:
-                        raise ValueError("Invalid candle shape")
-                    start = datetime.fromtimestamp(float(row[0]), timezone.utc)
-                    bar = Candle(
-                        timestamp=start,
-                        closed_at=start + timedelta(hours=1),
-                        low=D(str(row[1])),
-                        high=D(str(row[2])),
-                        open=D(str(row[3])),
-                        close=D(str(row[4])),
-                        volume=D(str(row[5])),
-                    )
-                    if bar.closed_at <= now():
-                        if start in unique and unique[start] != bar:
-                            raise ValueError("Conflicting duplicate candles")
-                        unique[start] = bar
-                bars = sorted(unique.values(), key=lambda c: c.timestamp)[-300:]
-                if not bars:
-                    raise ValueError("No closed candles")
                 price_time = parse_time(ticker.get("time"))
                 if not price_time or price_time > now() + timedelta(minutes=1):
                     raise ValueError("Invalid ticker time")
@@ -391,16 +429,14 @@ class Providers:
                     limitation="Coinbase CEX reference price and closed hourly candles. Not an HSKSwap executable quote. DEX liquidity is unavailable. Ticker and candle observations are separate; at most two hours of candle lag is accepted.",
                 )
                 self.store.put("cache", key, market)
+                self.retry_after.pop(key, None)
                 return market
             except (httpx.HTTPError, ValueError, TypeError, KeyError, OverflowError):
-                self.errors["market"] = self.errors.get("market", 0) + 1
+                if not cooling_down:
+                    self.errors["market"] = self.errors.get("market", 0) + 1
+                    self.retry_after[key] = time.monotonic() + self.refresh.failure_retry_seconds
                 if cached:
-                    return Market.model_validate(cached).model_copy(
-                        update={
-                            "status": "STALE",
-                            "limitation": "Provider unavailable; cached reference data. No executable quote.",
-                        }
-                    )
+                    return self._cached_market(cached, failed=True)
                 return Market(
                     asset=ASSETS[symbol],
                     source="coinbase_exchange",
@@ -416,18 +452,24 @@ class Providers:
         key = f"news:breaking:v{version}" if breaking else f"news:latest:v{version}"
         async with self.locks.setdefault(key, asyncio.Lock()):
             cached = self.store.get("cache", key)
+            cooling_down = self.retry_after.get(key, 0) > time.monotonic()
             if (
                 cached
                 and not refresh
-                and (now() - NewsFeed.model_validate(cached).retrieved_at).total_seconds() < 120
+                and not cooling_down
+                and 0
+                <= (now() - NewsFeed.model_validate(cached).retrieved_at).total_seconds()
+                < self.refresh.news_seconds
             ):
                 return NewsFeed.model_validate(cached)
             try:
+                if cooling_down:
+                    raise ValueError("News provider retry cooldown")
                 headers = {"X-API-Key": self.news_key} if self.news_key else {}
                 payload = await self.request(
-                    "https://cryptocurrency.cv/api/breaking"
+                    self.settings.news_base_url + "/api/breaking"
                     if breaking
-                    else "https://cryptocurrency.cv/api/news",
+                    else self.settings.news_base_url + "/api/news",
                     headers=headers,
                 )
                 retrieved = now()
@@ -452,11 +494,27 @@ class Providers:
                     source="cryptocurrency.cv",
                     retrieved_at=retrieved,
                     scoring_version=version,
+                    source_fetched_at=parse_time(payload.get("fetchedAt")),
+                    limited=payload.get("limited") is True,
+                    max_results=payload.get("maxResults")
+                    if type(payload.get("maxResults")) is int
+                    else None,
+                    provider_total=payload.get("totalCount")
+                    if type(payload.get("totalCount")) is int
+                    else None,
+                    limitation=(
+                        "The news provider limits this response to its current free-tier allowance. Configure an authorized server-side NEWS_API_KEY if your plan supports more results. No automatic payment or scraping."
+                        if payload.get("limited") is True
+                        else None
+                    ),
                 )
                 self.store.put("cache", key, feed)
+                self.retry_after.pop(key, None)
                 return feed
             except (httpx.HTTPError, ValueError, TypeError, KeyError):
-                self.errors["news"] = self.errors.get("news", 0) + 1
+                if not cooling_down:
+                    self.errors["news"] = self.errors.get("news", 0) + 1
+                    self.retry_after[key] = time.monotonic() + self.refresh.failure_retry_seconds
                 if cached:
                     feed = NewsFeed.model_validate(cached)
                     feed.status = "STALE"

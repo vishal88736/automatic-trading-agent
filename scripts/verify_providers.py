@@ -44,6 +44,9 @@ async def verify(output: str):
                 "articles_with_publication_time": len([a for a in feed.articles if a.published_at]),
                 "retrieved_at": feed.retrieved_at.isoformat(),
                 "error": feed.error,
+                "limited": feed.limited,
+                "max_results": feed.max_results,
+                "provider_total": feed.provider_total,
             }
         try:
             result = await providers.request("https://cryptocurrency.cv/api/openapi.json")

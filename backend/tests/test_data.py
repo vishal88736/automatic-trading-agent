@@ -136,3 +136,113 @@ def test_fixture_is_deterministic_and_explicit():
     a, b = fixture_market("BTC"), fixture_market("BTC")
     assert a.candles == b.candles and a.status == "FIXTURE"
     assert a.asset.chain_id is None and not a.asset.verified
+
+
+async def test_tickers_refresh_without_refetching_history_and_failures_do_not_look_fresh(
+    monkeypatch,
+):
+    from datetime import datetime, timezone
+    from decimal import Decimal
+
+    clock = datetime(2026, 10, 31, 12, 10, tzinfo=timezone.utc)
+    monkeypatch.setattr("backend.data.now", lambda: clock)
+    calls = {"candles": 0, "ticker": 0}
+    unavailable = False
+
+    async def handle(request):
+        kind = request.url.path.rsplit("/", 1)[-1]
+        calls[kind] += 1
+        if unavailable:
+            return httpx.Response(503)
+        if kind == "candles":
+            start = clock.replace(minute=0) - timedelta(hours=1)
+            return httpx.Response(200, json=[[int(start.timestamp()), 95, 110, 100, 105, 20]])
+        return httpx.Response(
+            200, json={"price": str(100 + calls[kind]), "time": clock.isoformat()}
+        )
+
+    store = Store(":memory:")
+    providers = Providers(store, market_provider="coinbase", transport=httpx.MockTransport(handle))
+    try:
+        first = await providers.market("BTC")
+        assert first.status == "AVAILABLE" and first.price == Decimal(101)
+        assert (await providers.market("BTC")).price == first.price
+        clock += timedelta(seconds=6)
+        second = await providers.market("BTC")
+        assert second.price == Decimal(102) and second.price_at > first.price_at
+        assert calls == {"candles": 1, "ticker": 2}
+        clock += timedelta(seconds=6)
+        unavailable = True
+        stale = await providers.market("BTC")
+        assert stale.status == "STALE" and stale.price_at == second.price_at
+        before = calls.copy()
+        again = await providers.market("BTC")
+        assert again.status == "STALE" and again.retrieved_at == second.retrieved_at
+        assert calls == before, "A failed provider must not be hammered by every dashboard request"
+    finally:
+        await providers.close()
+        store.close()
+
+
+async def test_news_outage_cooldown_keeps_stale_status_and_retrieval_timestamp():
+    calls = 0
+
+    async def handle(request):
+        nonlocal calls
+        calls += 1
+        if calls > 1:
+            return httpx.Response(429)
+        return httpx.Response(
+            200,
+            json={
+                "articles": [
+                    {
+                        "title": "Bitcoin report",
+                        "link": "https://publisher.example/btc",
+                        "pubDate": now().isoformat(),
+                    }
+                ]
+            },
+        )
+
+    store = Store(":memory:")
+    providers = Providers(
+        store, news_provider="cryptocurrency.cv", transport=httpx.MockTransport(handle)
+    )
+    try:
+        first = await providers.news()
+        assert first.status == "AVAILABLE"
+        failed = await providers.news(refresh=True)
+        repeated = await providers.news()
+        assert failed.status == repeated.status == "STALE"
+        assert repeated.retrieved_at == first.retrieved_at
+        assert repeated.articles[0].stale and calls == 2
+    finally:
+        await providers.close()
+        store.close()
+
+
+async def test_provider_free_tier_limit_and_source_clock_are_preserved():
+    fetched = now().isoformat()
+    payload = {
+        "articles": [],
+        "limited": True,
+        "maxResults": 3,
+        "totalCount": 2000,
+        "fetchedAt": fetched,
+    }
+    store = Store(":memory:")
+    providers = Providers(
+        store,
+        news_provider="cryptocurrency.cv",
+        transport=httpx.MockTransport(lambda _: httpx.Response(200, json=payload)),
+    )
+    try:
+        feed = await providers.news()
+        assert feed.status == "AVAILABLE" and feed.limited
+        assert feed.max_results == 3 and feed.provider_total == 2000
+        assert feed.source_fetched_at.isoformat() == fetched
+        assert "No automatic payment" in feed.limitation
+    finally:
+        await providers.close()
+        store.close()

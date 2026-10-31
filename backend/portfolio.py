@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 from backend.models import Market, Position, now
+from backend.settings import get_settings
 from backend.storage import Store
 
 D = Decimal
@@ -12,12 +13,15 @@ D = Decimal
 class Portfolio:
     def __init__(self, store: Store):
         self.store = store
-        self.initial, _ = store.config("simulation_capital", "10000")
+        self.initial, _ = store.config(
+            "simulation_capital", str(get_settings().simulation.initial_equity)
+        )
+        store.config("portfolio_highwater", {"equity": self.initial})
 
     def view(self, markets: dict[str, Market]) -> dict:
         cash, fees, realized = D(self.initial), D(0), D(0)
         holdings = {}
-        ledger = list(reversed(self.store.history("ledger", 100000)["items"]))
+        ledger = self.store.financial_history("ledger")
         for trade in ledger:
             symbol = trade["asset"]["asset_id"]
             slot = holdings.setdefault(
@@ -88,8 +92,12 @@ class Portfolio:
             )
             positions.append(position.model_dump())
         equity = cash + exposure
-        snapshots = list(reversed(self.store.history("snapshots", 100000)["items"]))
-        highwater = max([D(self.initial), equity] + [D(row["equity"]) for row in snapshots])
+        snapshots = self.store.financial_history("snapshots")
+        recorded_peak, _ = self.store.config("portfolio_highwater")
+        highwater = max(
+            [D(self.initial), equity, D(recorded_peak["equity"])]
+            + [D(row["equity"]) for row in snapshots]
+        )
         today = now().date()
         prior = [
             row
@@ -128,6 +136,7 @@ class Portfolio:
             "pnl_24h_start": rolling_start,
             "pnl_24h_method": "Last recorded equity at or up to one hour before the rolling cutoff. Uses inception capital for a younger workspace. Unavailable without a timely baseline.",
             "daily_return": daily_return if valuation_complete else None,
+            "highwater_equity": highwater,
             "drawdown": ((highwater - equity) / highwater if highwater else D(0))
             if valuation_complete
             else None,
@@ -139,8 +148,20 @@ class Portfolio:
             "limitations": "Synthetic USD ledger; never a connected wallet valuation. Missing marks remain unavailable. External transfers and live transaction history are not imported.",
         }
 
-    def snapshot(self, markets):
+    def observe(self, markets):
         view = self.view(markets)
+        if view["valuation_complete"]:
+            current, version = self.store.config("portfolio_highwater")
+            if view["highwater_equity"] > D(current["equity"]):
+                self.store.update_config(
+                    "portfolio_highwater",
+                    {"equity": str(view["highwater_equity"]), "at": now().isoformat()},
+                    version,
+                )
+        return view
+
+    def snapshot(self, markets):
+        view = self.observe(markets)
         if view["valuation_complete"]:
             self.store.snapshot(
                 {

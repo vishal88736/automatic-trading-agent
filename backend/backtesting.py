@@ -17,7 +17,7 @@ def backtest(
     split = max(81, int(len(market.candles) * (1 - request.holdout_fraction)))
 
     def segment(start, end):
-        cash, units, basis, fees, stop = D("10000"), D(0), D(0), D(0), None
+        cash, units, basis, fees, stop = request.initial_equity, D(0), D(0), D(0), None
         peak = cash
         maximum_drawdown = D(0)
         trades, closed, curve = [], [], []
@@ -145,10 +145,10 @@ def backtest(
         ).total_seconds() / 86400
         benchmark = market.candles[end - 1].close / market.candles[start].open - 1
         return {
-            "starting_equity": "10000",
+            "starting_equity": str(request.initial_equity),
             "ending_equity": str(ending),
-            "total_return": str(ending / 10000 - 1),
-            "annualized_return": str((float(ending / 10000) ** (365 / days)) - 1)
+            "total_return": str(ending / request.initial_equity - 1),
+            "annualized_return": str((float(ending / request.initial_equity) ** (365 / days)) - 1)
             if days >= 365
             else None,
             "maximum_drawdown": str(maximum_drawdown),
