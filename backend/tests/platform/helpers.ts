@@ -60,6 +60,8 @@ export function spec(extra: Record<string, unknown> = {}) {
     configuration: {
       assets: ["BTC"],
       strategies: ["momentum_v1", "trend_following_v1"],
+      marketProvider: "fixture",
+      newsProvider: "fixture",
     },
     riskPolicy: {},
     permissions: {

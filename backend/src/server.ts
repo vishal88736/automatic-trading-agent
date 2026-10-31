@@ -151,6 +151,30 @@ export function createPlatform(
         429,
         "Authentication request limit reached. Try again later.",
       ],
+      LimitExceededException: [
+        429,
+        "Authentication limit reached. Try again later.",
+      ],
+      UsernameExistsException: [
+        409,
+        "Registration could not be completed. Try signing in or resetting your password.",
+      ],
+      AliasExistsException: [
+        409,
+        "This email cannot be associated with the account.",
+      ],
+      UserNotFoundException: [
+        400,
+        "Unable to complete this authentication request.",
+      ],
+      InvalidParameterException: [
+        422,
+        "Check the authentication fields and try again.",
+      ],
+      ForbiddenException: [
+        403,
+        "Authentication was blocked by the account security policy.",
+      ],
     };
     const authError = req.url.startsWith("/platform/auth/")
       ? authErrors[(err as Error).name]
@@ -175,6 +199,25 @@ export function createPlatform(
           requestId: req.id,
         },
       });
+    const transportError = err as { code?: string; statusCode?: number };
+    if (
+      transportError.code?.startsWith("FST_") &&
+      transportError.statusCode &&
+      transportError.statusCode >= 400 &&
+      transportError.statusCode < 500
+    )
+      return reply.status(transportError.statusCode).send({
+        error: {
+          code: "INVALID_HTTP_REQUEST",
+          message:
+            transportError.statusCode === 413
+              ? "Request body exceeds the allowed size"
+              : transportError.statusCode === 415
+                ? "Use the supported JSON content type"
+                : "Malformed request; check the JSON body and headers",
+          requestId: req.id,
+        },
+      });
     const known = err instanceof PlatformError;
     if (!known)
       req.log.warn({
@@ -192,6 +235,15 @@ export function createPlatform(
       },
     });
   });
+  app.setNotFoundHandler((req, reply) =>
+    reply.status(404).send({
+      error: {
+        code: "NOT_FOUND",
+        message: "Endpoint not found",
+        requestId: req.id,
+      },
+    }),
+  );
   if (auth instanceof CognitoAuth)
     auth.routes(app, (p, identity) => profiles.syncIdentity(p, identity));
   app.get("/platform/health", async () => ({

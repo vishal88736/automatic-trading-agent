@@ -179,7 +179,12 @@ export class DynamoTenantStore implements TenantStore {
         new TransactWriteCommand({ TransactItems: operations }),
       );
     } catch (e) {
-      if ((e as Error).name === "TransactionCanceledException")
+      if (
+        (e as Error).name === "TransactionCanceledException" &&
+        (
+          e as { CancellationReasons?: { Code?: string }[] }
+        ).CancellationReasons?.some((r) => r.Code === "ConditionalCheckFailed")
+      )
         throw conflict();
       throw e;
     }

@@ -12,42 +12,54 @@ export class ProfileService {
     p: Principal,
     identity: { email: string; displayName: string; emailVerified: boolean },
   ) {
-    const current = await this.store.get<Record<string, unknown>>(
-      p,
-      "IDENTITY",
-      "self",
-    );
-    await this.store.commit(
-      p,
-      [
-        {
-          kind: "IDENTITY",
-          id: "self",
-          expectedVersion: current?.version ?? 0,
-          data: {
-            ...identity,
-            createdAt: current?.data.createdAt ?? new Date().toISOString(),
-            lastLogin: new Date().toISOString(),
-          },
-        },
-      ],
-      "identity.session.verified",
-    );
-    if (!(await this.store.get(p, "PROFILE", "self"))) {
-      await this.store.commit(
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const current = await this.store.get<Record<string, unknown>>(
         p,
-        [
-          {
-            kind: "PROFILE",
-            id: "self",
-            expectedVersion: 0,
-            data: profileSchema.parse({
-              displayName: identity.displayName || "Trader",
-            }),
-          },
-        ],
-        "profile.created.from_identity",
+        "IDENTITY",
+        "self",
       );
+      try {
+        await this.store.commit(
+          p,
+          [
+            {
+              kind: "IDENTITY",
+              id: "self",
+              expectedVersion: current?.version ?? 0,
+              data: {
+                ...identity,
+                createdAt: current?.data.createdAt ?? new Date().toISOString(),
+                lastLogin: new Date().toISOString(),
+              },
+            },
+          ],
+          "identity.session.verified",
+        );
+        break;
+      } catch (error) {
+        if ((error as { code?: string }).code !== "CONFLICT" || attempt === 3)
+          throw error;
+      }
+    }
+    if (!(await this.store.get(p, "PROFILE", "self"))) {
+      try {
+        await this.store.commit(
+          p,
+          [
+            {
+              kind: "PROFILE",
+              id: "self",
+              expectedVersion: 0,
+              data: profileSchema.parse({
+                displayName: identity.displayName || "Trader",
+              }),
+            },
+          ],
+          "profile.created.from_identity",
+        );
+      } catch (error) {
+        if ((error as { code?: string }).code !== "CONFLICT") throw error;
+      }
     }
   }
   async get(p: Principal) {

@@ -182,10 +182,10 @@ export const specSchema = z
           .min(60)
           .max(86400)
           .default(600),
-        marketProvider: z.enum(["fixture", "coinbase"]).default("fixture"),
+        marketProvider: z.enum(["fixture", "coinbase"]).default("coinbase"),
         newsProvider: z
           .enum(["fixture", "cryptocurrency.cv"])
-          .default("fixture"),
+          .default("cryptocurrency.cv"),
       })
       .strict(),
     riskPolicy: riskSchema,
