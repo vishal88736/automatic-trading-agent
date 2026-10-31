@@ -15,7 +15,14 @@ from web3 import Web3
 
 LOG = logging.getLogger(__name__)
 READ_METHODS = frozenset(
-    {"eth_chainId", "eth_blockNumber", "eth_getBlockByNumber", "eth_getCode", "eth_call"}
+    {
+        "eth_chainId",
+        "eth_blockNumber",
+        "eth_getBlockByNumber",
+        "eth_getCode",
+        "eth_getStorageAt",
+        "eth_call",
+    }
 )
 
 
@@ -166,6 +173,13 @@ class ReadOnlyRpc:
         if not self._cache[key]:
             raise DiscoveryError(f"No contract bytecode at {address}")
         return self._cache[key]
+
+    def storage_address(self, address: str, slot: str, block: BlockRef) -> str:
+        raw = self.request("eth_getStorageAt", [Web3.to_checksum_address(address), slot, block.tag])
+        try:
+            return decode(["address"], bytes.fromhex(raw[2:]))[0]
+        except Exception as exc:
+            raise DiscoveryError("RPC returned invalid proxy implementation storage") from exc
 
     def call(
         self,

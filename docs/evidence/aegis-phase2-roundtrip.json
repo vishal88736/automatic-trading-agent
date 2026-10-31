@@ -1,0 +1,229 @@
+{
+  "run_id": "phase2-live-quotes-v1",
+  "mode": "paper",
+  "data_source": "HSKSwap mainnet QuoterV2",
+  "buy": {
+    "id": "631771d7-ad1e-4e43-bb80-77b1474fa0fc",
+    "mode": "paper",
+    "receipt": "paper:631771d7-ad1e-4e43-bb80-77b1474fa0fc",
+    "transaction_hash": null,
+    "created_at": 1793471005,
+    "chain_id": 177,
+    "quote": {
+      "id": "53faab7c-a3d5-4d2b-abeb-8b40da0fa763",
+      "route": {
+        "tokens": [
+          {
+            "asset_id": "USDT",
+            "chain_id": 177,
+            "address": "0xf1b50ed67a9e2cc94ad3c477779e2d4cbfff9029",
+            "symbol": "USDT",
+            "decimals": 6
+          },
+          {
+            "asset_id": "WHSK",
+            "chain_id": 177,
+            "address": "0xB210D2120d57b758EE163cFfb43e73728c471Cf1",
+            "symbol": "WHSK",
+            "decimals": 18
+          }
+        ],
+        "pools": [
+          {
+            "chain_id": 177,
+            "address": "0x4ff515761864e7838b0adb8b5b2b8b7a068905dc",
+            "token0": {
+              "asset_id": "WHSK",
+              "chain_id": 177,
+              "address": "0xB210D2120d57b758EE163cFfb43e73728c471Cf1",
+              "symbol": "WHSK",
+              "decimals": 18
+            },
+            "token1": {
+              "asset_id": "USDT",
+              "chain_id": 177,
+              "address": "0xf1b50ed67a9e2cc94ad3c477779e2d4cbfff9029",
+              "symbol": "USDT",
+              "decimals": 6
+            },
+            "fee_pips": 3000
+          }
+        ]
+      },
+      "amount_in_raw": 1000000,
+      "amount_out_raw": 11405601624996979315,
+      "reference_out_raw": "11439947528442281321.0521557057481625343960052152625954510549270840222609366368",
+      "fee_multiplier": "0.997",
+      "lp_fee_input_raw_estimate": 3000,
+      "price_impact_bps": "0.0228491238649475722386565338032868136379972884935288404881316880587671624920619",
+      "gas_estimate": 73959,
+      "states": [
+        {
+          "pool": {
+            "chain_id": 177,
+            "address": "0x4ff515761864e7838b0adb8b5b2b8b7a068905dc",
+            "token0": {
+              "asset_id": "WHSK",
+              "chain_id": 177,
+              "address": "0xB210D2120d57b758EE163cFfb43e73728c471Cf1",
+              "symbol": "WHSK",
+              "decimals": 18
+            },
+            "token1": {
+              "asset_id": "USDT",
+              "chain_id": 177,
+              "address": "0xf1b50ed67a9e2cc94ad3c477779e2d4cbfff9029",
+              "symbol": "USDT",
+              "decimals": 6
+            },
+            "fee_pips": 3000
+          },
+          "block_number": 29561924,
+          "block_hash": "0xde9fd895d19deac80470ceb4933678747711d655efc4aa6e0e9c87fb5ef0af17",
+          "block_timestamp": 1793470983,
+          "sqrt_price_x96": 23424351023060863073728,
+          "liquidity_raw": 1475831005908433993,
+          "balance0_raw": 4992121294964652552406304,
+          "balance1_raw": 436358414215,
+          "mid_token1_per_token0": "0.0874129883475230279077675872745674112775306377870331818475386262316179812328909",
+          "unlocked": true
+        }
+      ],
+      "block_number": 29561924,
+      "block_hash": "0xde9fd895d19deac80470ceb4933678747711d655efc4aa6e0e9c87fb5ef0af17",
+      "block_timestamp": 1793470983,
+      "created_at": 1793471005,
+      "expires_at": 1793471025,
+      "data_source": "hskswap_v3",
+      "fee_note": "LP fees are already included in amount_out; the input fee estimate is informational."
+    },
+    "amount_out_filled_raw": "11394196023371982335",
+    "modeled_slippage_out_raw": "11405601624996980",
+    "modeled_network_fee_usdt": "0.01",
+    "lp_fee_input_raw_estimate": "3000",
+    "lp_fee_charged_again": false,
+    "realized_pnl_usdt": "0",
+    "fee_methodology": "Quoter output already includes LP fees. Additional slippage reduces output; configurable network cost is deducted from virtual USDT cash."
+  },
+  "sell": {
+    "id": "dd0deb56-b60e-4489-956d-c731414f1a6f",
+    "mode": "paper",
+    "receipt": "paper:dd0deb56-b60e-4489-956d-c731414f1a6f",
+    "transaction_hash": null,
+    "created_at": 1793471005,
+    "chain_id": 177,
+    "quote": {
+      "id": "09ee2490-7b01-4209-890b-465bcceee5df",
+      "route": {
+        "tokens": [
+          {
+            "asset_id": "WHSK",
+            "chain_id": 177,
+            "address": "0xB210D2120d57b758EE163cFfb43e73728c471Cf1",
+            "symbol": "WHSK",
+            "decimals": 18
+          },
+          {
+            "asset_id": "USDT",
+            "chain_id": 177,
+            "address": "0xf1b50ed67a9e2cc94ad3c477779e2d4cbfff9029",
+            "symbol": "USDT",
+            "decimals": 6
+          }
+        ],
+        "pools": [
+          {
+            "chain_id": 177,
+            "address": "0x4ff515761864e7838b0adb8b5b2b8b7a068905dc",
+            "token0": {
+              "asset_id": "WHSK",
+              "chain_id": 177,
+              "address": "0xB210D2120d57b758EE163cFfb43e73728c471Cf1",
+              "symbol": "WHSK",
+              "decimals": 18
+            },
+            "token1": {
+              "asset_id": "USDT",
+              "chain_id": 177,
+              "address": "0xf1b50ed67a9e2cc94ad3c477779e2d4cbfff9029",
+              "symbol": "USDT",
+              "decimals": 6
+            },
+            "fee_pips": 3000
+          }
+        ]
+      },
+      "amount_in_raw": 11394196023371982335,
+      "amount_out_raw": 993010,
+      "reference_out_raw": "996000.724220408314002442861119582958375554814095588181254320243053312110807424",
+      "fee_multiplier": "0.997",
+      "lp_fee_input_raw_estimate": 34182588070115947,
+      "price_impact_bps": "0.0274120128237206617960181288586655806359535410372256103764920987266783317147415",
+      "gas_estimate": 74185,
+      "states": [
+        {
+          "pool": {
+            "chain_id": 177,
+            "address": "0x4ff515761864e7838b0adb8b5b2b8b7a068905dc",
+            "token0": {
+              "asset_id": "WHSK",
+              "chain_id": 177,
+              "address": "0xB210D2120d57b758EE163cFfb43e73728c471Cf1",
+              "symbol": "WHSK",
+              "decimals": 18
+            },
+            "token1": {
+              "asset_id": "USDT",
+              "chain_id": 177,
+              "address": "0xf1b50ed67a9e2cc94ad3c477779e2d4cbfff9029",
+              "symbol": "USDT",
+              "decimals": 6
+            },
+            "fee_pips": 3000
+          },
+          "block_number": 29561924,
+          "block_hash": "0xde9fd895d19deac80470ceb4933678747711d655efc4aa6e0e9c87fb5ef0af17",
+          "block_timestamp": 1793470983,
+          "sqrt_price_x96": 23424351023060863073728,
+          "liquidity_raw": 1475831005908433993,
+          "balance0_raw": 4992121294964652552406304,
+          "balance1_raw": 436358414215,
+          "mid_token1_per_token0": "0.0874129883475230279077675872745674112775306377870331818475386262316179812328909",
+          "unlocked": true
+        }
+      ],
+      "block_number": 29561924,
+      "block_hash": "0xde9fd895d19deac80470ceb4933678747711d655efc4aa6e0e9c87fb5ef0af17",
+      "block_timestamp": 1793470983,
+      "created_at": 1793471005,
+      "expires_at": 1793471025,
+      "data_source": "hskswap_v3",
+      "fee_note": "LP fees are already included in amount_out; the input fee estimate is informational."
+    },
+    "amount_out_filled_raw": "992016",
+    "modeled_slippage_out_raw": "994",
+    "modeled_network_fee_usdt": "0.01",
+    "lp_fee_input_raw_estimate": "34182588070115947",
+    "lp_fee_charged_again": false,
+    "realized_pnl_usdt": "-0.027984",
+    "fee_methodology": "Quoter output already includes LP fees. Additional slippage reduces output; configurable network cost is deducted from virtual USDT cash."
+  },
+  "pnl": {
+    "mode": "paper",
+    "initial_cash_usdt": "100",
+    "nav_usdt": "99.9720160000000000000000000000000000000000000000000000000000000000000000000000",
+    "net_pnl_usdt": "-0.0279840000000000000000000000000000000000000000000000000000000000000000000000",
+    "realized_pnl_usdt": "-0.027984",
+    "unrealized_pnl_usdt": "0E-76",
+    "fills": 2,
+    "valuation_assumption": "USDT is the accounting numeraire; no independent USD peg is asserted."
+  },
+  "methodology": {
+    "extra_slippage_bps": 10,
+    "network_fee_usdt": "0.01",
+    "disclosure": "LP fees included by QuoterV2; additional slippage is modeled; network fee is a configurable USDT expense model, not measured chain gas."
+  },
+  "purpose": "Operational validation round trip, not an alpha or sustained-profitability run.",
+  "transactions_sent": 0,
+  "on_chain_decision_log": "Not deployed; Phase 2 decisions are local SQLite records."
+}

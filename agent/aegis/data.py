@@ -26,10 +26,16 @@ class ContractSpec(StrictModel):
     runtime_code_hash: str = Field(pattern=r"^0x[0-9a-fA-F]{64}$")
 
 
+class ProxySpec(ContractSpec):
+    storage_slot: str = Field(pattern=r"^0x[0-9a-fA-F]{64}$")
+
+
 class TokenSpec(StrictModel):
     address: Address
     symbol: str
     decimals: int = Field(ge=0, le=36)
+    runtime_code_hash: str | None = None
+    proxy_implementation: ProxySpec | None = None
 
 
 class PoolSpec(StrictModel):
@@ -155,7 +161,18 @@ class HSKSwapData:
         ):
             raise DiscoveryError("V2 factory configuration changed; repeat discovery")
         for asset_id, token in n.tokens.items():
-            self.rpc.code(token.address, block)
+            actual = Web3.keccak(self.rpc.code(token.address, block)).to_0x_hex()
+            if not token.runtime_code_hash or actual.lower() != token.runtime_code_hash.lower():
+                raise DiscoveryError(f"Token bytecode changed or is unpinned for {asset_id}")
+            if token.proxy_implementation is not None:
+                proxy = token.proxy_implementation
+                implementation = self.rpc.storage_address(token.address, proxy.storage_slot, block)
+                code_hash = Web3.keccak(self.rpc.code(proxy.address, block)).to_0x_hex()
+                if (
+                    implementation.lower() != proxy.address.lower()
+                    or code_hash.lower() != proxy.runtime_code_hash.lower()
+                ):
+                    raise DiscoveryError(f"Proxy implementation changed for {asset_id}")
             decimals = self.rpc.call(token.address, "decimals()", ["uint8"], block)[0]
             symbol = self.rpc.call(token.address, "symbol()", ["string"], block)[0]
             if decimals != token.decimals or symbol != token.symbol:

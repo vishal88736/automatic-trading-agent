@@ -1,0 +1,13 @@
+schema_version: 1
+mode: paper
+paper:
+  initial_cash_usdt: '100'
+  extra_slippage_bps: 10
+  network_fee_usdt: '0.01'
+risk:
+  max_trade_bps: 1000
+  max_price_impact_bps: '50'
+  min_pool_value_usdt: '10000'
+  max_quote_age_seconds: 20
+  max_block_age_seconds: 90
+  allowed_assets: [WHSK, USDT, WETH, WBTC]

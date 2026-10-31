@@ -1,6 +1,6 @@
 # Krono — an auditable crypto trading workspace
 
-**AEGIS Phase 1:** a separate, read-only HSKSwap data package now verifies the current V3 factory/router/quoter, token decimals and four mainnet pools. Run `make setup && make prices`; `make verify-discovery` compares RPC and HSKSwap subgraph state at the same block. See [DISCOVERY.md](docs/DISCOVERY.md) for addresses, ABIs, live observations, limitations and the pending visual UI acceptance check. AEGIS trading, contracts and deployments are not implemented yet; the existing Krono application remains available below.
+**AEGIS Phases 1–2:** verified HSKSwap V3 data, typed routes/quotes, a paper execution gateway and an idempotent SQLite ledger now work independently of the terminal. Run `make setup && make prices`, then `make paper-demo`. A real-mainnet-quote paper round trip recorded 100 → **99.972016 USDT** after LP fees, modeled slippage and modeled network costs. See [discovery](docs/DISCOVERY.md) and [paper methodology](docs/PAPER.md). Browser screenshots were waived by the user; visual UI matching remains unverified. Guard deployment, autonomous strategies, on-chain decisions and the AEGIS chat/dashboard are still pending.
 
 **KRONO 2.0:** a Cognito/DynamoDB tenant control plane, centralized Bedrock MiniMax provider, conversational agent drafts and isolated ECS runtime infrastructure have been added. Configure your account using [the AWS setup guide](docs/AWS_SETUP.md) and [environment template](deploy/aws/.env.example). Cloud deployment and model access remain pending account configuration; the local simulation terminal still runs independently.
 
@@ -8,7 +8,7 @@ Research → deterministic strategy → independent risk → quote preview → h
 
 Krono is an independent platform built for the HSKSwap AI Agent Trading hackathon track, extending [AlpacaTradingAgent](https://github.com/vishal88736/alpaca-trading-agent). HSKSwap is the target exchange integration on HSKChain. Python, LangGraph, FastAPI and SQLite power a React/TypeScript/Tailwind terminal. The original trading framework, Dash interface and Alpaca utilities remain in the repository.
 
-**The working execution mode is SIMULATION. Live HSKSwap swaps and HSKSwap paper trading are unavailable.** Read-only market/news providers and HSKChain RPC were probed successfully; that does not verify executable DEX routing or wallet signing. No profitability, production readiness or blockchain execution is claimed.
+**The Krono terminal's working execution mode is SIMULATION. Live HSKSwap swaps remain disabled.** AEGIS's standalone CLI supports paper fills against verified mainnet QuoterV2 quotes; that flow has not been wired into the Krono UI. No wallet signing, profitable strategy, production readiness or blockchain execution is claimed.
 
 ![Krono desktop workspace, captured from the actual simulation workflow](docs/assets/terminal-overview.png)
 

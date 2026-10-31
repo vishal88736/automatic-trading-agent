@@ -1,0 +1,54 @@
+{
+  "observed_at": "2026-10-31T18:35:08.801862+00:00",
+  "phase": 2,
+  "status": "ACCEPTED_FOR_PAPER_MODE",
+  "visual_ui_comparison": {
+    "status": "not_performed",
+    "gate": "user requested proceeding without screenshots"
+  },
+  "checks": {
+    "aegis_unit_tests": {
+      "command": "make test-discovery",
+      "passed": 45,
+      "live_tests_skipped_by_default": 1
+    },
+    "combined_local_regression": {
+      "passed": 204,
+      "subtests_passed": 10,
+      "skipped": 1,
+      "seconds": 6.89,
+      "command": ".venv/bin/python -m pytest backend/tests agent/tests legacy_tests/test_regime_detection.py legacy_tests/test_backtest_engine.py legacy_tests/test_portfolio_intelligence.py -q"
+    },
+    "live_rpc_integration": {
+      "command": "AEGIS_LIVE_TESTS=1 .venv/bin/python -m pytest agent/tests/test_connectors_paper.py -m live -q",
+      "passed": 1,
+      "seconds": 19.2,
+      "scope": "Direct and two-hop QuoterV2 eth_call, quote minimum-output simulation, current chain/code/token/proxy checks. No signing or funded-vault simulation."
+    },
+    "paper_round_trip": {
+      "command": "make paper-demo ARGS='--db /tmp/aegis-phase2-proof.sqlite3 --intent-prefix phase2-live-quotes-v1 --output artifacts/aegis-phase2-roundtrip.json'",
+      "initial_virtual_cash_usdt": "100",
+      "final_nav_usdt": "99.972016",
+      "net_pnl_usdt": "-0.027984",
+      "fill_count": 2,
+      "buy_block": 29561924,
+      "sell_block": 29561924,
+      "replay_after_reopen": "returned the same paper receipts and still two fills",
+      "evidence": "docs/evidence/aegis-phase2-roundtrip.json"
+    }
+  },
+  "transactions_sent": 0,
+  "contracts_deployed": false,
+  "on_chain_decision_log": false,
+  "modeled_costs": {
+    "extra_slippage_bps": 10,
+    "network_fee_usdt": "0.01",
+    "disclosure": "LP fees included by QuoterV2; additional slippage is modeled; network fee is a configurable USDT expense model, not measured chain gas."
+  },
+  "remaining": [
+    "Guard and decision-log contracts, tests and deployment",
+    "Full autonomous strategy and risk acceptance",
+    "NL control plane and Telegram live validation",
+    "AEGIS dashboard and verifiable on-chain feed"
+  ]
+}

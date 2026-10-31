@@ -2,7 +2,7 @@
 
 Observed on **2026-10-31 UTC** using the current HSKSwap application, its developer documentation bundle, the published HSKSwap packages, Blockscout APIs, and direct JSON-RPC reads. Exact observation times and block hashes are retained in the linked JSON evidence.
 
-**Phase 1 data discovery works. The visual UI price comparison is pending.** This checkout already contains Krono; its application and disabled trading boundary are preserved. The new AEGIS package is in `agent/aegis/`. No strategy, wallet key, approval, swap, or contract deployment was used for this phase.
+**Phase 1 data discovery is accepted using source and same-block RPC/subgraph checks. The user requested proceeding without browser screenshots; visual UI comparison remains unverified and is no longer a gate.** This checkout already contains Krono; its application and disabled trading boundary are preserved. The new AEGIS package is in `agent/aegis/`. No strategy, wallet key, approval, swap, or contract deployment was used for this phase.
 
 ## Run the verified data path
 
@@ -161,11 +161,11 @@ These outputs incorporate the pool fee and simulated pool execution. They are no
 
 The **22 data tests** exercise decimal scaling, zero price rejection, chain mismatch/fallback, RPC failures, read-only method restrictions, contract reverts, cache isolation by block hash, reorg rejection, stale/future timestamps, malformed responses, token metadata changes, bytecode changes, factory/pool mismatch, registry provenance and ABI integrity. The combined data/backend/selected upstream regression command passed **181 tests and 10 subtests**. Ruff, publication-path/credential-pattern checks, generated-reference consistency and `git diff --check` also passed. These local checks do not establish hosted CI or live trading. [Validation record](evidence/aegis-phase1-validation.json).
 
-### Remaining Phase 1 acceptance check
+### Visual comparison and revised acceptance
 
-No browser surface was connected to the session. A rendered comparison of WHSK/USDT, WETH/USDT and WBTC/USDT against HSKSwap is **pending**; no screenshot or UI-tolerance result has been invented. Complete that check with a connected browser or user-supplied screenshots showing the exact pool, fee tier, displayed price and capture time. Match pool mid prices to pool mid prices; a swap widget's output additionally includes the fee and size impact.
+No browser surface was connected to the session. A rendered comparison of WHSK/USDT, WETH/USDT and WBTC/USDT against HSKSwap was **not performed**; no screenshot or UI-tolerance result has been invented. After the user asked to proceed without this requirement, implementation continued using the exact same-block source checks above. A later visual check remains useful but does not block the connector or paper execution work. Match pool mid prices to pool mid prices; a swap widget's output additionally includes the fee and size impact.
 
-No strategy code has been written before resolving discovery. Phases 2–7, including the connector protocol, paper fills, Guard, decision log, NL control plane, dashboard and deployments, remain to be implemented and accepted.
+No strategy code was written before resolving discovery. The typed connector, quote-backed paper fills and ledger are now implemented in [Phase 2](PAPER.md). Guard contracts, on-chain decisions, autonomous strategy/risk integration, the NL control plane, dashboard and deployments remain later-phase work.
 
 ## Consequences for the next phases
 

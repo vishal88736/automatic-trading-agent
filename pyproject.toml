@@ -25,6 +25,7 @@ testpaths = ["backend/tests", "agent/tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 pythonpath = [".", "agent"]
+markers = ["live: explicit read-only network integration tests, excluded unless AEGIS_LIVE_TESTS=1"]
 
 [tool.ruff]
 target-version = "py312"

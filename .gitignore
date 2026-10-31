@@ -38,6 +38,7 @@ Thumbs.db
 # Reference checkouts, local caches, and private runtime state
 .reference/
 .cache/
+.tools/
 .runtime/
 .python/
 artifacts/

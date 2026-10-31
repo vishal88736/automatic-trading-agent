@@ -27,22 +27,31 @@ networks:
         address: '0xB210D2120d57b758EE163cFfb43e73728c471Cf1'
         symbol: WHSK
         decimals: 18
+        runtime_code_hash: '0x968d189152325d9e84cbda0dcd6140f0bc8f182dd67e9c226a1089089a6ecdc5'
       USDT:
         address: '0xf1b50ed67a9e2cc94ad3c477779e2d4cbfff9029'
         symbol: USDT
         decimals: 6
+        runtime_code_hash: '0x2be4a1fc2e2fbdc80b125875edcd697cbbbe2af8bfe53d36c399977742b4af6e'
       USDC:
         address: '0x054ed45810DbBAb8B27668922D110669c9D88D0a'
         symbol: USDC.e
         decimals: 6
+        runtime_code_hash: '0xaad43333d28e146557f1c682e8a4226743fb231fdd00a577512233bd9e920008'
+        proxy_implementation:
+          address: '0x82f67bdea6cbcc6bd34526073300e619225b22de'
+          runtime_code_hash: '0xfa66f3389341145012aeb69dedd0329994caf963264084abb51d30e1cbd2aa68'
+          storage_slot: '0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3'
       WETH:
         address: '0xefd4bC9afD210517803f293ABABd701CaeeCdfd0'
         symbol: WETH
         decimals: 18
+        runtime_code_hash: '0xabc56b111ec1a0126d7dc7eb037d43aa850216c91ece4db3d8e2acbbe88aa281'
       WBTC:
         address: '0x6119ca49a79f5825c8b345f8d7ac36b272565b14'
         symbol: WBTC
         decimals: 8
+        runtime_code_hash: '0x449c9c148c507f9467a0fe030113fa1f8b0343eece4ac5965e8c32390b9b32df'
     pools:
     - address: '0x4ff515761864e7838b0adb8b5b2b8b7a068905dc'
       token0: WHSK
@@ -86,14 +95,21 @@ networks:
         address: '0xCA8aAceEC5Db1e91B9Ed3a344bA026c4a2B3ebF6'
         symbol: WHSK
         decimals: 18
+        runtime_code_hash: '0x4fce2859118dd36e7872df8e5feb765b76bfa4bec00c6faea9cf0d6350514c76'
       USDT:
         address: '0x98b6173a8b7dfc52ce8bc88f1184a918a1ccaa4f'
         symbol: USDT
         decimals: 18
+        runtime_code_hash: '0x584acf83eabe756a0c564c81ad03f941ee62edc8ccd2f498c54a016b9ddf9dcb'
       USDC:
         address: '0x93f960a8dab5a541e93e6ddacd54f49a1750de81'
         symbol: USDC
         decimals: 6
+        runtime_code_hash: '0xc2059a483ceeca165dfcc9727922e7c8c7b99710e84eca06cf765c235b133893'
+        proxy_implementation:
+          address: '0x3a2986a2401c494b8724175c641a861131d88148'
+          runtime_code_hash: '0xb8389bc08a955c11f9afd07e8ce132ecf170c97886a9abcb941ff17f6e390ea3'
+          storage_slot: '0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3'
     pools:
     - address: '0xc076fb478b77633736738579c7f48d2539604a50'
       token0: USDT

@@ -203,6 +203,13 @@ class StateRpc:
     def code(self, address, block):
         return b"fixture_bytecode"
 
+    def storage_address(self, address, slot, block):
+        return next(
+            t.proxy_implementation.address
+            for t in self.network.tokens.values()
+            if t.address.lower() == address.lower()
+        )
+
     def call(self, address, signature, outputs, block, **kwargs):
         n = self.network
         if signature == "factory()":
@@ -241,7 +248,20 @@ def network_with_fixture_hash(rpc):
             "contracts": {
                 role: spec.model_copy(update={"runtime_code_hash": expected})
                 for role, spec in n.contracts.items()
-            }
+            },
+            "tokens": {
+                asset: token.model_copy(
+                    update={
+                        "runtime_code_hash": expected,
+                        "proxy_implementation": token.proxy_implementation.model_copy(
+                            update={"runtime_code_hash": expected}
+                        )
+                        if token.proxy_implementation
+                        else None,
+                    }
+                )
+                for asset, token in n.tokens.items()
+            },
         }
     )
 
@@ -257,6 +277,14 @@ def test_runtime_bytecode_change_is_rejected():
     rpc = StateRpc()
     reader = HSKSwapData(rpc.network, rpc=rpc)
     with pytest.raises(DiscoveryError, match="bytecode changed"):
+        reader.verify_contracts(BlockRef(100, "hash", int(time.time())))
+
+
+def test_proxy_upgrade_is_rejected_even_when_proxy_bytecode_is_unchanged():
+    rpc = StateRpc()
+    rpc.storage_address = lambda address, slot, block: "0x" + "0" * 40
+    reader = HSKSwapData(network_with_fixture_hash(rpc), rpc=rpc)
+    with pytest.raises(DiscoveryError, match="Proxy implementation changed"):
         reader.verify_contracts(BlockRef(100, "hash", int(time.time())))
 
 
