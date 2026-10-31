@@ -13,7 +13,7 @@ from tradingagents.risk.position_sizing import compute_atr
 
 REGISTRY = {
     "momentum_v1": {
-        "name": "Trend & momentum",
+        "name": "Momentum Trading",
         "description": "EMA alignment with MACD, RSI and participation confirmation.",
         "regime": "Trending",
         "required_data": ["80 consecutive closed hourly candles", "volume"],
@@ -30,17 +30,26 @@ REGISTRY = {
         "exit": "Reclaim rolling mean or ATR invalidation",
         "provenance": "Adapts upstream Bollinger/RSI indicators and regime filter; spot inventory only.",
     },
-    "news_aware_v1": {
-        "name": "News-aware confirmation",
-        "description": "Independent relevant stories confirmed by measured market momentum.",
-        "regime": "Event driven",
-        "required_data": ["market history", "2 independent timely news sources"],
-        "entry": "Corroborated bullish evidence plus momentum confirmation",
-        "exit": "Corroborated bearish evidence, market invalidation or ATR stop",
-        "provenance": "New bounded news signal, grounded in normalized cryptocurrency.cv records.",
+    "trend_following_v1": {
+        "name": "Trend Following",
+        "description": "Persistent EMA slope, long moving-average alignment and ATR invalidation.",
+        "regime": "Persistent directional market",
+        "required_data": ["80 consecutive closed hourly candles", "volume"],
+        "entry": "Positive slow EMA slope, close above SMA50, aligned EMA and positive MACD",
+        "exit": "Slow EMA loss, negative slope or standing ATR stop",
+        "provenance": "Adapts upstream moving-average/ATR analysis; separates persistence from short-term momentum.",
+    },
+    "breakout_v1": {
+        "name": "Breakout Trading",
+        "description": "Past-only Donchian breakout with ATR buffer and participation confirmation.",
+        "regime": "Confirmed expansion",
+        "required_data": ["80 consecutive closed hourly candles", "volume"],
+        "entry": "Close above prior channel plus ATR buffer and confirmed volume",
+        "exit": "Close below prior channel midpoint or standing ATR stop",
+        "provenance": "New past-only channel rules reusing upstream ATR and technical indicators; current candle excluded from channel.",
     },
     "spread_research_v1": {
-        "name": "Price-spread research",
+        "name": "Arbitrage Detection",
         "description": "Requires compatible fresh two-leg executable routes and all-in net costs.",
         "regime": "Cross-venue research",
         "required_data": ["two compatible executable quotes", "fees", "gas", "settlement model"],
@@ -197,6 +206,28 @@ def evaluate(
         )
         if not constrained:
             flags.append("STRONG_TREND_OR_VOLATILITY")
+    elif strategy_id == "trend_following_v1":
+        slow_series = frame.ewm(span=config.slow_period, adjust=False).mean()
+        slope = float(slow_series.iloc[-1] / slow_series.iloc[-6] - 1) / 5
+        enter = (
+            slope >= config.trend_min_slope
+            and fast > slow
+            and metrics["price"] > metrics["sma50"]
+            and metrics["macd"] > 0
+            and metrics["volume_ratio"] >= config.volume_ratio
+        )
+        exit_signal = metrics["price"] < slow or slope < 0
+        reason = f"Slow EMA slope {slope:.6f}/bar; long-average and participation filters {'agree' if enter else 'do not agree'}."
+    elif strategy_id == "breakout_v1":
+        prior = market.candles[-config.breakout_lookback - 1 : -1]
+        ceiling, floor = max(float(b.high) for b in prior), min(float(b.low) for b in prior)
+        enter = (
+            metrics["price"] > ceiling + metrics["atr"] * config.breakout_atr_buffer
+            and metrics["volume_ratio"] >= config.volume_ratio
+            and metrics["macd"] > 0
+        )
+        exit_signal = metrics["price"] < (ceiling + floor) / 2
+        reason = f"Prior {config.breakout_lookback}-bar channel {floor:.4f}–{ceiling:.4f}; buffered expansion {'confirmed' if enter else 'absent'}."
     elif strategy_id == "news_aware_v1":
         articles = [
             a

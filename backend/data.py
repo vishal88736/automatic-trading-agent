@@ -139,6 +139,7 @@ def normalize_news(
                 "BTC": r"\bbitcoin\b|\bBTC\b",
                 "ETH": r"\bethereum\b|\bETH\b",
                 "SOL": r"\bsolana\b|\$SOL\b",
+                "HSK": r"\bHSK\b|\bHashKey\s+Chain\b",
             }
             assets = [
                 symbol for symbol, pattern in patterns.items() if re.search(pattern, content, re.I)

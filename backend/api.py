@@ -21,9 +21,10 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from backend.analytics import aggregate, correlations
+from backend.analytics import aggregate, chart_indicators, correlations
 from backend.backtesting import backtest
 from backend.data import ASSETS, Providers
+from backend.desk import AlertRequest, sizing_preview
 from backend.engine import Engine
 from backend.exchanges import HSKSwapAdapter
 from backend.models import (
@@ -410,7 +411,30 @@ def create_app(db_path=None, *, testing=False, transport=None, api_token=None):
     ):
         data = await e.providers.market(symbol)
         e.markets[symbol] = data
-        return {"market": aggregate(data, timeframe), "summary": market_summary(data)}
+        chart = aggregate(data, timeframe)
+        return {
+            "market": chart,
+            "summary": market_summary(data),
+            "chart_indicators": chart_indicators(chart),
+        }
+
+    @app.get("/api/desk/budget/{symbol}")
+    async def desk_budget(symbol: Literal["BTC", "ETH", "SOL"], e: Engine = Depends(engine)):
+        await e.refresh_markets()
+        return sizing_preview(e.portfolio.view(e.markets), e.execution.risk()[0], symbol)
+
+    @app.get("/api/alerts")
+    async def alerts(e: Engine = Depends(engine)):
+        return e.alerts.view()
+
+    @app.post("/api/alerts")
+    async def create_alert(body: AlertRequest, e: Engine = Depends(engine)):
+        await e.refresh_markets()
+        return e.alerts.create(body, e.markets)
+
+    @app.delete("/api/alerts/{alert_id}")
+    async def delete_alert(alert_id: str, e: Engine = Depends(engine)):
+        return e.alerts.delete(alert_id)
 
     @app.get("/api/news")
     async def news(
@@ -592,6 +616,18 @@ def create_app(db_path=None, *, testing=False, transport=None, api_token=None):
             e.execution.risk()[0],
         )
         result["config_version"] = version
+        prior = e.store.get("cache", "strategy_performance:" + body.symbol) or {}
+        prior[body.strategy_id] = {
+            "out_of_sample": True,
+            "asset": body.symbol,
+            "source": market.source,
+            "trade_count": result["out_of_sample"]["trade_count"],
+            "net_return": result["out_of_sample"]["total_return"],
+            "max_drawdown": result["out_of_sample"]["maximum_drawdown"],
+            "evaluated_at": now().isoformat(),
+            "config_version": version,
+        }
+        e.store.put("cache", "strategy_performance:" + body.symbol, prior)
         e.store.audit(
             "backtest.completed",
             {

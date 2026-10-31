@@ -188,6 +188,9 @@ class StrategyConfig(Model):
     news_max_age_minutes: int = Field(default=120, ge=15, le=360)
     cooldown_seconds: int = Field(default=300, ge=30, le=86400)
     stop_atr_multiple: float = Field(default=2, ge=1, le=5)
+    breakout_lookback: int = Field(default=20, ge=10, le=60)
+    breakout_atr_buffer: float = Field(default=0.1, ge=0.0, le=1.0)
+    trend_min_slope: float = Field(default=0.0001, ge=0.0, le=0.02)
 
     @model_validator(mode="after")
     def periods(self):
@@ -211,6 +214,14 @@ class Signal(Model):
     timestamp: AwareDatetime
     rationale: str
     stop_price: Positive | None = None
+
+
+class ResearchEvidence(Model):
+    opportunity_id: str = Field(pattern=r"^[a-f0-9-]{36}$")
+    source_agent_id: str = Field(pattern=r"^[a-f0-9-]{36}$")
+    symbol: Literal["BTC", "ETH", "SOL"]
+    signal: Literal["BUY", "SELL", "HOLD"]
+    evidence: list[str] = Field(max_length=30)
 
 
 class RiskConfig(Model):
@@ -409,7 +420,9 @@ class ChatRequest(Model):
 
 class BacktestRequest(Model):
     symbol: Literal["BTC", "ETH", "SOL"] = "BTC"
-    strategy_id: Literal["momentum_v1", "mean_reversion_v1", "news_aware_v1"] = "momentum_v1"
+    strategy_id: Literal[
+        "momentum_v1", "mean_reversion_v1", "trend_following_v1", "breakout_v1", "news_aware_v1"
+    ] = "momentum_v1"
     fee_bps: int = Field(default=10, ge=0, le=100)
     slippage_bps: int = Field(default=10, ge=0, le=100)
     holdout_fraction: float = Field(default=0.3, ge=0.2, le=0.5)

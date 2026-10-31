@@ -11,11 +11,13 @@ from langgraph.graph import END, START, StateGraph
 from langsmith import tracing_context
 
 from backend.data import ASSETS, Providers
+from backend.desk import PriceAlerts
 from backend.execution import Execution
 from backend.models import (
     Authorize,
     Mode,
     Proposal,
+    ResearchEvidence,
     RunRequest,
     SchedulerAction,
     StrategyConfig,
@@ -24,8 +26,10 @@ from backend.models import (
 )
 from backend.portfolio import Portfolio
 from backend.research import ResearchBridge
+from backend.selection import SelectionConfig, rank_strategies
 from backend.storage import Store, encode
-from backend.strategies import REGISTRY, evaluate, indicators
+from backend.strategies import REGISTRY, indicators
+from backend.strategy_registry import RuleStrategy
 
 D = Decimal
 STAGES = [
@@ -52,6 +56,7 @@ class Engine:
         self.markets = {}
         self.portfolio = Portfolio(store)
         self.execution = Execution(store, self.portfolio, self.markets)
+        self.alerts = PriceAlerts(store)
         self.research = research or ResearchBridge()
         self.run_lock = asyncio.Lock()
         self.scheduler_task = None
@@ -61,6 +66,7 @@ class Engine:
                 "strategy:" + strategy_id,
                 StrategyConfig(enabled=strategy_id != "spread_research_v1").model_dump(mode="json"),
             )
+        store.config("selection", SelectionConfig().model_dump(mode="json"))
         graph = StateGraph(WorkflowState)
         for name in STAGES:
             graph.add_node(name, self._node(name))
@@ -101,6 +107,7 @@ class Engine:
     async def refresh_markets(self):
         results = await asyncio.gather(*(self.providers.market(symbol) for symbol in ASSETS))
         self.markets.update({market.asset.asset_id: market for market in results})
+        self.alerts.evaluate(self.markets)
         return results
 
     def _persist(self, run):
@@ -185,6 +192,7 @@ class Engine:
                 "macro": "UNAVAILABLE",
                 "fundamentals": "UNAVAILABLE",
                 "method": "Deterministic analyst evidence; optional upstream LLM debate follows.",
+                "coordinated_research": run.get("research_evidence", []),
             }
         if name == "Bull/Bear Research":
             result = await self.research.analyze(
@@ -204,17 +212,18 @@ class Engine:
             holding = any(p["asset"]["asset_id"] == request.symbol for p in holdings)
             owned = next((p for p in holdings if p["asset"]["asset_id"] == request.symbol), None)
             ctx["signals"], ctx["versions"] = [], {}
+            run["evaluations"] = []
             for strategy in self.strategies():
                 config = StrategyConfig.model_validate(strategy["config"])
                 owns_strategy_position = holding and strategy["id"] in owned.get("strategy_ids", [])
-                signal = evaluate(
-                    strategy["id"],
+                evaluation = RuleStrategy(strategy["id"], config).evaluate(
                     ctx["market"],
                     ctx["news"],
-                    config,
                     holding=owns_strategy_position,
                     clock=ctx["market"].as_of if ctx["market"].status == "FIXTURE" else now(),
                 )
+                run["evaluations"].append(evaluation.model_dump(mode="json"))
+                signal = evaluation.signal
                 if (
                     config.enabled
                     and owns_strategy_position
@@ -233,15 +242,63 @@ class Engine:
                 ctx["signals"].append(signal)
                 ctx["versions"][strategy["id"]] = strategy["version"]
             run["signals"] = [s.model_dump(mode="json") for s in ctx["signals"]]
+            selector = SelectionConfig.model_validate(self.store.config("selection")[0])
+            if selector.enabled:
+                review = (
+                    (self.store.config("model_reviews")[0] or {}).get(request.symbol)
+                    or self.store.config("model_review")[0]
+                    or {}
+                )
+                compatible = (
+                    ctx["market"].as_of is not None
+                    and review.get("symbol") == request.symbol
+                    and review.get("marketSource") == ctx["market"].source
+                    and review.get("marketAsOf") == ctx["market"].as_of.isoformat()
+                    and review.get("expiresAt", 0) > time.time()
+                )
+                ctx["model_review"] = review if compatible else None
+                run["model_review"] = (
+                    review
+                    if compatible
+                    else {
+                        "status": "UNAVAILABLE",
+                        "reason": "No matching fresh structured model review",
+                    }
+                )
+                previous = self.store.get("cache", "selection:" + request.symbol)
+                selection = rank_strategies(
+                    ctx["market"],
+                    ctx["news"],
+                    ctx["signals"],
+                    selector,
+                    previous=previous,
+                    contextual_advice={review["preferredStrategy"]: review.get("confidence", 0)}
+                    if compatible and review.get("preferredStrategy")
+                    else None,
+                    performance=self.store.get("cache", "strategy_performance:" + request.symbol),
+                    clock=ctx["market"].as_of if ctx["market"].status == "FIXTURE" else now(),
+                )
+                run["selection"] = selection
+                self.store.put("cache", "selection:" + request.symbol, selection)
+                self.store.audit("strategies.ranked", {"run_id": run["id"], "selection": selection})
             return "COMPLETED", {
                 "signals": run["signals"],
+                "selection": run.get("selection"),
                 "confidence_note": "Scores describe rule agreement, not probability of profit.",
             }
         if name == "Trader Decision":
             active = [s for s in ctx["signals"] if s.signal in {"BUY", "SELL"}]
+            if run.get("selection"):
+                active = [
+                    s
+                    for s in active
+                    if s.signal == "SELL" or s.strategy_id in run["selection"]["selected"]
+                ]
             directions = {s.signal for s in active}
             advisory = ctx.get("research", {}).get("trader")
             action = next(iter(directions)) if len(directions) == 1 else "HOLD"
+            if action == "BUY" and (ctx.get("model_review") or {}).get("veto", False):
+                action = "HOLD"
             if ctx.get("research", {}).get("status") in {"FAILED", "BLOCKED"}:
                 action = "HOLD"
             if advisory and advisory["action"] != action:
@@ -263,7 +320,15 @@ class Engine:
                 strategy_ids=[s.strategy_id for s in selected],
                 signal_at=now(),
                 expires_at=now() + timedelta(seconds=120),
-                evidence=list(dict.fromkeys(e for s in selected for e in s.evidence)),
+                evidence=list(
+                    dict.fromkeys(
+                        [e for s in selected for e in s.evidence]
+                        + [
+                            "opportunity:" + r["opportunity_id"]
+                            for r in run.get("research_evidence", [])
+                        ]
+                    )
+                ),
                 rationale="; ".join(s.rationale for s in selected),
                 exit_policy="Exit on enabled strategy invalidation, EMA reversal or ATR stop. Risk breaches hold inventory for review; no blind liquidation.",
                 stop_price=min(s.stop_price for s in selected),
@@ -316,7 +381,10 @@ class Engine:
             "reason": "No submitted execution to reconcile"
         }
 
-    async def run(self, request: RunRequest):
+    async def run(self, request: RunRequest, *, external_evidence=None):
+        evidence = [ResearchEvidence.model_validate(v) for v in (external_evidence or [])[:10]]
+        if any(v.symbol != request.symbol for v in evidence):
+            raise ValueError("Coordinated evidence must match the requested asset")
         if self.run_lock.locked():
             raise ValueError("An analysis run is already active")
         async with self.run_lock:
@@ -324,6 +392,7 @@ class Engine:
                 "id": uid(),
                 "symbol": request.symbol,
                 "mode": "SIMULATION",
+                "research_evidence": [v.model_dump(mode="json") for v in evidence],
                 "status": "RUNNING",
                 "started_at": now().isoformat(),
                 "ended_at": None,
