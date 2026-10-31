@@ -87,12 +87,14 @@ export function TradingDesk({
     localStorage.setItem("krono.desk.layout", JSON.stringify(layout));
   }, [layout]);
   useEffect(() => {
-    let active = true;
     setDetail(null);
     setIntent((current) =>
       current?.proposal.asset.symbol === selected ? current : null,
     );
     setView({ bars: 72, offset: 0 });
+  }, [selected, timeframe, status.providers.market]);
+  useEffect(() => {
+    let active = true;
     void Promise.all([
       api<MarketDetail>(`/markets/${selected}?timeframe=${timeframe}`),
       api<{ cap: string; presets: Record<string, string>; reason: string }>(

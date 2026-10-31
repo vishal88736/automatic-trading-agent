@@ -140,6 +140,11 @@ export interface NewsFeed {
   source: string;
   retrieved_at: string;
   error: string | null;
+  source_fetched_at?: string | null;
+  limited?: boolean;
+  max_results?: number | null;
+  provider_total?: number | null;
+  limitation?: string | null;
 }
 export interface Signal {
   strategy_id: string;
@@ -379,6 +384,12 @@ export interface Dashboard {
   scheduler: Scheduler;
   mode: string;
 }
+export interface ProviderRefresh {
+  ticker_seconds: number;
+  candles_seconds: number;
+  news_seconds: number;
+  failure_retry_seconds: number;
+}
 export interface Status {
   mode: string;
   live_enabled: boolean;
@@ -389,6 +400,7 @@ export interface Status {
     news: string;
     version: number;
     errors: Record<string, number>;
+    refresh?: ProviderRefresh;
   };
   exchange: {
     name: string;

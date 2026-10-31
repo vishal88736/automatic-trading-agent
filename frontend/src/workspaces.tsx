@@ -907,9 +907,46 @@ export function NewsWorkspace({ data, act }: WorkspaceProps) {
     [category, setCategory] = useState("ALL"),
     [breaking, setBreaking] = useState(false),
     [article, setArticle] = useState<Article | null>(null),
+    [breakingError, setBreakingError] = useState<string | null>(null),
     [breakingFeed, setBreakingFeed] = useState<typeof data.news | null>(null);
-  const feed = breaking && breakingFeed ? breakingFeed : data.news;
-  const articles = feed.articles.filter(
+  useEffect(() => {
+    if (!breaking) return;
+    let active = true,
+      pending = false;
+    const load = async () => {
+      if (pending) return;
+      pending = true;
+      try {
+        const result = await api<typeof data.news>("/news?breaking=true");
+        if (active) {
+          setBreakingFeed(result);
+          setBreakingError(null);
+        }
+      } catch (error) {
+        if (active)
+          setBreakingError(
+            error instanceof Error
+              ? error.message
+              : "Breaking feed unavailable",
+          );
+      } finally {
+        pending = false;
+      }
+    };
+    void load();
+    const timer = window.setInterval(() => void load(), 15000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [breaking, data.news.source]);
+  const matchingBreaking =
+      breakingFeed?.source === data.news.source ? breakingFeed : null,
+    loading = breaking && !matchingBreaking && !breakingError,
+    feed = breaking && matchingBreaking ? matchingBreaking : data.news;
+  const articles = (
+    breaking ? (matchingBreaking?.articles ?? []) : feed.articles
+  ).filter(
     (a) =>
       (asset === "ALL" || a.assets.includes(asset)) &&
       (category === "ALL" || a.category === category) &&
@@ -931,10 +968,27 @@ export function NewsWorkspace({ data, act }: WorkspaceProps) {
           </p>
         </div>
         <div className="right">
-          <StatusBadge value={feed.status} />
-          <small>Retrieved {timestamp(feed.retrieved_at)}</small>
+          <StatusBadge
+            value={
+              breakingError ? "UNAVAILABLE" : loading ? "LOADING" : feed.status
+            }
+          />
+          <small>
+            {loading
+              ? "Fetching breaking reports…"
+              : `Retrieved ${timestamp(feed.retrieved_at)}`}
+          </small>
         </div>
       </div>
+      {feed.limited && (
+        <p className="note" role="status">
+          Provider-limited feed
+          {feed.max_results != null
+            ? ` · up to ${feed.max_results} results`
+            : ""}
+          . {feed.limitation}
+        </p>
+      )}
       <div className="toolbar wrap">
         <label className="search-input">
           <Search size={16} />
@@ -968,14 +1022,7 @@ export function NewsWorkspace({ data, act }: WorkspaceProps) {
         </select>
         <button
           className={`button ${breaking ? "primary" : "secondary"}`}
-          onClick={() => {
-            setBreaking(!breaking);
-            if (!breaking)
-              void act(
-                async () => setBreakingFeed(await api("/news?breaking=true")),
-                "Breaking feed loaded",
-              );
-          }}
+          onClick={() => setBreaking(!breaking)}
         >
           <Zap size={14} />
           Breaking
@@ -989,7 +1036,12 @@ export function NewsWorkspace({ data, act }: WorkspaceProps) {
                 `/news/refresh?breaking=${breaking}`,
                 "POST",
               );
-              if (breaking) setBreakingFeed(latest);
+              if (breaking) {
+                setBreakingFeed(latest);
+                setBreakingError(null);
+              }
+              if (latest.status === "UNAVAILABLE")
+                throw new Error(latest.error ?? "News provider is unavailable");
             }, "News refresh completed")
           }
         >
@@ -1011,7 +1063,10 @@ export function NewsWorkspace({ data, act }: WorkspaceProps) {
           <Empty
             title="No matching stories"
             description={
-              feed.error ??
+              breakingError ??
+              (loading
+                ? "Fetching the documented breaking-news API."
+                : feed.error) ??
               "Change the filters or refresh the documented API feed."
             }
           />
@@ -2569,7 +2624,25 @@ export function Settings({ data, status, act, busy }: WorkspaceProps) {
     [interval, setIntervalValue] = useState(data.scheduler.interval_seconds),
     [auto, setAuto] = useState(false),
     [offset, setOffset] = useState(0),
-    [audit, setAudit] = useState(data.audit);
+    [audit, setAudit] = useState(data.audit),
+    [refreshSettings, setRefreshSettings] = useState<{
+      version: number;
+      config: NonNullable<Status["providers"]["refresh"]>;
+    } | null>(null),
+    [refreshError, setRefreshError] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    void api<NonNullable<typeof refreshSettings>>("/settings/provider-refresh")
+      .then((settings) => {
+        if (active) setRefreshSettings(settings);
+      })
+      .catch((error) => {
+        if (active) setRefreshError(error.message);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
   useEffect(() => {
     void api<typeof data.audit>(
       `/history/audit?limit=30&offset=${offset}`,
@@ -2633,6 +2706,78 @@ export function Settings({ data, status, act, busy }: WorkspaceProps) {
               <Check size={14} />
             </button>
           </div>
+        </Panel>
+        <Panel
+          title="Feed refresh"
+          subtitle="Short ticker cache, independent hourly history and bounded provider retries"
+        >
+          {refreshSettings ? (
+            <div className="settings-form">
+              {(
+                [
+                  ["ticker_seconds", "Price update interval (seconds)", 1, 60],
+                  [
+                    "candles_seconds",
+                    "Candle history cache (seconds)",
+                    60,
+                    3600,
+                  ],
+                  ["news_seconds", "News cache (seconds)", 15, 900],
+                  [
+                    "failure_retry_seconds",
+                    "Provider retry cooldown (seconds)",
+                    5,
+                    300,
+                  ],
+                ] as const
+              ).map(([key, label, min, max]) => (
+                <label key={key}>
+                  {label}
+                  <input
+                    aria-label={label}
+                    type="number"
+                    min={min}
+                    max={max}
+                    value={refreshSettings.config[key]}
+                    onChange={(event) =>
+                      setRefreshSettings({
+                        ...refreshSettings,
+                        config: {
+                          ...refreshSettings.config,
+                          [key]: Number(event.target.value),
+                        },
+                      })
+                    }
+                  />
+                </label>
+              ))}
+              <p className="note">
+                Polled reference prices. Closed hourly candles and news use
+                separate caches. A stale fallback retains its original
+                timestamps.
+              </p>
+              <button
+                className="button secondary"
+                disabled={busy}
+                onClick={() =>
+                  void act(async () => {
+                    const saved = await api<
+                      NonNullable<typeof refreshSettings>
+                    >("/settings/provider-refresh", "PUT", {
+                      expected_version: refreshSettings.version,
+                      config: refreshSettings.config,
+                    });
+                    setRefreshSettings(saved);
+                    setRefreshError(null);
+                  }, "Feed refresh settings saved")
+                }
+              >
+                Save feed refresh <Check size={14} />
+              </button>
+            </div>
+          ) : (
+            <p>{refreshError ?? "Loading feed settings…"}</p>
+          )}
         </Panel>
         <Panel
           title="Autonomous analysis"

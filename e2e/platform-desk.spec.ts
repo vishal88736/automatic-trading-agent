@@ -1,4 +1,73 @@
 import { test, expect } from "@playwright/test";
+
+test("Feed settings persist and incoming price observations preserve the chart viewport", async ({
+  page,
+}) => {
+  await page.route("**/api/dashboard", async (route) => {
+    const response = await route.fetch();
+    const data = await response.json();
+    // Explicit UI contract fixture: simulate new observation times without trading.
+    data.markets[0].price_at = new Date().toISOString();
+    await route.fulfill({ response, json: data });
+  });
+  await page.goto("/#/settings");
+  const input = page.getByLabel("Price update interval (seconds)");
+  await input.fill("1");
+  await page.getByRole("button", { name: "Save feed refresh" }).click();
+  await page.reload();
+  await expect(input).toHaveValue("1");
+  await page.goto("/#/desk");
+  const chart = page.locator(".desk-chart-panel svg.candles");
+  await expect(chart).toHaveAttribute("data-visible-bars", "72");
+  await page.getByLabel("Zoom in chart").click();
+  const zoomed = await chart.getAttribute("data-visible-bars");
+  await page.waitForResponse(
+    (response) => response.url().endsWith("/api/dashboard") && response.ok(),
+  );
+  await expect(chart).toHaveAttribute("data-visible-bars", zoomed!);
+  await page.goto("/#/settings");
+  await input.fill("5");
+  await page.getByRole("button", { name: "Save feed refresh" }).click();
+  await expect(page.getByRole("status")).toContainText(
+    "Feed refresh settings saved",
+  );
+});
+
+test("News shows provider allowance and polls the selected breaking feed", async ({
+  page,
+}) => {
+  let breakingRequests = 0;
+  await page.route("**/api/dashboard", async (route) => {
+    const response = await route.fetch();
+    const data = await response.json();
+    data.news.limited = true;
+    data.news.max_results = 3;
+    data.news.limitation = "Fixture provider allowance";
+    await route.fulfill({ response, json: data });
+  });
+  await page.route("**/api/news?breaking=true", async (route) => {
+    const response = await route.fetch();
+    const data = await response.json();
+    data.articles = [
+      {
+        ...data.articles[0],
+        title: `Fixture breaking update ${++breakingRequests}`,
+        urgency: "breaking",
+      },
+    ];
+    await route.fulfill({ response, json: data });
+  });
+  await page.goto("/#/news");
+  await expect(
+    page.getByText(/Provider-limited feed.*up to 3 results/),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Breaking", exact: true }).click();
+  await expect(page.getByText("Fixture breaking update 1")).toBeVisible();
+  await expect(page.getByText("Fixture breaking update 2")).toBeVisible({
+    timeout: 20000,
+  });
+});
+
 test("Trading Desk charts, validated indicators, alerts and sizing are functional", async ({
   page,
 }) => {

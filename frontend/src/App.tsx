@@ -324,9 +324,12 @@ export default function App() {
   }, []);
   useEffect(() => {
     void reload();
-    const id = setInterval(() => void reload(), 5000);
+    const id = setInterval(
+      () => void reload(),
+      (status?.providers.refresh?.ticker_seconds ?? 5) * 1000,
+    );
     return () => clearInterval(id);
-  }, [reload]);
+  }, [reload, status?.providers.refresh?.ticker_seconds]);
   useEffect(() => {
     if (CLOUD_PLATFORM) return;
     let alive = true;
