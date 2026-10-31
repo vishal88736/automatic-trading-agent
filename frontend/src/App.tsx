@@ -30,6 +30,9 @@ import type { LucideIcon } from "lucide-react";
 import { api } from "./api";
 import { KronoBrand, KronoMark } from "./brand";
 import { WorkspaceHighlights, WorkspaceSearch } from "./discovery";
+import { PlatformWorkspace } from "./platform/Platform";
+import { TradingDesk } from "./TradingDesk";
+import { platform } from "./platform/client";
 import type {
   Dashboard,
   Intent,
@@ -56,6 +59,8 @@ import {
 
 const NAV: { id: Page; name: string; icon: LucideIcon; group?: string }[] = [
   { id: "overview", name: "Overview", icon: LayoutDashboard },
+  { id: "desk", name: "Trading Desk", icon: Activity },
+  { id: "platform", name: "Agent Platform", icon: Bot },
   { id: "markets", name: "Markets", icon: Activity },
   { id: "news", name: "News Intelligence", icon: Newspaper },
   { id: "strategies", name: "Strategies", icon: SlidersHorizontal },
@@ -71,7 +76,20 @@ const NAV: { id: Page; name: string; icon: LucideIcon; group?: string }[] = [
   { id: "wallet", name: "Wallet", icon: Wallet },
   { id: "settings", name: "Settings", icon: Settings2 },
 ];
+const CLOUD_PLATFORM = import.meta.env.VITE_KRONO_PLATFORM === "true";
+const focusPlatform = () =>
+  document
+    .querySelector<HTMLTextAreaElement>(".platform-composer textarea")
+    ?.focus();
 const TITLES: Record<Page, [string, string]> = {
+  platform: [
+    "Agent platform",
+    "Create, deploy and operate your agents through a private AWS workspace.",
+  ],
+  desk: [
+    "Trading desk",
+    "Price action, risk-aware tickets and recorded execution in one workstation.",
+  ],
   overview: [
     "Command center",
     "Your market, research and execution — in one auditable workspace.",
@@ -116,7 +134,11 @@ const TITLES: Record<Page, [string, string]> = {
 
 function initialPage(): Page {
   const hash = window.location.hash.replace("#/", "");
-  return NAV.some((n) => n.id === hash) ? (hash as Page) : "overview";
+  return import.meta.env.VITE_KRONO_PLATFORM === "true"
+    ? "platform"
+    : NAV.some((n) => n.id === hash)
+      ? (hash as Page)
+      : "overview";
 }
 
 interface ChatMessage {
@@ -281,6 +303,7 @@ export default function App() {
     window.scrollTo({ top: 0 });
   }, []);
   const reload = useCallback(async () => {
+    if (CLOUD_PLATFORM) return;
     if (fetching.current) return;
     fetching.current = true;
     try {
@@ -305,6 +328,7 @@ export default function App() {
     return () => clearInterval(id);
   }, [reload]);
   useEffect(() => {
+    if (CLOUD_PLATFORM) return;
     let alive = true;
     void api<MarketDetail>(`/markets/${selected}`)
       .then((m) => {
@@ -330,7 +354,9 @@ export default function App() {
     const listener = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key === "k") {
         event.preventDefault();
-        setChat((v) => !v);
+        if (CLOUD_PLATFORM || window.location.hash === "#/platform")
+          focusPlatform();
+        else setChat((v) => !v);
       }
       if (event.key === "Escape") {
         setSidebar(false);
@@ -445,26 +471,30 @@ export default function App() {
         </button>
         <nav aria-label="Main navigation">
           <span className="nav-section">WORKSPACE</span>
-          {NAV.map((item) => (
-            <div key={item.id}>
-              {item.group && <span className="nav-section">{item.group}</span>}
-              <button
-                className={page === item.id ? "nav-item active" : "nav-item"}
-                onClick={() => navigate(item.id)}
-                aria-label={item.name}
-                title={item.name}
-                aria-current={page === item.id ? "page" : undefined}
-              >
-                <item.icon size={17} />
-                <span className="nav-label">{item.name}</span>
-                {item.id === "observatory" && (
-                  <span
-                    className={`nav-dot ${data?.scheduler.state === "RUNNING" ? "running" : ""}`}
-                  />
+          {NAV.filter((item) => !CLOUD_PLATFORM || item.id === "platform").map(
+            (item) => (
+              <div key={item.id}>
+                {item.group && (
+                  <span className="nav-section">{item.group}</span>
                 )}
-              </button>
-            </div>
-          ))}
+                <button
+                  className={page === item.id ? "nav-item active" : "nav-item"}
+                  onClick={() => navigate(item.id)}
+                  aria-label={item.name}
+                  title={item.name}
+                  aria-current={page === item.id ? "page" : undefined}
+                >
+                  <item.icon size={17} />
+                  <span className="nav-label">{item.name}</span>
+                  {item.id === "observatory" && (
+                    <span
+                      className={`nav-dot ${data?.scheduler.state === "RUNNING" ? "running" : ""}`}
+                    />
+                  )}
+                </button>
+              </div>
+            ),
+          )}
         </nav>
         <div className="sidebar-bottom">
           <div className="sidebar-agent">
@@ -551,33 +581,42 @@ export default function App() {
             <span className="network-pill">
               <span className="network-dot" />
               <Globe2 size={13} />
-              <span>HSKChain</span>
-              <span className="muted">177</span>
+              <span>{page === "platform" ? "AWS workspace" : "HSKChain"}</span>
+              <span className="muted">
+                {page === "platform" ? "Bedrock" : "177"}
+              </span>
             </span>
             <span className="freshness">
               <span className="data-dot" />
-              {status?.providers.market === "fixture"
-                ? "FIXTURE DATA"
-                : "REFERENCE DATA"}
+              {page === "platform"
+                ? "TENANT WORKSPACE"
+                : status?.providers.market === "fixture"
+                  ? "FIXTURE DATA"
+                  : "REFERENCE DATA"}
             </span>
             <span className="mode-label">
               <FlaskConical size={12} />
               SIMULATION
             </span>
-            <button
-              className="button secondary header-wallet"
-              onClick={() => navigate("wallet")}
-            >
-              <Wallet size={13} />
-              {account
-                ? `${account.slice(0, 6)}…${account.slice(-4)}`
-                : "Connect wallet"}
-            </button>
+            {page !== "platform" && (
+              <button
+                className="button secondary header-wallet"
+                onClick={() => navigate("wallet")}
+              >
+                <Wallet size={13} />
+                {account
+                  ? `${account.slice(0, 6)}…${account.slice(-4)}`
+                  : "Connect wallet"}
+              </button>
+            )}
             <button
               className="emergency-button"
               onClick={() =>
                 void act(
-                  () => api("/emergency-stop", "POST"),
+                  () =>
+                    page === "platform"
+                      ? platform("/emergency-stop", "POST", {})
+                      : api("/emergency-stop", "POST"),
                   "Emergency stop latched. New executions are blocked.",
                 )
               }
@@ -616,7 +655,9 @@ export default function App() {
               <div className="page-actions">
                 <button
                   className="button secondary assistant-shortcut"
-                  onClick={() => setChat(true)}
+                  onClick={() =>
+                    page === "platform" ? focusPlatform() : setChat(true)
+                  }
                 >
                   <MessageSquare size={14} />
                   Ask agent
@@ -624,27 +665,31 @@ export default function App() {
                     <Command size={10} />K
                   </kbd>
                 </button>
-                <select
-                  aria-label="Analysis asset"
-                  value={selected}
-                  onChange={(e) => setSelected(e.target.value)}
-                >
-                  {["BTC", "ETH", "SOL"].map((s) => (
-                    <option key={s}>{s}</option>
-                  ))}
-                </select>
-                <button
-                  className="button primary analyze-button"
-                  disabled={busy || !data}
-                  onClick={analyze}
-                >
-                  {busy ? (
-                    <LoaderCircle size={14} className="spin" />
-                  ) : (
-                    <Activity size={14} />
-                  )}
-                  <span>{busy ? "Processing…" : "Run analysis"}</span>
-                </button>
+                {page !== "platform" && (
+                  <>
+                    <select
+                      aria-label="Analysis asset"
+                      value={selected}
+                      onChange={(e) => setSelected(e.target.value)}
+                    >
+                      {["BTC", "ETH", "SOL"].map((s) => (
+                        <option key={s}>{s}</option>
+                      ))}
+                    </select>
+                    <button
+                      className="button primary analyze-button"
+                      disabled={busy || !data}
+                      onClick={analyze}
+                    >
+                      {busy ? (
+                        <LoaderCircle size={14} className="spin" />
+                      ) : (
+                        <Activity size={14} />
+                      )}
+                      <span>{busy ? "Processing…" : "Run analysis"}</span>
+                    </button>
+                  </>
+                )}
               </div>
             </div>
             {data && (page === "overview" || page === "strategies") && (
@@ -652,7 +697,7 @@ export default function App() {
             )}
             {data && page === "overview" && <PortfolioMetrics data={data} />}
           </section>
-          {connectionError && (
+          {connectionError && page !== "platform" && (
             <div className="connection-warning" role="alert">
               Backend connection interrupted: {connectionError}.{" "}
               {data
@@ -674,7 +719,9 @@ export default function App() {
               </button>
             </div>
           )}
-          {base ? (
+          {page === "platform" ? (
+            <PlatformWorkspace />
+          ) : base ? (
             <>
               {(status!.providers.market === "fixture" ||
                 status!.providers.news === "fixture") && (
@@ -698,6 +745,7 @@ export default function App() {
                 </div>
               )}
               {page === "overview" && <Overview {...base} detail={detail} />}{" "}
+              {page === "desk" && <TradingDesk {...base} />}
               {page === "markets" && <Markets {...base} detail={detail} />}{" "}
               {page === "news" && <NewsWorkspace {...base} />}{" "}
               {page === "strategies" && <Strategies {...base} />}{" "}
@@ -741,7 +789,7 @@ export default function App() {
           </footer>
         </main>
       </div>
-      {!chat && (
+      {!chat && page !== "platform" && (
         <button
           className="chat-launcher"
           onClick={() => setChat(true)}
@@ -752,7 +800,9 @@ export default function App() {
           <kbd>⌘ K</kbd>
         </button>
       )}
-      {chat && <Chat close={() => setChat(false)} act={act} />}{" "}
+      {chat && page !== "platform" && (
+        <Chat close={() => setChat(false)} act={act} />
+      )}{" "}
       {search && (
         <WorkspaceSearch
           data={data}

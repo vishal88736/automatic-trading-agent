@@ -103,7 +103,7 @@ test("strategy configuration is versioned and backtests report measured holdout 
     .getByRole("button", { name: "Strategies", exact: true })
     .click();
   const card = page.locator(".strategy-card").filter({
-    has: page.getByRole("heading", { name: "Trend & momentum", exact: true }),
+    has: page.getByRole("heading", { name: "Momentum Trading", exact: true }),
   });
   await card.getByRole("button", { name: "Configure" }).click();
   await page.getByLabel("Fast EMA period", { exact: true }).fill("13");
@@ -117,7 +117,7 @@ test("strategy configuration is versioned and backtests report measured holdout 
       .fast_period,
   ).toBe(13);
   await card
-    .getByRole("button", { name: "Backtest Trend & momentum", exact: true })
+    .getByRole("button", { name: "Backtest Momentum Trading", exact: true })
     .click();
   await expect(
     page.getByRole("heading", { name: "Chronological strategy comparison" }),
@@ -445,19 +445,19 @@ test("discovery filters, sorting, measured metrics and view controls use real re
     .getByRole("navigation")
     .getByRole("button", { name: "Strategies", exact: true })
     .click();
-  await expect(page.locator(".strategy-card")).toHaveCount(4);
+  await expect(page.locator(".strategy-card")).toHaveCount(5);
   await expect(
     page
       .locator(".strategy-card .performance-preview figcaption")
       .filter({ hasText: "not strategy P&L" }),
-  ).toHaveCount(4);
+  ).toHaveCount(5);
   expect(
     await page.locator(".strategy-performance strong").allTextContents(),
-  ).toEqual(Array(8).fill("—"));
+  ).toEqual(Array(10).fill("—"));
   await page.getByRole("button", { name: "Momentum", exact: true }).click();
   await expect(page.locator(".strategy-card")).toHaveCount(1);
   await expect(page.locator(".strategy-card h2")).toHaveText(
-    "Trend & momentum",
+    "Momentum Trading",
   );
   const before = await (await page.request.get("/api/dashboard")).json();
   const count = before.strategies.filter(
@@ -467,7 +467,7 @@ test("discovery filters, sorting, measured metrics and view controls use real re
     (strategy: { id: string }) => strategy.id === "momentum_v1",
   ).config.enabled;
   const toggle = page.getByRole("switch", {
-    name: "Enable Trend & momentum",
+    name: "Enable Momentum Trading",
     exact: true,
   });
   await toggle.click();
@@ -499,7 +499,7 @@ test("discovery filters, sorting, measured metrics and view controls use real re
   await expect(page.locator(".strategy-card")).toHaveCount(1);
   await expect(
     page.getByRole("button", {
-      name: "Backtest Price-spread research",
+      name: "Backtest Arbitrage Detection",
       exact: true,
     }),
   ).toBeDisabled();

@@ -1049,7 +1049,8 @@ export function Strategies({
     ["all", "All strategies"],
     ["momentum_v1", "Momentum"],
     ["mean_reversion_v1", "Reversion"],
-    ["news_aware_v1", "News-aware"],
+    ["trend_following_v1", "Trend"],
+    ["breakout_v1", "Breakout"],
     ["spread_research_v1", "Spread"],
   ];
   const filtered = data.strategies.filter(

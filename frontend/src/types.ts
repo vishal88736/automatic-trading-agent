@@ -1,6 +1,8 @@
 export type Amount = string | number;
 export type Page =
   | "overview"
+  | "desk"
+  | "platform"
   | "markets"
   | "news"
   | "strategies"
@@ -67,6 +69,7 @@ export interface MarketSummary {
   sparkline: string[];
 }
 export interface MarketDetail {
+  chart_indicators?: ChartIndicators;
   market: {
     asset: Token;
     candles: Candle[];
@@ -78,6 +81,37 @@ export interface MarketDetail {
     as_of: string;
   };
   summary: MarketSummary;
+}
+export interface ChartPoint {
+  timestamp: string;
+  ema12: number | null;
+  ema26: number | null;
+  rsi14: number | null;
+  macd: number | null;
+  signal: number | null;
+  histogram: number | null;
+}
+export interface ChartIndicators {
+  source: string;
+  timeframe: string;
+  status: string;
+  reason: string | null;
+  method: string;
+  points: ChartPoint[];
+}
+export interface PriceAlert {
+  id: string;
+  symbol: string;
+  condition: "ABOVE" | "BELOW";
+  target: Amount;
+  status: "ARMED" | "TRIGGERED";
+  created_at: string;
+  observed_at: string | null;
+  last_price: Amount | null;
+  source: string | null;
+  data_status: string | null;
+  triggered_at: string | null;
+  triggered_price: Amount | null;
 }
 export interface Article {
   id: string;

@@ -4,6 +4,15 @@ import { spawn } from "node:child_process";
 
 mkdirSync(".runtime", { recursive: true });
 const directory = mkdtempSync(resolve(".runtime/e2e-"));
+const platform = spawn("node", ["--import", "tsx", "e2e/platform-server.ts"], {
+  stdio: "inherit",
+  env: {
+    ...process.env,
+    TERMINAL_TEST_RUN: "1",
+    NODE_ENV: "test",
+    AWS_EC2_METADATA_DISABLED: "true",
+  },
+});
 const child = spawn("node", ["scripts/dev.mjs"], {
   stdio: "inherit",
   env: {
@@ -20,8 +29,22 @@ const child = spawn("node", ["scripts/dev.mjs"], {
     TERMINAL_PORT: "8791",
     TERMINAL_UI_PORT: "5179",
     TERMINAL_BACKEND_URL: "http://127.0.0.1:8791",
+    KRONO_PLATFORM_URL: "http://127.0.0.1:8792",
   },
 });
-process.on("SIGTERM", () => child.kill("SIGTERM"));
-process.on("SIGINT", () => child.kill("SIGINT"));
-child.on("exit", (code) => process.exit(code ?? 1));
+process.on("SIGTERM", () => {
+  child.kill("SIGTERM");
+  platform.kill("SIGTERM");
+});
+process.on("SIGINT", () => {
+  child.kill("SIGINT");
+  platform.kill("SIGINT");
+});
+platform.on("exit", (code) => {
+  child.kill("SIGTERM");
+  process.exit(code ?? 1);
+});
+child.on("exit", (code) => {
+  platform.kill("SIGTERM");
+  process.exit(code ?? 1);
+});
