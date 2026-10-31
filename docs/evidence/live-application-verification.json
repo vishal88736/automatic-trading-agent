@@ -1,0 +1,52 @@
+{
+  "verified_at": "2026-10-31T14:56:29.822754+00:00",
+  "scope": "running local application; public read-only data; no trade requests",
+  "mode": "SIMULATION",
+  "live_execution_enabled": false,
+  "emergency_stop_retained": true,
+  "refresh_policy": {
+    "ticker_seconds": 5,
+    "candles_seconds": 300,
+    "news_seconds": 60,
+    "failure_retry_seconds": 15
+  },
+  "markets": [
+    {
+      "symbol": "BTC",
+      "status": "AVAILABLE",
+      "source": "coinbase_exchange",
+      "price": "77346.55",
+      "price_at": "2026-10-31T14:56:28.022949+00:00",
+      "updated_since_first_request": true
+    },
+    {
+      "symbol": "ETH",
+      "status": "AVAILABLE",
+      "source": "coinbase_exchange",
+      "price": "2245.42",
+      "price_at": "2026-10-31T14:56:27.871289+00:00",
+      "updated_since_first_request": true
+    },
+    {
+      "symbol": "SOL",
+      "status": "AVAILABLE",
+      "source": "coinbase_exchange",
+      "price": "95.62",
+      "price_at": "2026-10-31T14:56:26.631831+00:00",
+      "updated_since_first_request": true
+    }
+  ],
+  "news": {
+    "status": "AVAILABLE",
+    "source": "cryptocurrency.cv",
+    "retrieved_at": "2026-10-31T14:55:46.324597Z",
+    "source_fetched_at": "2026-10-31T14:55:46.162000Z",
+    "limited": true,
+    "max_results": 3,
+    "provider_total": 2066
+  },
+  "news_articles": 3,
+  "breaking_status": "AVAILABLE",
+  "breaking_articles": 10,
+  "signing_attempted": false
+}

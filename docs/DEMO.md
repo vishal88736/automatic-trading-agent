@@ -1,6 +1,6 @@
 # Reproducible demo and operator workflow
 
-Run the setup commands in the root README. Keep the initial fixture providers selected for the deterministic demonstration. The fixed scenario contains 238 consecutive hourly bars starting 2026-01-10 UTC, synthetic publisher stories and assumed simulation liquidity. Wall-clock retrieval/authorization times remain separate from the virtual fixture analysis clock.
+Run the setup commands in the root README. Explicitly select both fixture providers in Settings before trading for the deterministic demonstration; normal startup defaults to read-only live feeds. The fixed scenario contains 238 consecutive hourly bars starting 2026-01-10 UTC, synthetic publisher stories and assumed simulation liquidity. Wall-clock retrieval/authorization times remain separate from the virtual fixture analysis clock.
 
 ## Five-minute walkthrough
 

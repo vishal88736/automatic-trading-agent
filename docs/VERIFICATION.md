@@ -1,5 +1,22 @@
 # Verification record
 
+## Backend repair and live-data checks — 2026-10-31
+
+The running local workspace was inspected through its authenticated API. It had persisted fixture providers; after confirming no fills existed, the provider selection was changed through the versioned settings endpoint. The application was restarted with the repaired backend while retaining its emergency stop. No trade, signing or blockchain submission request was made.
+
+Current verification:
+
+- **159 Python tests and 10 subtests**: preserved numerical suites plus provider refresh/outage behavior, configuration validation, source-bound previews, reference-price changes, scheduler resume, complete financial history, observed drawdown peaks and nested transaction atomicity.
+- **19 platform/infrastructure tests**: adds safe malformed-body/404 errors, concurrent profile initialization and correct DynamoDB cancellation classification to existing tenant/approval/runtime checks.
+- **14 Chromium workflows**: adds saved feed intervals, chart viewport persistence across incoming observations, visible provider allowance and selected breaking-feed polling.
+- Strict frontend/platform types, production frontend build, AWS synthesis, Ruff, Prettier, source-reference consistency and publication checks passed.
+- The built application/restart simulation passed against a separate database. Real Chromium also loaded the running local market/news/settings screens without page errors.
+- A read-only application probe observed AVAILABLE Coinbase BTC/ETH/SOL prices with newer trade timestamps after the configured five-second cache interval, plus AVAILABLE latest/breaking news. The latest endpoint explicitly reported a three-result free-tier limit. [Sanitized application report](evidence/live-application-verification.json).
+
+The nine-page [codebase guide](codebase/README.md) contains the directory/module map, generated API and symbol reference, configuration precedence, debugging steps and [audit findings](codebase/08_BACKEND_AUDIT.md). Operational defaults now live in validated `config/runtime.json`; mandatory authorization, ownership and financial hard caps remain trusted code.
+
+Current provider availability is an observation at the report timestamp, not a service guarantee or verification of the articles' factual accuracy. The upstream aggregate may include macro/general articles; asset relevance remains content-derived and those stories cannot independently authorize trading. Real AWS deployment/model/IAM checks and HSKSwap live execution remain unverified/disabled. CI must be checked for the exact pushed repair commit; the successful implementation run below predates this audit.
+
 ## KRONO 2.0 setup verification — 2026-10-31
 
 These checks ran locally without AWS credentials or live funds. The cloud services use actual AWS SDK integrations and infrastructure definitions; test doubles validate their contracts and failure handling rather than proving an account-level deployment.

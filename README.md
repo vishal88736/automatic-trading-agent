@@ -39,7 +39,7 @@ Open **http://127.0.0.1:8787**. To load `.env` in this command, use `uv run --fr
 
 ## A reproducible demo
 
-1. Keep the initial **synthetic fixtures** selected. Simulation starts with a $10,000 USD ledger and no owned positions. Seeded prices and news are visibly labeled and are not current market reports.
+1. For the deterministic walkthrough, explicitly select **synthetic fixtures** for both providers before trading. Normal startup now uses live reference feeds with simulated execution. Simulation capital comes from `config/runtime.json` (default $10,000), with no owned positions. Fixture prices/stories are not current market reports.
 2. Click **Analyze BTC**. Inspect the real stage records in **Agent Observatory**, including the indicator values, deterministic signals and independent risk decision. With no model configured, the LLM stage says **SKIPPED**.
 3. Open **Execution History**. Review the approved amount, exact input, minimum output, costs, quote age and exit policy. Quotes expire after 20 seconds; refresh an expired preview. A proposal older than 120 seconds needs a new analysis.
 4. Click **Authorize simulated fill**. The ledger records one fill, updates cash/holdings/fees/P&L, and records a `sim:` receipt. There is no blockchain transaction hash.
@@ -66,7 +66,9 @@ Full walkthrough, including autonomous simulation and restart recovery: [DEMO.md
 
 ## Data, modes and permissions
 
-Defaults are explicitly seeded development fixtures. Use **Settings → Data providers** for hosted news or Coinbase reference data. News search/category/asset filters operate on normalized loaded feeds; they do not pretend to be historical article search. Changing market sources after fills requires a new simulation database to preserve comparable P&L provenance.
+New workspaces default to Coinbase reference prices and cryptocurrency.cv news while execution remains SIMULATION. Existing saved provider settings take precedence over environment defaults: select **Settings → Data providers** to change them. **Settings → Feed refresh** configures short ticker caching separately from closed hourly history and news. News search/category/asset filters operate on normalized loaded feeds; they do not pretend to be historical article search. Provider free-tier limits are shown when present. Changing market sources after fills requires a new simulation database to preserve comparable P&L provenance.
+
+Read [Understanding KRONO](docs/codebase/README.md) for the directory/module guide, actual API/source reference, configuration precedence, debugging workflow and backend audit. Public operational defaults live in [config/runtime.json](config/runtime.json); mandatory risk and authorization safeguards remain in trusted code.
 
 Reference symbols such as BTC are distinct from HSKChain tokens such as WBTC. Documented token addresses, chain IDs, decimals and verification status are separate fields. Unknown decimals remain unknown. A read-only wallet connection never establishes cost basis, authenticates ownership or merges real balances into simulated P&L.
 

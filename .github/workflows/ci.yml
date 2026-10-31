@@ -45,6 +45,7 @@ jobs:
         run: |
           .venv/bin/ruff check backend scripts
           .venv/bin/ruff format --check backend scripts
+          .venv/bin/python -m scripts.generate_code_reference --check
           .venv/bin/python -m pytest backend/tests legacy_tests/test_regime_detection.py legacy_tests/test_backtest_engine.py legacy_tests/test_portfolio_intelligence.py -q
       - name: Frontend formatting, strict types and production build
         run: |
