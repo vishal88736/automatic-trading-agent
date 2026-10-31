@@ -1,0 +1,47 @@
+name: AWS container images
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        required: true
+        default: development
+        options: [development, staging, production]
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  images:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: ${{ inputs.environment }}
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
+      AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+      KRONO_ENV: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: aws-actions/configure-aws-credentials@4a1596c86fd706dc0521e32f0121ad1a6d1adb74 # v6
+        with:
+          role-to-assume: ${{ vars.AWS_IMAGE_PUBLISHER_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          allowed-account-ids: ${{ env.AWS_ACCOUNT_ID }}
+          role-session-name: krono-images-${{ github.run_id }}
+      - name: Build and publish immutable images
+        shell: bash
+        run: |
+          set -euo pipefail
+          registry="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          tag="sha-${GITHUB_SHA}-${GITHUB_RUN_ID}"
+          aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$registry"
+          for component in api agent; do
+            repository="krono-${KRONO_ENV}/${component}"
+            docker build --file "deploy/aws/Dockerfile.${component}" --tag "${registry}/${repository}:${tag}" .
+            docker push "${registry}/${repository}:${tag}"
+            digest=$(aws ecr describe-images --repository-name "$repository" --image-ids "imageTag=$tag" --query 'imageDetails[0].imageDigest' --output text)
+            echo "${component}: ${registry}/${repository}@${digest}" >> "$GITHUB_STEP_SUMMARY"
+          done
+          docker logout "$registry"

@@ -12,6 +12,7 @@ dependencies = [
   "langgraph>=0.6.6,<0.7",
   "langchain-core>=0.3.84,<1",
   "backtrader>=1.9.78",
+  "boto3>=1.40,<2",
 ]
 
 [dependency-groups]

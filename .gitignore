@@ -46,3 +46,9 @@ test-results/
 .env.local
 *.egg-info/
 .venv-legacy/
+cdk.out/
+*.tfstate*
+.terraform/
+cdk.context.json
+infra/dist/
+deploy/aws/outputs*.json

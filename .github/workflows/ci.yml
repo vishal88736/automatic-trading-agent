@@ -50,6 +50,18 @@ jobs:
         run: |
           node_modules/.bin/prettier --check frontend/src frontend/vite.config.ts frontend/tsconfig.json playwright.config.ts e2e scripts/dev.mjs package.json
           npm run build
+      - name: AWS control plane, isolation and infrastructure
+        run: |
+          npm run check:platform
+          npm run build:platform
+          npm run test:platform
+          npm run aws:synth
+      - name: Build deployment containers without AWS credentials
+        run: |
+          docker build -f deploy/aws/Dockerfile.api -t krono-api:validation .
+          docker run --rm --read-only --entrypoint node krono-api:validation -e "try { require.resolve('aws-cdk-lib'); process.exit(1) } catch(e) { if(e.code !== 'MODULE_NOT_FOUND') throw e; console.log('Infrastructure tooling excluded from the API image') }"
+          docker build -f deploy/aws/Dockerfile.agent -t krono-agent:validation .
+          docker run --rm --read-only -v krono-agent-validation:/app/.runtime --entrypoint python krono-agent:validation -c "from pathlib import Path; from backend.engine import Engine; p=Path('/app/.runtime/check'); p.write_text('ok'); p.unlink(); print('Non-root worker imports and writable runtime volume verified')"
       - name: Install isolated browser
         run: npx playwright install --with-deps chromium
       - name: Chromium simulation workflows

@@ -1,0 +1,19 @@
+FROM node:22-bookworm-slim AS build
+WORKDIR /app
+COPY package.json package-lock.json .npmrc ./
+RUN npm ci --ignore-scripts
+COPY backend/tsconfig.json backend/tsconfig.json
+COPY backend/src backend/src
+RUN node_modules/.bin/tsc -p backend/tsconfig.json
+RUN npm prune --omit=dev --ignore-scripts
+FROM node:22-bookworm-slim
+ENV NODE_ENV=production
+WORKDIR /app
+RUN groupadd -g 10001 krono && useradd -u 10001 -g krono krono
+COPY --from=build /app/node_modules node_modules
+COPY --from=build /app/backend/dist backend/dist
+COPY package.json ./
+USER 10001
+EXPOSE 8790
+HEALTHCHECK --interval=30s --timeout=5s CMD node -e "fetch('http://127.0.0.1:8790/platform/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+CMD ["node","backend/dist/server.js"]
