@@ -55,6 +55,7 @@ jobs:
           npm run check:platform
           npm run build:platform
           npm run test:platform
+          cp deploy/aws/.env.example deploy/aws/.env
           npm run aws:synth
       - name: Build deployment containers without AWS credentials
         run: |

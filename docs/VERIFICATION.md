@@ -17,7 +17,7 @@ These checks ran locally without AWS credentials or live funds. The cloud servic
 
 Actual Chromium renders of the [Trading Desk](assets/krono-trading-desk.png) and [Agent Platform test fixture](assets/krono-agent-platform-fixture.png) retain their source/test disclosures. No cloud balance, heartbeat or model response is fabricated to fill empty states.
 
-Container builds are included in GitHub Actions because the local Docker socket was inaccessible. Check the pushed commit's Actions result before treating those builds as verified. AWS account deployment, email delivery, Bedrock access, real ECS task health, IAM enforcement in AWS and cloud recovery remain **pending operator configuration and acceptance testing**. See [AWS setup and acceptance run](AWS_SETUP.md). HSKSwap live trading remains disabled; exchange PAPER mode is unavailable. No profitability or production-readiness claim is made.
+GitHub Actions passed for implementation commit `6967ac2`, including both deployment container builds, removal of infrastructure tooling from the API image, and the non-root Python worker's imports/writable runtime volume. [Validation run](https://github.com/vishal88736/automatic-trading-agent/actions/runs/41198929313). The local Docker socket was inaccessible. AWS account deployment, email delivery, Bedrock access, real ECS task health, IAM enforcement in AWS and cloud recovery remain **pending operator configuration and acceptance testing**. See [AWS setup and acceptance run](AWS_SETUP.md). HSKSwap live trading remains disabled; exchange PAPER mode is unavailable. No profitability or production-readiness claim is made.
 
 ## Historical terminal verification — 2026-10-28 to 2026-10-30
 

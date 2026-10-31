@@ -8,7 +8,10 @@ if (!["development", "staging", "production"].includes(stage))
 new KronoStack(app, `krono-${stage}`, {
   stage: stage as "development" | "staging" | "production",
   env: {
-    account: process.env.CDK_DEFAULT_ACCOUNT ?? process.env.AWS_ACCOUNT_ID,
+    account:
+      process.env.AWS_ACCOUNT_ID ||
+      process.env.CDK_DEFAULT_ACCOUNT ||
+      undefined,
     region: process.env.AWS_REGION ?? "ap-south-1",
   },
   domainName: process.env.KRONO_DOMAIN_NAME,
