@@ -1,5 +1,7 @@
 # Krono — an auditable crypto trading workspace
 
+**AEGIS Phase 1:** a separate, read-only HSKSwap data package now verifies the current V3 factory/router/quoter, token decimals and four mainnet pools. Run `make setup && make prices`; `make verify-discovery` compares RPC and HSKSwap subgraph state at the same block. See [DISCOVERY.md](docs/DISCOVERY.md) for addresses, ABIs, live observations, limitations and the pending visual UI acceptance check. AEGIS trading, contracts and deployments are not implemented yet; the existing Krono application remains available below.
+
 **KRONO 2.0:** a Cognito/DynamoDB tenant control plane, centralized Bedrock MiniMax provider, conversational agent drafts and isolated ECS runtime infrastructure have been added. Configure your account using [the AWS setup guide](docs/AWS_SETUP.md) and [environment template](deploy/aws/.env.example). Cloud deployment and model access remain pending account configuration; the local simulation terminal still runs independently.
 
 Research → deterministic strategy → independent risk → quote preview → human authorization → simulated execution → reconciled portfolio.

@@ -1,0 +1,108 @@
+{
+  "observed_at": "2026-10-31T17:47:13.735376+00:00",
+  "chain_id": 177,
+  "block_number": 29560841,
+  "block_hash": "0x0c9d0fe631b104ab37b80e59614d6ad08078a0b0b29e222f39f28a8872d8e02f",
+  "block_timestamp": 1793468817,
+  "confirmations": 2,
+  "read_only": true,
+  "tokens": {
+    "WHSK": {
+      "address": "0xB210D2120d57b758EE163cFfb43e73728c471Cf1",
+      "symbol": "WHSK",
+      "decimals": 18
+    },
+    "USDT": {
+      "address": "0xf1b50ed67a9e2cc94ad3c477779e2d4cbfff9029",
+      "symbol": "USDT",
+      "decimals": 6
+    },
+    "USDC": {
+      "address": "0x054ed45810DbBAb8B27668922D110669c9D88D0a",
+      "symbol": "USDC.e",
+      "decimals": 6
+    },
+    "WETH": {
+      "address": "0xefd4bC9afD210517803f293ABABd701CaeeCdfd0",
+      "symbol": "WETH",
+      "decimals": 18
+    },
+    "WBTC": {
+      "address": "0x6119ca49a79f5825c8b345f8d7ac36b272565b14",
+      "symbol": "WBTC",
+      "decimals": 8
+    }
+  },
+  "pools": [
+    {
+      "address": "0x4ff515761864e7838b0adb8b5b2b8b7a068905dc",
+      "token0": "WHSK",
+      "token1": "USDT",
+      "fee_pips": 3000,
+      "sqrt_price_x96": "23424351023060863073728",
+      "tick": -300697,
+      "active_liquidity_raw": "1475831005908433993",
+      "balance0_raw": "4992121294964652552406304",
+      "balance1_raw": "436358414215",
+      "balance0": "4992121.294964652552406304",
+      "balance1": "436358.414215",
+      "mid_token1_per_token0": "0.0874129883475230279077675872745674112775306377870331818475386262316179812328909",
+      "balance_value_in_token1": "872734.654801166742096623439003918618495348220398958731656826837131698040816294",
+      "unlocked": true
+    },
+    {
+      "address": "0xb92b79ed6b370d5cfee2e14b1d0983c258304c16",
+      "token0": "WETH",
+      "token1": "USDT",
+      "fee_pips": 3000,
+      "sqrt_price_x96": "3746166387824388729806842",
+      "tick": -199198,
+      "active_liquidity_raw": "1012957283335421",
+      "balance0_raw": "21428081575587170213",
+      "balance1_raw": "47899730953",
+      "balance0": "21.428081575587170213",
+      "balance1": "47899.730953",
+      "mid_token1_per_token0": "2235.70736892011252951284492963271832758238570506555472712434217933300094284990",
+      "balance_value_in_token1": "95806.6508333615317125953282164330490560013466534341506049387663350495801678634",
+      "unlocked": true
+    },
+    {
+      "address": "0xd9ea2ce468957ba49ccc38c4758ed6ecd561449a",
+      "token0": "WBTC",
+      "token1": "USDT",
+      "fee_pips": 3000,
+      "sqrt_price_x96": "2196222408827973968906963023809",
+      "tick": 66446,
+      "active_liquidity_raw": "1823343427",
+      "balance0_raw": "65786030",
+      "balance1_raw": "50545308057",
+      "balance0": "0.6578603",
+      "balance1": "50545.308057",
+      "mid_token1_per_token0": "76841.0816387862598625436260645548547247679786437287611873004683955879297659122",
+      "balance_value_in_token1": "101096.005076216420549050908605915876095692279860956995953305842328861994152182",
+      "unlocked": true
+    },
+    {
+      "address": "0xb580d654ce892181937aac80ea165950cb7d0e02",
+      "token0": "USDC",
+      "token1": "WHSK",
+      "fee_pips": 3000,
+      "sqrt_price_x96": "257944478741664417464451675357173796",
+      "tick": 299933,
+      "active_liquidity_raw": "249999999999",
+      "balance0_raw": "76788",
+      "balance1_raw": "814497753244129888",
+      "balance0": "0.076788",
+      "balance1": "0.814497753244129888",
+      "mid_token1_per_token0": "10.5996934442245851254651168810071734232312576339003885232441338171811575338022",
+      "balance_value_in_token1": "1.62842701343924733061421539505877883282308181119194303392287054755370672470560",
+      "unlocked": true
+    }
+  ],
+  "limitations": [
+    "Mid prices are not executable quotes; fees, tick crossings and gas are not included.",
+    "ERC-20 pool balances are not V2 reserves or immediately available V3 liquidity.",
+    "Balance value uses this pool's spot price; it is not an independent USD valuation.",
+    "No transaction is signed or submitted. No strategy or profitability is measured."
+  ]
+}

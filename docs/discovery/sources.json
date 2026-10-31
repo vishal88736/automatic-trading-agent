@@ -1,0 +1,33 @@
+{
+  "observed_at": "2026-10-31T17:46:21.031591+00:00",
+  "app_url": "https://app.hskswap.com/?lng=en-US",
+  "sources": [
+    {
+      "url": "https://app.hskswap.com/?lng=en-US",
+      "sha256": "ce84e1ada9d45887412bdae809b91bc197519cd77a5df596edeb7940f0260c0a",
+      "bytes": 9629
+    },
+    {
+      "url": "https://app.hskswap.com/assets/DeveloperDocsPage-4XuHGrwl.js",
+      "sha256": "33374bc00651d4b4a38447867394dffc497fe6a310c22aa4374edc9d957e800d",
+      "bytes": 99905
+    },
+    {
+      "url": "https://app.hskswap.com/assets/shared-B-bsW-m1.js",
+      "sha256": "1ea0c57d2301788fe62cc2e799a1dd2cca1bba4921603cf30c8a2d39316fe0d9",
+      "bytes": 238413
+    },
+    {
+      "package": "@hskswap/sdk-core",
+      "version": "1.0.3",
+      "tarball": "https://registry.npmjs.org/@hskswap/sdk-core/-/sdk-core-1.0.3.tgz",
+      "integrity": "sha512-aQw/1w4Zr+1g8hvvOcIeo5HCoxnh01Tf6zIBcBJvnYdMEgPRZqokhQMFTC9zeRer+uvRlA1jDi4QyDCpehHOSA=="
+    },
+    {
+      "package": "@hskswap/smart-order-router",
+      "version": "1.0.4",
+      "tarball": "https://registry.npmjs.org/@hskswap/smart-order-router/-/smart-order-router-1.0.4.tgz",
+      "integrity": "sha512-CgHVXqOCu4g1ReZ6Uz1KmDesb27OMJFgvOvW59b8pD8gvuxgiaOidKAWE/N5qNV85r3OKCza1B6VwQA2S+6vtQ=="
+    }
+  ]
+}

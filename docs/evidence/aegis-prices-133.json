@@ -1,0 +1,82 @@
+{
+  "observed_at": "2026-10-31T17:47:10.962738+00:00",
+  "chain_id": 133,
+  "block_number": 35141081,
+  "block_hash": "0x6301c4c00adbc132e94be930f7d4291d1e189cf104926bffd74deaa97a15feb9",
+  "block_timestamp": 1793468818,
+  "confirmations": 2,
+  "read_only": true,
+  "tokens": {
+    "WHSK": {
+      "address": "0xCA8aAceEC5Db1e91B9Ed3a344bA026c4a2B3ebF6",
+      "symbol": "WHSK",
+      "decimals": 18
+    },
+    "USDT": {
+      "address": "0x98b6173a8b7dfc52ce8bc88f1184a918a1ccaa4f",
+      "symbol": "USDT",
+      "decimals": 18
+    },
+    "USDC": {
+      "address": "0x93f960a8dab5a541e93e6ddacd54f49a1750de81",
+      "symbol": "USDC",
+      "decimals": 6
+    }
+  },
+  "pools": [
+    {
+      "address": "0xc076fb478b77633736738579c7f48d2539604a50",
+      "token0": "USDT",
+      "token1": "WHSK",
+      "fee_pips": 3000,
+      "sqrt_price_x96": "10763304209649750455875929376",
+      "tick": -39926,
+      "active_liquidity_raw": "3231210257071971233662",
+      "balance0_raw": "23820329902811875495436",
+      "balance1_raw": "469919838797986626674",
+      "balance0": "23820.329902811875495436",
+      "balance1": "469.919838797986626674",
+      "mid_token1_per_token0": "0.0184557654779395653402288580474273521668144709584153931248514800719355489851907",
+      "balance_value_in_token1": "909.542261091433560037789080809511889020734831782702934116242661113210972096044",
+      "unlocked": true
+    },
+    {
+      "address": "0x9d402031ba8735613c28fbe2aad4db140dfd3061",
+      "token0": "USDC",
+      "token1": "WHSK",
+      "fee_pips": 3000,
+      "sqrt_price_x96": "1541199773392111368758781994854740887",
+      "tick": 335686,
+      "active_liquidity_raw": "137534402937266",
+      "balance0_raw": "7071245",
+      "balance1_raw": "2677461438624136303968",
+      "balance0": "7.071245",
+      "balance1": "2677.461438624136303968",
+      "mid_token1_per_token0": "378.406602542912725324095780489221062711120624629013864908667667225368634420189",
+      "balance_value_in_token1": "5353.26723482269519835238566730550199359069816130479114716609169852905182930059",
+      "unlocked": true
+    },
+    {
+      "address": "0x509bdaf8b0212280fe3f8f08455cc18c63dbf5be",
+      "token0": "USDC",
+      "token1": "WHSK",
+      "fee_pips": 100,
+      "sqrt_price_x96": "1550544544758821028682317811769745730",
+      "tick": 335807,
+      "active_liquidity_raw": "38228221901195",
+      "balance0_raw": "1953375",
+      "balance1_raw": "748160178523631892609",
+      "balance0": "1.953375",
+      "balance1": "748.160178523631892609",
+      "mid_token1_per_token0": "383.009306943029371978552648928276021050476098410384462669810194319179377899356",
+      "balance_value_in_token1": "1496.32098347347189209760528060027117261947374873238474976764048832822701730416",
+      "unlocked": true
+    }
+  ],
+  "limitations": [
+    "Mid prices are not executable quotes; fees, tick crossings and gas are not included.",
+    "ERC-20 pool balances are not V2 reserves or immediately available V3 liquidity.",
+    "Balance value uses this pool's spot price; it is not an independent USD valuation.",
+    "No transaction is signed or submitted. No strategy or profitability is measured."
+  ]
+}

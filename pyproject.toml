@@ -13,21 +13,24 @@ dependencies = [
   "langchain-core>=0.3.84,<1",
   "backtrader>=1.9.78",
   "boto3>=1.40,<2",
+  "web3>=7.14,<8",
+  "pyyaml>=6,<7",
 ]
 
 [dependency-groups]
 dev = ["pytest>=8,<10", "pytest-asyncio>=0.25,<2", "ruff>=0.12,<1"]
 
 [tool.pytest.ini_options]
-testpaths = ["backend/tests"]
+testpaths = ["backend/tests", "agent/tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-pythonpath = ["."]
+pythonpath = [".", "agent"]
 
 [tool.ruff]
 target-version = "py312"
+src = [".", "agent"]
 line-length = 100
-include = ["backend/**/*.py", "scripts/**/*.py"]
+include = ["backend/**/*.py", "scripts/**/*.py", "agent/**/*.py"]
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I"]

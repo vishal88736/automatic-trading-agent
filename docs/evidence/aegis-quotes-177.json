@@ -1,0 +1,48 @@
+{
+  "observed_at": "2026-10-31T17:51:59.886879+00:00",
+  "chain_id": 177,
+  "block_number": 29560987,
+  "block_hash": "0x547dc4ae718bcc587398133ae0dde9b9fafeb66d06f8f8ac2e60cfa4cf39eb32",
+  "quotes": [
+    {
+      "token_in": "WHSK",
+      "token_out": "USDT",
+      "amount_in_raw": "1000000000000000000",
+      "amount_out_raw": "87150",
+      "amount_out": "0.08715",
+      "sqrt_price_x96_after": "23424346344481589045986",
+      "initialized_ticks_crossed": 0,
+      "quoter_gas_estimate": "74210",
+      "lp_fee_pips": 3000,
+      "method": "eth_call",
+      "real_swap_sent": false
+    },
+    {
+      "token_in": "WETH",
+      "token_out": "USDT",
+      "amount_in_raw": "1000000000000000",
+      "amount_out_raw": "2228896",
+      "amount_out": "2.228896",
+      "sqrt_price_x96_after": "3745992055324467089794453",
+      "initialized_ticks_crossed": 0,
+      "quoter_gas_estimate": "73869",
+      "lp_fee_pips": 3000,
+      "method": "eth_call",
+      "real_swap_sent": false
+    },
+    {
+      "token_in": "WBTC",
+      "token_out": "USDT",
+      "amount_in_raw": "1000",
+      "amount_out_raw": "766093",
+      "amount_out": "0.766093",
+      "sqrt_price_x96_after": "2196189120410216521229607852213",
+      "initialized_ticks_crossed": 0,
+      "quoter_gas_estimate": "73876",
+      "lp_fee_pips": 3000,
+      "method": "eth_call",
+      "real_swap_sent": false
+    }
+  ],
+  "limitation": "Quoter eth_call only. Not a funded vault simulation, signed transaction, or gas fee quote including OP L1 fees."
+}

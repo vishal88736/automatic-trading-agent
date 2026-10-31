@@ -1,0 +1,74 @@
+{
+  "observed_at": "2026-10-31T17:58:33.148958+00:00",
+  "phase": 1,
+  "phase_status": "DATA_VERIFIED_UI_ACCEPTANCE_PENDING",
+  "mode": "read_only",
+  "checks": {
+    "setup": {
+      "command": "make setup",
+      "result": "passed; frozen dependencies checked"
+    },
+    "live_pool_data": {
+      "command": "make prices; make prices NETWORK=testnet",
+      "result": "passed",
+      "mainnet_pools": 4,
+      "testnet_pools": 3,
+      "snapshots": [
+        "docs/evidence/aegis-prices-177.json",
+        "docs/evidence/aegis-prices-133.json"
+      ]
+    },
+    "source_data_comparison": {
+      "command": "make verify-discovery",
+      "result": "passed",
+      "mainnet_block": 29561153,
+      "testnet_block": 35141398,
+      "exact_pool_matches": 7,
+      "evidence": "docs/evidence/aegis-data-verification.json"
+    },
+    "quote_probes": {
+      "method": "QuoterV2 quoteExactInputSingle via eth_call",
+      "result": "3 mainnet quotes returned with pool fees included",
+      "evidence": "docs/evidence/aegis-quotes-177.json",
+      "complete_transaction_gas_cost_included": false
+    },
+    "tests": {
+      "command": ".venv/bin/python -m pytest backend/tests agent/tests legacy_tests/test_regime_detection.py legacy_tests/test_backtest_engine.py legacy_tests/test_portfolio_intelligence.py -q",
+      "passed": 181,
+      "subtests_passed": 10,
+      "warnings": 2,
+      "seconds": 6.19,
+      "aegis_data_tests": 22,
+      "validation_kind": "local unit and regression tests with fixtures; live reads recorded separately"
+    },
+    "style": {
+      "commands": [
+        ".venv/bin/ruff check backend scripts agent",
+        ".venv/bin/ruff format --check backend scripts agent"
+      ],
+      "result": "passed"
+    },
+    "publication_audit": {
+      "command": ".venv/bin/python -m scripts.public_audit",
+      "files_checked": 404,
+      "issues": [],
+      "limitation": "Bounded patterns and path checks, not a complete security audit"
+    },
+    "generated_reference": {
+      "command": ".venv/bin/python -m scripts.generate_code_reference --check",
+      "result": "passed"
+    },
+    "diff": {
+      "command": "git diff --check",
+      "result": "passed"
+    }
+  },
+  "pending": [
+    "Visual UI comparison for three mainnet pool prices",
+    "Phases 2 through 7 acceptance checks",
+    "Hosted CI for this change"
+  ],
+  "transactions_signed_or_sent": 0,
+  "aegis_contracts_deployed": false,
+  "profitability_measured": false
+}

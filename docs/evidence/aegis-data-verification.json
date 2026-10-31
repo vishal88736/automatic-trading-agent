@@ -1,0 +1,1768 @@
+{
+  "observed_at": "2026-10-31T17:57:24.204414+00:00",
+  "networks": {
+    "mainnet": {
+      "snapshot": {
+        "chain_id": 177,
+        "block_number": 29561153,
+        "block_hash": "0x42f5b641c9e332f77425f9e7212f70ce6c9e78eba13f08d53639b90285bef730",
+        "block_timestamp": 1793469441,
+        "confirmations": 2,
+        "read_only": true,
+        "tokens": {
+          "WHSK": {
+            "address": "0xB210D2120d57b758EE163cFfb43e73728c471Cf1",
+            "symbol": "WHSK",
+            "decimals": 18
+          },
+          "USDT": {
+            "address": "0xf1b50ed67a9e2cc94ad3c477779e2d4cbfff9029",
+            "symbol": "USDT",
+            "decimals": 6
+          },
+          "USDC": {
+            "address": "0x054ed45810DbBAb8B27668922D110669c9D88D0a",
+            "symbol": "USDC.e",
+            "decimals": 6
+          },
+          "WETH": {
+            "address": "0xefd4bC9afD210517803f293ABABd701CaeeCdfd0",
+            "symbol": "WETH",
+            "decimals": 18
+          },
+          "WBTC": {
+            "address": "0x6119ca49a79f5825c8b345f8d7ac36b272565b14",
+            "symbol": "WBTC",
+            "decimals": 8
+          }
+        },
+        "pools": [
+          {
+            "address": "0x4ff515761864e7838b0adb8b5b2b8b7a068905dc",
+            "token0": "WHSK",
+            "token1": "USDT",
+            "fee_pips": 3000,
+            "sqrt_price_x96": "23424351023060863073728",
+            "tick": -300697,
+            "active_liquidity_raw": "1475831005908433993",
+            "balance0_raw": "4992121294964652552406304",
+            "balance1_raw": "436358414215",
+            "balance0": "4992121.294964652552406304",
+            "balance1": "436358.414215",
+            "mid_token1_per_token0": "0.0874129883475230279077675872745674112775306377870331818475386262316179812328909",
+            "balance_value_in_token1": "872734.654801166742096623439003918618495348220398958731656826837131698040816294",
+            "unlocked": true
+          },
+          {
+            "address": "0xb92b79ed6b370d5cfee2e14b1d0983c258304c16",
+            "token0": "WETH",
+            "token1": "USDT",
+            "fee_pips": 3000,
+            "sqrt_price_x96": "3746166387824388729806842",
+            "tick": -199198,
+            "active_liquidity_raw": "1012957283335421",
+            "balance0_raw": "21428081575587170213",
+            "balance1_raw": "47899730953",
+            "balance0": "21.428081575587170213",
+            "balance1": "47899.730953",
+            "mid_token1_per_token0": "2235.70736892011252951284492963271832758238570506555472712434217933300094284990",
+            "balance_value_in_token1": "95806.6508333615317125953282164330490560013466534341506049387663350495801678634",
+            "unlocked": true
+          },
+          {
+            "address": "0xd9ea2ce468957ba49ccc38c4758ed6ecd561449a",
+            "token0": "WBTC",
+            "token1": "USDT",
+            "fee_pips": 3000,
+            "sqrt_price_x96": "2196222408827973968906963023809",
+            "tick": 66446,
+            "active_liquidity_raw": "1823343427",
+            "balance0_raw": "65786030",
+            "balance1_raw": "50545308057",
+            "balance0": "0.6578603",
+            "balance1": "50545.308057",
+            "mid_token1_per_token0": "76841.0816387862598625436260645548547247679786437287611873004683955879297659122",
+            "balance_value_in_token1": "101096.005076216420549050908605915876095692279860956995953305842328861994152182",
+            "unlocked": true
+          },
+          {
+            "address": "0xb580d654ce892181937aac80ea165950cb7d0e02",
+            "token0": "USDC",
+            "token1": "WHSK",
+            "fee_pips": 3000,
+            "sqrt_price_x96": "257944478741664417464451675357173796",
+            "tick": 299933,
+            "active_liquidity_raw": "249999999999",
+            "balance0_raw": "76788",
+            "balance1_raw": "814497753244129888",
+            "balance0": "0.076788",
+            "balance1": "0.814497753244129888",
+            "mid_token1_per_token0": "10.5996934442245851254651168810071734232312576339003885232441338171811575338022",
+            "balance_value_in_token1": "1.62842701343924733061421539505877883282308181119194303392287054755370672470560",
+            "unlocked": true
+          }
+        ],
+        "limitations": [
+          "Mid prices are not executable quotes; fees, tick crossings and gas are not included.",
+          "ERC-20 pool balances are not V2 reserves or immediately available V3 liquidity.",
+          "Balance value uses this pool's spot price; it is not an independent USD valuation.",
+          "No transaction is signed or submitted. No strategy or profitability is measured."
+        ]
+      },
+      "subgraph_head": {
+        "block": {
+          "number": 29561160,
+          "hash": "0xc4b0417e0510878d58ffe5cef40f249b8041ab52b9b1e68c2f99e1efed2f0578"
+        },
+        "hasIndexingErrors": false
+      },
+      "indexed_pool_count": 16,
+      "comparisons": [
+        {
+          "pool": "0x4ff515761864e7838b0adb8b5b2b8b7a068905dc",
+          "pair": "WHSK/USDT",
+          "sqrt_price_x96_exact_match": true,
+          "liquidity_exact_match": true,
+          "tick_exact_match": true,
+          "token_decimals_exact_match": true,
+          "subgraph_tvl_usd_untrusted": "872734.6548011667420966234390039185"
+        },
+        {
+          "pool": "0xb92b79ed6b370d5cfee2e14b1d0983c258304c16",
+          "pair": "WETH/USDT",
+          "sqrt_price_x96_exact_match": true,
+          "liquidity_exact_match": true,
+          "tick_exact_match": true,
+          "token_decimals_exact_match": true,
+          "subgraph_tvl_usd_untrusted": "95806.65083336153171259532821643307"
+        },
+        {
+          "pool": "0xd9ea2ce468957ba49ccc38c4758ed6ecd561449a",
+          "pair": "WBTC/USDT",
+          "sqrt_price_x96_exact_match": true,
+          "liquidity_exact_match": true,
+          "tick_exact_match": true,
+          "token_decimals_exact_match": true,
+          "subgraph_tvl_usd_untrusted": "101096.0050762164205490509086059159"
+        },
+        {
+          "pool": "0xb580d654ce892181937aac80ea165950cb7d0e02",
+          "pair": "USDC.e/WHSK",
+          "sqrt_price_x96_exact_match": true,
+          "liquidity_exact_match": true,
+          "tick_exact_match": true,
+          "token_decimals_exact_match": true,
+          "subgraph_tvl_usd_untrusted": "0.1508469025130515426061507759499521"
+        }
+      ],
+      "inventory": [
+        {
+          "id": "0x024fb33b16b668533664be2e0b79292f421a22cc",
+          "feeTier": "3000",
+          "liquidity": "1546300298399640966",
+          "sqrtPrice": "1736643829811603882450115703882",
+          "tick": "61750",
+          "totalValueLockedUSD": "0.006018757372862141754667441717459103",
+          "token0": {
+            "id": "0xb210d2120d57b758ee163cffb43e73728c471cf1",
+            "symbol": "WHSK",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xe4577dcf1c44f04cf489aa995e01e988f461cc4a",
+            "symbol": "A",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x0f10e271790a5d56df49c42647759766d5506dbf",
+          "feeTier": "3000",
+          "liquidity": "0",
+          "sqrtPrice": "2242658256396360514931203297127959",
+          "tick": "205027",
+          "totalValueLockedUSD": "850.7049778819826235619292831240401",
+          "token0": {
+            "id": "0xa0f5409937f18853ef068808c81d04a76357dd93",
+            "symbol": "QQQ",
+            "decimals": "0"
+          },
+          "token1": {
+            "id": "0xf1b50ed67a9e2cc94ad3c477779e2d4cbfff9029",
+            "symbol": "USDT",
+            "decimals": "6"
+          }
+        },
+        {
+          "id": "0x265aae477d9906f637b871986e5e8f05d3514800",
+          "feeTier": "500",
+          "liquidity": "5254415760005734180028544928",
+          "sqrtPrice": "79228162640468783735534928357",
+          "tick": "0",
+          "totalValueLockedUSD": "0",
+          "token0": {
+            "id": "0xcf9bec9f2769ecc09107c58fa5eb0199d989a606",
+            "symbol": "B",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xe4577dcf1c44f04cf489aa995e01e988f461cc4a",
+            "symbol": "A",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x41767b8a9959b04c7edb42ca7f0d5e97f73d719f",
+          "feeTier": "3000",
+          "liquidity": "0",
+          "sqrtPrice": "1399222648434462849182625558182911",
+          "tick": "195591",
+          "totalValueLockedUSD": "662.302544818303586021939624987432",
+          "token0": {
+            "id": "0x14c8a2c497ec878c2dc1b48a5eaec6342d2b6664",
+            "symbol": "AAPL",
+            "decimals": "0"
+          },
+          "token1": {
+            "id": "0xf1b50ed67a9e2cc94ad3c477779e2d4cbfff9029",
+            "symbol": "USDT",
+            "decimals": "6"
+          }
+        },
+        {
+          "id": "0x4adeba4ecec9585d4e213b051c161b3d8dce0aea",
+          "feeTier": "10000",
+          "liquidity": "21523969197153205390",
+          "sqrtPrice": "926041015207208176867749126809",
+          "tick": "49174",
+          "totalValueLockedUSD": "0.1957674284932023632216761962871686",
+          "token0": {
+            "id": "0xb210d2120d57b758ee163cffb43e73728c471cf1",
+            "symbol": "WHSK",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xe4577dcf1c44f04cf489aa995e01e988f461cc4a",
+            "symbol": "A",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x4ff515761864e7838b0adb8b5b2b8b7a068905dc",
+          "feeTier": "3000",
+          "liquidity": "1475831005908433993",
+          "sqrtPrice": "23424351023060863073728",
+          "tick": "-300697",
+          "totalValueLockedUSD": "872734.6548011667420966234390039185",
+          "token0": {
+            "id": "0xb210d2120d57b758ee163cffb43e73728c471cf1",
+            "symbol": "WHSK",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xf1b50ed67a9e2cc94ad3c477779e2d4cbfff9029",
+            "symbol": "USDT",
+            "decimals": "6"
+          }
+        },
+        {
+          "id": "0x959438caea85ca4766f3ecd4f943ea9767af93ce",
+          "feeTier": "3000",
+          "liquidity": "0",
+          "sqrtPrice": "1612977631356915820221958909713638",
+          "tick": "198435",
+          "totalValueLockedUSD": "882.6471356946809759729121738028581",
+          "token0": {
+            "id": "0x9af0905292075ec25dfa3c9c35c498dc44cf0bbf",
+            "symbol": "TSLA",
+            "decimals": "0"
+          },
+          "token1": {
+            "id": "0xf1b50ed67a9e2cc94ad3c477779e2d4cbfff9029",
+            "symbol": "USDT",
+            "decimals": "6"
+          }
+        },
+        {
+          "id": "0x9861246b8bdf619cc0e8c0422e0a662b51a2c3f4",
+          "feeTier": "10000",
+          "liquidity": "0",
+          "sqrtPrice": "258690224024130177430264637859036961",
+          "tick": "299991",
+          "totalValueLockedUSD": "0.000007011625243620548390525231415989819",
+          "token0": {
+            "id": "0x054ed45810dbbab8b27668922d110669c9d88d0a",
+            "symbol": "USDC.e",
+            "decimals": "6"
+          },
+          "token1": {
+            "id": "0xb210d2120d57b758ee163cffb43e73728c471cf1",
+            "symbol": "WHSK",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x9d5efe39d8f72af6289b912d5adefcb0d5adc2e6",
+          "feeTier": "3000",
+          "liquidity": "2307510000000000000115",
+          "sqrtPrice": "79228162514264337593543950336",
+          "tick": "0",
+          "totalValueLockedUSD": "0",
+          "token0": {
+            "id": "0xcf9bec9f2769ecc09107c58fa5eb0199d989a606",
+            "symbol": "B",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xe4577dcf1c44f04cf489aa995e01e988f461cc4a",
+            "symbol": "A",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0xa3a69eb7a1cd69008b06487dd78105f4ce5582af",
+          "feeTier": "3000",
+          "liquidity": "0",
+          "sqrtPrice": "1165275330663135435534977714510671",
+          "tick": "191932",
+          "totalValueLockedUSD": "229.6729707544889388830373805310825",
+          "token0": {
+            "id": "0x8024775a803f049b9505704801e32a2c8630bf2c",
+            "symbol": "NVDA",
+            "decimals": "0"
+          },
+          "token1": {
+            "id": "0xf1b50ed67a9e2cc94ad3c477779e2d4cbfff9029",
+            "symbol": "USDT",
+            "decimals": "6"
+          }
+        },
+        {
+          "id": "0xb580d654ce892181937aac80ea165950cb7d0e02",
+          "feeTier": "3000",
+          "liquidity": "249999999999",
+          "sqrtPrice": "257944478741664417464451675357173796",
+          "tick": "299933",
+          "totalValueLockedUSD": "0.1508469025130515426061507759499521",
+          "token0": {
+            "id": "0x054ed45810dbbab8b27668922d110669c9d88d0a",
+            "symbol": "USDC.e",
+            "decimals": "6"
+          },
+          "token1": {
+            "id": "0xb210d2120d57b758ee163cffb43e73728c471cf1",
+            "symbol": "WHSK",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0xb92b79ed6b370d5cfee2e14b1d0983c258304c16",
+          "feeTier": "3000",
+          "liquidity": "1012957283335421",
+          "sqrtPrice": "3746166387824388729806842",
+          "tick": "-199198",
+          "totalValueLockedUSD": "95806.65083336153171259532821643307",
+          "token0": {
+            "id": "0xefd4bc9afd210517803f293ababd701caeecdfd0",
+            "symbol": "WETH",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xf1b50ed67a9e2cc94ad3c477779e2d4cbfff9029",
+            "symbol": "USDT",
+            "decimals": "6"
+          }
+        },
+        {
+          "id": "0xd9ea2ce468957ba49ccc38c4758ed6ecd561449a",
+          "feeTier": "3000",
+          "liquidity": "1823343427",
+          "sqrtPrice": "2196222408827973968906963023809",
+          "tick": "66446",
+          "totalValueLockedUSD": "101096.0050762164205490509086059159",
+          "token0": {
+            "id": "0x6119ca49a79f5825c8b345f8d7ac36b272565b14",
+            "symbol": "WBTC",
+            "decimals": "8"
+          },
+          "token1": {
+            "id": "0xf1b50ed67a9e2cc94ad3c477779e2d4cbfff9029",
+            "symbol": "USDT",
+            "decimals": "6"
+          }
+        },
+        {
+          "id": "0xe4badb6cd5116cdd8c7afd09a1d0b8f41573da0c",
+          "feeTier": "3000",
+          "liquidity": "4907074101340",
+          "sqrtPrice": "1651388353167171154216",
+          "tick": "-353743",
+          "totalValueLockedUSD": "0.103014",
+          "token0": {
+            "id": "0xcf9bec9f2769ecc09107c58fa5eb0199d989a606",
+            "symbol": "B",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xf1b50ed67a9e2cc94ad3c477779e2d4cbfff9029",
+            "symbol": "USDT",
+            "decimals": "6"
+          }
+        },
+        {
+          "id": "0xf5cbc1af0ab6c1a5b24c0ced9da13bbc526a7c25",
+          "feeTier": "3000",
+          "liquidity": "18749999999999999990",
+          "sqrtPrice": "899024963526058893394734501457",
+          "tick": "48582",
+          "totalValueLockedUSD": "0.1754531936740964897337089482761633",
+          "token0": {
+            "id": "0xb210d2120d57b758ee163cffb43e73728c471cf1",
+            "symbol": "WHSK",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xcf9bec9f2769ecc09107c58fa5eb0199d989a606",
+            "symbol": "B",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0xfc777c8c5345490648d0292c5ba40661be7209ce",
+          "feeTier": "3000",
+          "liquidity": "0",
+          "sqrtPrice": "755968059903012573096721534721666",
+          "tick": "183277",
+          "totalValueLockedUSD": "193.8819268646558435428082755473957",
+          "token0": {
+            "id": "0xcfbe9f732c8380d8dd6b2a2746de435f2378f62a",
+            "symbol": "CRCL",
+            "decimals": "0"
+          },
+          "token1": {
+            "id": "0xf1b50ed67a9e2cc94ad3c477779e2d4cbfff9029",
+            "symbol": "USDT",
+            "decimals": "6"
+          }
+        }
+      ],
+      "visual_ui_comparison": "NOT_PERFORMED: this command checks source data, not the rendered UI",
+      "transaction_sent": false
+    },
+    "testnet": {
+      "snapshot": {
+        "chain_id": 133,
+        "block_number": 35141398,
+        "block_hash": "0xee520ab6d017df4d52bb624f7f8aae016419152a2ddfe6415749b09c9fca7084",
+        "block_timestamp": 1793469452,
+        "confirmations": 2,
+        "read_only": true,
+        "tokens": {
+          "WHSK": {
+            "address": "0xCA8aAceEC5Db1e91B9Ed3a344bA026c4a2B3ebF6",
+            "symbol": "WHSK",
+            "decimals": 18
+          },
+          "USDT": {
+            "address": "0x98b6173a8b7dfc52ce8bc88f1184a918a1ccaa4f",
+            "symbol": "USDT",
+            "decimals": 18
+          },
+          "USDC": {
+            "address": "0x93f960a8dab5a541e93e6ddacd54f49a1750de81",
+            "symbol": "USDC",
+            "decimals": 6
+          }
+        },
+        "pools": [
+          {
+            "address": "0xc076fb478b77633736738579c7f48d2539604a50",
+            "token0": "USDT",
+            "token1": "WHSK",
+            "fee_pips": 3000,
+            "sqrt_price_x96": "10763304209649750455875929376",
+            "tick": -39926,
+            "active_liquidity_raw": "3231210257071971233662",
+            "balance0_raw": "23820329902811875495436",
+            "balance1_raw": "469919838797986626674",
+            "balance0": "23820.329902811875495436",
+            "balance1": "469.919838797986626674",
+            "mid_token1_per_token0": "0.0184557654779395653402288580474273521668144709584153931248514800719355489851907",
+            "balance_value_in_token1": "909.542261091433560037789080809511889020734831782702934116242661113210972096044",
+            "unlocked": true
+          },
+          {
+            "address": "0x9d402031ba8735613c28fbe2aad4db140dfd3061",
+            "token0": "USDC",
+            "token1": "WHSK",
+            "fee_pips": 3000,
+            "sqrt_price_x96": "1541199773392111368758781994854740887",
+            "tick": 335686,
+            "active_liquidity_raw": "137534402937266",
+            "balance0_raw": "7071245",
+            "balance1_raw": "2677461438624136303968",
+            "balance0": "7.071245",
+            "balance1": "2677.461438624136303968",
+            "mid_token1_per_token0": "378.406602542912725324095780489221062711120624629013864908667667225368634420189",
+            "balance_value_in_token1": "5353.26723482269519835238566730550199359069816130479114716609169852905182930059",
+            "unlocked": true
+          },
+          {
+            "address": "0x509bdaf8b0212280fe3f8f08455cc18c63dbf5be",
+            "token0": "USDC",
+            "token1": "WHSK",
+            "fee_pips": 100,
+            "sqrt_price_x96": "1550544544758821028682317811769745730",
+            "tick": 335807,
+            "active_liquidity_raw": "38228221901195",
+            "balance0_raw": "1953375",
+            "balance1_raw": "748160178523631892609",
+            "balance0": "1.953375",
+            "balance1": "748.160178523631892609",
+            "mid_token1_per_token0": "383.009306943029371978552648928276021050476098410384462669810194319179377899356",
+            "balance_value_in_token1": "1496.32098347347189209760528060027117261947374873238474976764048832822701730416",
+            "unlocked": true
+          }
+        ],
+        "limitations": [
+          "Mid prices are not executable quotes; fees, tick crossings and gas are not included.",
+          "ERC-20 pool balances are not V2 reserves or immediately available V3 liquidity.",
+          "Balance value uses this pool's spot price; it is not an independent USD valuation.",
+          "No transaction is signed or submitted. No strategy or profitability is measured."
+        ]
+      },
+      "subgraph_head": {
+        "block": {
+          "number": 35141404,
+          "hash": "0x950e4506306205833598299f2130c688cb6114b9c64c96665c083ba899598b20"
+        },
+        "hasIndexingErrors": false
+      },
+      "indexed_pool_count": 65,
+      "comparisons": [
+        {
+          "pool": "0xc076fb478b77633736738579c7f48d2539604a50",
+          "pair": "USDT/WHSK",
+          "sqrt_price_x96_exact_match": true,
+          "liquidity_exact_match": true,
+          "tick_exact_match": true,
+          "token_decimals_exact_match": true,
+          "subgraph_tvl_usd_untrusted": "60587.95379323371739802250313367737"
+        },
+        {
+          "pool": "0x9d402031ba8735613c28fbe2aad4db140dfd3061",
+          "pair": "USDC/WHSK",
+          "sqrt_price_x96_exact_match": true,
+          "liquidity_exact_match": true,
+          "tick_exact_match": true,
+          "token_decimals_exact_match": true,
+          "subgraph_tvl_usd_untrusted": "420556.9003320899909817235469549949"
+        },
+        {
+          "pool": "0x509bdaf8b0212280fe3f8f08455cc18c63dbf5be",
+          "pair": "USDC/WHSK",
+          "sqrt_price_x96_exact_match": true,
+          "liquidity_exact_match": true,
+          "tick_exact_match": true,
+          "token_decimals_exact_match": true,
+          "subgraph_tvl_usd_untrusted": "116680.5293935632183223968114884845"
+        }
+      ],
+      "inventory": [
+        {
+          "id": "0x04b5489734f85fc8ffffbbb0dc8cbe08e54678ac",
+          "feeTier": "100",
+          "liquidity": "7874930007461554754",
+          "sqrtPrice": "56022770974786139918731938227",
+          "tick": "-6932",
+          "totalValueLockedUSD": "13.62182363216800950534558560855645",
+          "token0": {
+            "id": "0x526cebd17c4d1702db7de590d12f67ebb18ac2db",
+            "symbol": "TK3",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xc383e13c47112b76be60f41ef5e5d8f9a8e75ae5",
+            "symbol": "TT1",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x0b48f7da646d288f071976a14917d9564226be14",
+          "feeTier": "500",
+          "liquidity": "0",
+          "sqrtPrice": "2724167020801920223054221262",
+          "tick": "-67407",
+          "totalValueLockedUSD": "0.00000000000000007873117487183037703993445145787589",
+          "token0": {
+            "id": "0xad43fe2e222201962f071310f4957e8cfb16d15c",
+            "symbol": "HKT",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xca8aaceec5db1e91b9ed3a344ba026c4a2b3ebf6",
+            "symbol": "WHSK",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x120570fd6c15c74d76a884a267be6349c27be44b",
+          "feeTier": "3000",
+          "liquidity": "31622776601683793324",
+          "sqrtPrice": "113013221247857188235508872494",
+          "tick": "7103",
+          "totalValueLockedUSD": "112.4907713881541171713473816789663",
+          "token0": {
+            "id": "0x98b6173a8b7dfc52ce8bc88f1184a918a1ccaa4f",
+            "symbol": "USDT",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xc383e13c47112b76be60f41ef5e5d8f9a8e75ae5",
+            "symbol": "TT1",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x14b49f7b0555507ee3b2fc60674004d761c15901",
+          "feeTier": "500",
+          "liquidity": "0",
+          "sqrtPrice": "83095197869223157896060286990",
+          "tick": "953",
+          "totalValueLockedUSD": "0",
+          "token0": {
+            "id": "0x0284ea6081c90fd5a48bccc324c7be1e46ea8cdb",
+            "symbol": "TT2",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xd925ace4dedee4575069ef8336310ca3e1759551",
+            "symbol": "TK3",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x17132a21f5f6c7cc0c4489de0c24efb9166ecfc1",
+          "feeTier": "500",
+          "liquidity": "100000000000000000005",
+          "sqrtPrice": "66618294040653246175260803682",
+          "tick": "-3468",
+          "totalValueLockedUSD": "149.7730942917912965982248877306704",
+          "token0": {
+            "id": "0x0284ea6081c90fd5a48bccc324c7be1e46ea8cdb",
+            "symbol": "TT2",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xb1497d521e3dc4bcbfaa891e31cecc33459940a5",
+            "symbol": "TK3",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x1718b6ae036e472bb1341c918bafa7095a0acdc0",
+          "feeTier": "10000",
+          "liquidity": "480304559076780762111759",
+          "sqrtPrice": "112408350815497338785981155603",
+          "tick": "6996",
+          "totalValueLockedUSD": "94676.55249430735062243419668650951",
+          "token0": {
+            "id": "0x5dcd0360fa1477dbfe83ddaa96256ef73e298c58",
+            "symbol": "SWAP3",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xd3c832588633bfceb7b3cd68ced3b15f99c270a3",
+            "symbol": "SWAP",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x17ceb51f21abae2d1d7d51be5b4d34aed80cf258",
+          "feeTier": "500",
+          "liquidity": "115299756609261021991749",
+          "sqrtPrice": "86800914522849557676216659772",
+          "tick": "1825",
+          "totalValueLockedUSD": "19981.390168695914377830697814154",
+          "token0": {
+            "id": "0x98b6173a8b7dfc52ce8bc88f1184a918a1ccaa4f",
+            "symbol": "USDT",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xb1497d521e3dc4bcbfaa891e31cecc33459940a5",
+            "symbol": "TK3",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x1a543ad510f9603b47440c52ecfc0cbaf615ac96",
+          "feeTier": "3000",
+          "liquidity": "22500000000000000001220",
+          "sqrtPrice": "79189563761119084571301889121",
+          "tick": "-10",
+          "totalValueLockedUSD": "16925.56390977443609022481203014542",
+          "token0": {
+            "id": "0xb2e865538bbc7ce17b4e5fd5f42168e7ff48874b",
+            "symbol": "QTKA",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xc70c9386d34c3fd15d0376fc411887f53f405b45",
+            "symbol": "QTK B",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x1c530ca21017fa202287b5562e924f60f1cc5de0",
+          "feeTier": "3000",
+          "liquidity": "2371708245126284499406",
+          "sqrtPrice": "251299115207398236870448104540",
+          "tick": "23087",
+          "totalValueLockedUSD": "1814969.148932636069757597166205703",
+          "token0": {
+            "id": "0x2063dbf23369a1c11ad887c863f641b4072cb1b4",
+            "symbol": "pointt",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xca8aaceec5db1e91b9ed3a344ba026c4a2b3ebf6",
+            "symbol": "WHSK",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x229e13454e67c76c7770388a95b0b9a31096b2e5",
+          "feeTier": "3000",
+          "liquidity": "1556591157547185746055",
+          "sqrtPrice": "1023574060640927862425441178855",
+          "tick": "51177",
+          "totalValueLockedUSD": "11641.20213123402643566552017191969",
+          "token0": {
+            "id": "0xca8aaceec5db1e91b9ed3a344ba026c4a2b3ebf6",
+            "symbol": "WHSK",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xd3c832588633bfceb7b3cd68ced3b15f99c270a3",
+            "symbol": "SWAP",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x270208b423efbc6e6d136fd6560eb014bdb96f3b",
+          "feeTier": "500",
+          "liquidity": "999970862443695357237",
+          "sqrtPrice": "81018934605837160689881498385",
+          "tick": "447",
+          "totalValueLockedUSD": "163.6957985926647823883633983749715",
+          "token0": {
+            "id": "0x526cebd17c4d1702db7de590d12f67ebb18ac2db",
+            "symbol": "TK3",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xc383e13c47112b76be60f41ef5e5d8f9a8e75ae5",
+            "symbol": "TT1",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x2e465ecd9453c26fac560631f2d03385abb9397f",
+          "feeTier": "500",
+          "liquidity": "95346258924559231549",
+          "sqrtPrice": "98748135422527907793408104260",
+          "tick": "4405",
+          "totalValueLockedUSD": "98.80918247806693240394915083809224",
+          "token0": {
+            "id": "0x0284ea6081c90fd5a48bccc324c7be1e46ea8cdb",
+            "symbol": "TT2",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0x0ecd62ed41fc2a38e00eeadfcb2d3669de0e76e8",
+            "symbol": "TK3",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x2f3ca25c256e94dfc9aec28e1d74e2853e9b2fb9",
+          "feeTier": "3000",
+          "liquidity": "0",
+          "sqrtPrice": "79228162514264337593543950336000000",
+          "tick": "276324",
+          "totalValueLockedUSD": "0.07589203069150646136202676672951879",
+          "token0": {
+            "id": "0x93f960a8dab5a541e93e6ddacd54f49a1750de81",
+            "symbol": "USDC",
+            "decimals": "6"
+          },
+          "token1": {
+            "id": "0x98b6173a8b7dfc52ce8bc88f1184a918a1ccaa4f",
+            "symbol": "USDT",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x398c217886529251251a11ca2143b51afbfa7722",
+          "feeTier": "500",
+          "liquidity": "0",
+          "sqrtPrice": "292300327466180583640736966543256603931186858119",
+          "tick": "855082",
+          "totalValueLockedUSD": "0",
+          "token0": {
+            "id": "0xc383e13c47112b76be60f41ef5e5d8f9a8e75ae5",
+            "symbol": "TT1",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xfe4c2199d51f23b55952e946f7a4dc4aa45f3a35",
+            "symbol": "TK3",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x3a856badab1793c4db46d6f220f2ff2a853bbdd1",
+          "feeTier": "500",
+          "liquidity": "2071021793078771253903",
+          "sqrtPrice": "76586986954666085442905615133",
+          "tick": "-679",
+          "totalValueLockedUSD": "179.5908971175104944935417865375592",
+          "token0": {
+            "id": "0x0284ea6081c90fd5a48bccc324c7be1e46ea8cdb",
+            "symbol": "TT2",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xc383e13c47112b76be60f41ef5e5d8f9a8e75ae5",
+            "symbol": "TT1",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x3f2a868cce96c43a09f2fb01bbb7441b88d41fd4",
+          "feeTier": "3000",
+          "liquidity": "58521361324812623697",
+          "sqrtPrice": "6798278982115098244248173586",
+          "tick": "-49116",
+          "totalValueLockedUSD": "877.3036431603163218531439626723424",
+          "token0": {
+            "id": "0x0284ea6081c90fd5a48bccc324c7be1e46ea8cdb",
+            "symbol": "TT2",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xca8aaceec5db1e91b9ed3a344ba026c4a2b3ebf6",
+            "symbol": "WHSK",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x42759d421dfc177e3b4b5e0cef3d51b879ac85cc",
+          "feeTier": "10000",
+          "liquidity": "0",
+          "sqrtPrice": "4295128740",
+          "tick": "-887272",
+          "totalValueLockedUSD": "0",
+          "token0": {
+            "id": "0x0d7ead805538c0d2699d0572a15cc67e009e6933",
+            "symbol": "SWAP2",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0x5dcd0360fa1477dbfe83ddaa96256ef73e298c58",
+            "symbol": "SWAP3",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x509bdaf8b0212280fe3f8f08455cc18c63dbf5be",
+          "feeTier": "100",
+          "liquidity": "38228221901195",
+          "sqrtPrice": "1550544544758821028682317811769745730",
+          "tick": "335807",
+          "totalValueLockedUSD": "116680.5293935632183223968114884845",
+          "token0": {
+            "id": "0x93f960a8dab5a541e93e6ddacd54f49a1750de81",
+            "symbol": "USDC",
+            "decimals": "6"
+          },
+          "token1": {
+            "id": "0xca8aaceec5db1e91b9ed3a344ba026c4a2b3ebf6",
+            "symbol": "WHSK",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x542590b4194049eeacb02a0c8ad1d645e394cb6f",
+          "feeTier": "3000",
+          "liquidity": "9876698993084683457",
+          "sqrtPrice": "782512712928584245626752516684",
+          "tick": "45805",
+          "totalValueLockedUSD": "240.0517866518768712002014743007843",
+          "token0": {
+            "id": "0xca8aaceec5db1e91b9ed3a344ba026c4a2b3ebf6",
+            "symbol": "WHSK",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xfe4c2199d51f23b55952e946f7a4dc4aa45f3a35",
+            "symbol": "TK3",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x56cd30c83e4397f373e76ce4692dea536b127904",
+          "feeTier": "3000",
+          "liquidity": "2036458810864",
+          "sqrtPrice": "23554509414146501395464",
+          "tick": "-300586",
+          "totalValueLockedUSD": "2.823869317262146206541324849802001",
+          "token0": {
+            "id": "0xca8aaceec5db1e91b9ed3a344ba026c4a2b3ebf6",
+            "symbol": "WHSK",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xedacd2ec060c1d4245ea9e640d3995c6281b62a4",
+            "symbol": "tUSDT",
+            "decimals": "6"
+          }
+        },
+        {
+          "id": "0x597fc480fd0e403c959ce06d6daa11d6cfed67ba",
+          "feeTier": "3000",
+          "liquidity": "0",
+          "sqrtPrice": "792297470616693072821704163",
+          "tick": "-92108",
+          "totalValueLockedUSD": "0.000000000000000120025880695009950165567336717879",
+          "token0": {
+            "id": "0x4b92ac953fb3614b5f0315f4f1691749003ee5f3",
+            "symbol": "USDT",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xca8aaceec5db1e91b9ed3a344ba026c4a2b3ebf6",
+            "symbol": "WHSK",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x5f1bf8300086841b0316e291b9084694ba2b2b93",
+          "feeTier": "3000",
+          "liquidity": "990406592586291528693",
+          "sqrtPrice": "6228083953443581540456215305",
+          "tick": "-50868",
+          "totalValueLockedUSD": "11949.43065256285613889386984581245",
+          "token0": {
+            "id": "0x5596778fab408ce729590b57c086d90827dc87f0",
+            "symbol": "SWAP1",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xca8aaceec5db1e91b9ed3a344ba026c4a2b3ebf6",
+            "symbol": "WHSK",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x69ab8d804f350f1914e9ed80ee00626dce9954d5",
+          "feeTier": "3000",
+          "liquidity": "534522216563540039",
+          "sqrtPrice": "42349213041380947339519578988",
+          "tick": "-12529",
+          "totalValueLockedUSD": "0.5714282857142857121428571428532146",
+          "token0": {
+            "id": "0x059b5230b111cc9d61c62e17142f8fa4bdd25ca5",
+            "symbol": "TK3",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0x98b6173a8b7dfc52ce8bc88f1184a918a1ccaa4f",
+            "symbol": "USDT",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x6d9748a6357a81dfbf4e8e8fc3bdbb450f7b4c74",
+          "feeTier": "3000",
+          "liquidity": "1990128419",
+          "sqrtPrice": "80018067294531553039351583520",
+          "tick": "198",
+          "totalValueLockedUSD": "0",
+          "token0": {
+            "id": "0x877a7ef0786824944ed09faa328cd6217f47b5e6",
+            "symbol": "TEST",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xfc51ee7f035e437c391b7c36e8a1eabd4ed14cc6",
+            "symbol": "USDC",
+            "decimals": "6"
+          }
+        },
+        {
+          "id": "0x6f1ccd1d12f726d4ba2575b911d67521a7abab29",
+          "feeTier": "500",
+          "liquidity": "12715",
+          "sqrtPrice": "792281625142643375935439503",
+          "tick": "-92109",
+          "totalValueLockedUSD": "0",
+          "token0": {
+            "id": "0x4b92ac953fb3614b5f0315f4f1691749003ee5f3",
+            "symbol": "USDT",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xca8aaceec5db1e91b9ed3a344ba026c4a2b3ebf6",
+            "symbol": "WHSK",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x708d1977ff4b07095a8fef650df99a8c0fc6b3f3",
+          "feeTier": "500",
+          "liquidity": "1005252310290824456725",
+          "sqrtPrice": "79389763900228894231973507922",
+          "tick": "40",
+          "totalValueLockedUSD": "102.794570487789440072749889476464",
+          "token0": {
+            "id": "0x0284ea6081c90fd5a48bccc324c7be1e46ea8cdb",
+            "symbol": "TT2",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0x526cebd17c4d1702db7de590d12f67ebb18ac2db",
+            "symbol": "TK3",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x77c147065ad262ea725628c869c72e87a48a9dc0",
+          "feeTier": "500",
+          "liquidity": "222764374927194224060457",
+          "sqrtPrice": "37348869464395772588845508282",
+          "tick": "-15042",
+          "totalValueLockedUSD": "19985.69167517490925820238566462123",
+          "token0": {
+            "id": "0x526cebd17c4d1702db7de590d12f67ebb18ac2db",
+            "symbol": "TK3",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0x98b6173a8b7dfc52ce8bc88f1184a918a1ccaa4f",
+            "symbol": "USDT",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x785119d178f707c5da5196882e2fc3b9d89ffcf1",
+          "feeTier": "10000",
+          "liquidity": "0",
+          "sqrtPrice": "2648145516907355706898134498",
+          "tick": "-67973",
+          "totalValueLockedUSD": "0.0000000000000002358527538568627564966921764352325",
+          "token0": {
+            "id": "0xad43fe2e222201962f071310f4957e8cfb16d15c",
+            "symbol": "HKT",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xca8aaceec5db1e91b9ed3a344ba026c4a2b3ebf6",
+            "symbol": "WHSK",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x7b03208725485e172328b030ccd482680e97c71a",
+          "feeTier": "500",
+          "liquidity": "0",
+          "sqrtPrice": "75162434512514379355924140470",
+          "tick": "-1054",
+          "totalValueLockedUSD": "0",
+          "token0": {
+            "id": "0xc383e13c47112b76be60f41ef5e5d8f9a8e75ae5",
+            "symbol": "TT1",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xd925ace4dedee4575069ef8336310ca3e1759551",
+            "symbol": "TK3",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x8019862c5c605ae9c085700950a2c5b5e2a76b62",
+          "feeTier": "500",
+          "liquidity": "195833731753875269266246",
+          "sqrtPrice": "42349234216003348998117907259",
+          "tick": "-12529",
+          "totalValueLockedUSD": "9921.805333941535062982",
+          "token0": {
+            "id": "0x059b5230b111cc9d61c62e17142f8fa4bdd25ca5",
+            "symbol": "TK3",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0x98b6173a8b7dfc52ce8bc88f1184a918a1ccaa4f",
+            "symbol": "USDT",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x838a2de1aef6f7d51d31a89a211f54841d939fb8",
+          "feeTier": "3000",
+          "liquidity": "4472135",
+          "sqrtPrice": "3553851941478177261",
+          "tick": "-476576",
+          "totalValueLockedUSD": "0",
+          "token0": {
+            "id": "0xaa6a11570ec7d612ed8cc9067058504cb16135d1",
+            "symbol": "WETH",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xfc51ee7f035e437c391b7c36e8a1eabd4ed14cc6",
+            "symbol": "USDC",
+            "decimals": "6"
+          }
+        },
+        {
+          "id": "0x85c22acf98ab3d87c2d3c3cf6f4c013d5beb077a",
+          "feeTier": "3000",
+          "liquidity": "9999999999999999995",
+          "sqrtPrice": "264623121290128048150746605641",
+          "tick": "24120",
+          "totalValueLockedUSD": "8066.303484686509641000185635988036",
+          "token0": {
+            "id": "0xbd9b16df3531694f4fd129885837af559cfa775a",
+            "symbol": "point USDT",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xca8aaceec5db1e91b9ed3a344ba026c4a2b3ebf6",
+            "symbol": "WHSK",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x876b96e3c40c8f31f3c6f9b9f3ff4033add6e50b",
+          "feeTier": "500",
+          "liquidity": "0",
+          "sqrtPrice": "487167212443634306067894944238761006551977863849",
+          "tick": "865299",
+          "totalValueLockedUSD": "0",
+          "token0": {
+            "id": "0x059b5230b111cc9d61c62e17142f8fa4bdd25ca5",
+            "symbol": "TK3",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xc383e13c47112b76be60f41ef5e5d8f9a8e75ae5",
+            "symbol": "TT1",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x8a86239a53af070759eb246f52ee8648f4958695",
+          "feeTier": "100",
+          "liquidity": "0",
+          "sqrtPrice": "2609027299939664083865323240",
+          "tick": "-68271",
+          "totalValueLockedUSD": "0.0000000000000000782423316803780213719204676393506",
+          "token0": {
+            "id": "0xad43fe2e222201962f071310f4957e8cfb16d15c",
+            "symbol": "HKT",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xca8aaceec5db1e91b9ed3a344ba026c4a2b3ebf6",
+            "symbol": "WHSK",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x901fd3c6344113efc187276d1c5f911b879d4656",
+          "feeTier": "500",
+          "liquidity": "100000000000000000005",
+          "sqrtPrice": "80701763920236696061321820701",
+          "tick": "368",
+          "totalValueLockedUSD": "285.672924034998219736960966782564",
+          "token0": {
+            "id": "0xb1497d521e3dc4bcbfaa891e31cecc33459940a5",
+            "symbol": "TK3",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xc383e13c47112b76be60f41ef5e5d8f9a8e75ae5",
+            "symbol": "TT1",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x953b9868d7903256813fe1364f4608a1bcd60310",
+          "feeTier": "500",
+          "liquidity": "0",
+          "sqrtPrice": "79228162514264337593543950336",
+          "tick": "0",
+          "totalValueLockedUSD": "0.000000000000000002",
+          "token0": {
+            "id": "0x98b6173a8b7dfc52ce8bc88f1184a918a1ccaa4f",
+            "symbol": "USDT",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xb2e865538bbc7ce17b4e5fd5f42168e7ff48874b",
+            "symbol": "QTKA",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x99636cea81f6a0920f6217455808e1299233458d",
+          "feeTier": "500",
+          "liquidity": "74318724303890692839444595",
+          "sqrtPrice": "55997404883894287543094372990",
+          "tick": "-6941",
+          "totalValueLockedUSD": "20011860.1097007906987405418727041",
+          "token0": {
+            "id": "0x98b6173a8b7dfc52ce8bc88f1184a918a1ccaa4f",
+            "symbol": "USDT",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xc383e13c47112b76be60f41ef5e5d8f9a8e75ae5",
+            "symbol": "TT1",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x9d402031ba8735613c28fbe2aad4db140dfd3061",
+          "feeTier": "3000",
+          "liquidity": "137534402937266",
+          "sqrtPrice": "1541199773392111368758781994854740887",
+          "tick": "335686",
+          "totalValueLockedUSD": "420556.9003320899909817235469549949",
+          "token0": {
+            "id": "0x93f960a8dab5a541e93e6ddacd54f49a1750de81",
+            "symbol": "USDC",
+            "decimals": "6"
+          },
+          "token1": {
+            "id": "0xca8aaceec5db1e91b9ed3a344ba026c4a2b3ebf6",
+            "symbol": "WHSK",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x9f7214d617df07a9bea8bc3978d72d8384b9b6ae",
+          "feeTier": "500",
+          "liquidity": "0",
+          "sqrtPrice": "137227202865029797602485611888",
+          "tick": "10986",
+          "totalValueLockedUSD": "0",
+          "token0": {
+            "id": "0xb2e865538bbc7ce17b4e5fd5f42168e7ff48874b",
+            "symbol": "QTKA",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xc70c9386d34c3fd15d0376fc411887f53f405b45",
+            "symbol": "QTK B",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0x9fcdf0d609b36e2c8f8a194bed2583c772d6ef76",
+          "feeTier": "3000",
+          "liquidity": "30156246604902435107",
+          "sqrtPrice": "19051824864601259825946814809",
+          "tick": "-28505",
+          "totalValueLockedUSD": "827.1920545814516661529713291577946",
+          "token0": {
+            "id": "0xc383e13c47112b76be60f41ef5e5d8f9a8e75ae5",
+            "symbol": "TT1",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xca8aaceec5db1e91b9ed3a344ba026c4a2b3ebf6",
+            "symbol": "WHSK",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0xa0b0fc644922ce628a173be36bb0f0eb684c2807",
+          "feeTier": "500",
+          "liquidity": "165893808330953412507063",
+          "sqrtPrice": "50112036292404937755999619795",
+          "tick": "-9162",
+          "totalValueLockedUSD": "19969.54995700853838014025391358567",
+          "token0": {
+            "id": "0x0ecd62ed41fc2a38e00eeadfcb2d3669de0e76e8",
+            "symbol": "TK3",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0x98b6173a8b7dfc52ce8bc88f1184a918a1ccaa4f",
+            "symbol": "USDT",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0xa70826e74055096867bf80b1a100e93c399502a4",
+          "feeTier": "3000",
+          "liquidity": "1000000000000000000053",
+          "sqrtPrice": "2061281944917414099862198693",
+          "tick": "-72984",
+          "totalValueLockedUSD": "0",
+          "token0": {
+            "id": "0x0d7ead805538c0d2699d0572a15cc67e009e6933",
+            "symbol": "SWAP2",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0x5dcd0360fa1477dbfe83ddaa96256ef73e298c58",
+            "symbol": "SWAP3",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0xb2636d42affd0c2d6f57e20f90824d42bc4d6f62",
+          "feeTier": "500",
+          "liquidity": "19951014114",
+          "sqrtPrice": "83587328254660238360254724711",
+          "tick": "1071",
+          "totalValueLockedUSD": "0",
+          "token0": {
+            "id": "0x7d469d6c66bc150b0d888e84feffb40f05571abb",
+            "symbol": "USDT",
+            "decimals": "6"
+          },
+          "token1": {
+            "id": "0xfc51ee7f035e437c391b7c36e8a1eabd4ed14cc6",
+            "symbol": "USDC",
+            "decimals": "6"
+          }
+        },
+        {
+          "id": "0xb33457962bb0a25f8e571c8f1b472b9465d1d906",
+          "feeTier": "500",
+          "liquidity": "278027709707168714026263",
+          "sqrtPrice": "209617809701910091582021343732",
+          "tick": "19460",
+          "totalValueLockedUSD": "19999.51783297532679208514847725736",
+          "token0": {
+            "id": "0x98b6173a8b7dfc52ce8bc88f1184a918a1ccaa4f",
+            "symbol": "USDT",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xd925ace4dedee4575069ef8336310ca3e1759551",
+            "symbol": "TK3",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0xb38323a4ce448880fbf5b054798937b7db74aa05",
+          "feeTier": "3000",
+          "liquidity": "1421275401352",
+          "sqrtPrice": "283978877736511409370",
+          "tick": "-388954",
+          "totalValueLockedUSD": "11112.81183869399337421753632602182",
+          "token0": {
+            "id": "0x0284ea6081c90fd5a48bccc324c7be1e46ea8cdb",
+            "symbol": "TT2",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0x93f960a8dab5a541e93e6ddacd54f49a1750de81",
+            "symbol": "USDC",
+            "decimals": "6"
+          }
+        },
+        {
+          "id": "0xc076fb478b77633736738579c7f48d2539604a50",
+          "feeTier": "3000",
+          "liquidity": "3231210257071971233662",
+          "sqrtPrice": "10763304209649750455875929376",
+          "tick": "-39926",
+          "totalValueLockedUSD": "60587.95379323371739802250313367737",
+          "token0": {
+            "id": "0x98b6173a8b7dfc52ce8bc88f1184a918a1ccaa4f",
+            "symbol": "USDT",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xca8aaceec5db1e91b9ed3a344ba026c4a2b3ebf6",
+            "symbol": "WHSK",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0xc38050d5610beb5fd883ba142a49091ca45fd997",
+          "feeTier": "500",
+          "liquidity": "0",
+          "sqrtPrice": "45742835279329880356413273965684941",
+          "tick": "265337",
+          "totalValueLockedUSD": "0",
+          "token0": {
+            "id": "0x6fa21673dd2238e2155789cd90e43f0cbcc637f0",
+            "symbol": "QTK C",
+            "decimals": "6"
+          },
+          "token1": {
+            "id": "0xb2e865538bbc7ce17b4e5fd5f42168e7ff48874b",
+            "symbol": "QTKA",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0xc990aa76fdb15cd029dd6a49a8586aeddd799457",
+          "feeTier": "500",
+          "liquidity": "0",
+          "sqrtPrice": "162389070814544768689298314746253668850659520966",
+          "tick": "843326",
+          "totalValueLockedUSD": "0",
+          "token0": {
+            "id": "0x0284ea6081c90fd5a48bccc324c7be1e46ea8cdb",
+            "symbol": "TT2",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0x059b5230b111cc9d61c62e17142f8fa4bdd25ca5",
+            "symbol": "TK3",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0xca0d4387bdfd047a179f4f46a3eeaaffc33fefbf",
+          "feeTier": "500",
+          "liquidity": "94868329805051379964",
+          "sqrtPrice": "82811432287501339013757300243",
+          "tick": "884",
+          "totalValueLockedUSD": "0",
+          "token0": {
+            "id": "0x0ecd62ed41fc2a38e00eeadfcb2d3669de0e76e8",
+            "symbol": "TK3",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xc383e13c47112b76be60f41ef5e5d8f9a8e75ae5",
+            "symbol": "TT1",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0xcaa2939ad2e3ca4bf2b81b05d2d6de98cf5840cb",
+          "feeTier": "3000",
+          "liquidity": "75075000000004079",
+          "sqrtPrice": "79228162514264337593543950336000000",
+          "tick": "276324",
+          "totalValueLockedUSD": "0",
+          "token0": {
+            "id": "0x6fa21673dd2238e2155789cd90e43f0cbcc637f0",
+            "symbol": "QTK C",
+            "decimals": "6"
+          },
+          "token1": {
+            "id": "0xc70c9386d34c3fd15d0376fc411887f53f405b45",
+            "symbol": "QTK B",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0xd16ff68c9732c9ee79127facdb1822ac9d78ddc9",
+          "feeTier": "3000",
+          "liquidity": "999999999999",
+          "sqrtPrice": "79228162514264337593543950336000000",
+          "tick": "276324",
+          "totalValueLockedUSD": "0",
+          "token0": {
+            "id": "0x6fa21673dd2238e2155789cd90e43f0cbcc637f0",
+            "symbol": "QTK C",
+            "decimals": "6"
+          },
+          "token1": {
+            "id": "0xb2e865538bbc7ce17b4e5fd5f42168e7ff48874b",
+            "symbol": "QTKA",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0xd60db777558c8e0b944683910f92f71923f89d28",
+          "feeTier": "3000",
+          "liquidity": "126527244118",
+          "sqrtPrice": "371278557676763741307039094388007800281",
+          "tick": "445380",
+          "totalValueLockedUSD": "112070.1603989464270515676025917485",
+          "token0": {
+            "id": "0xc19c60e848c3c5b01fa93cbb7254150cb87075c7",
+            "symbol": "AAPL",
+            "decimals": "0"
+          },
+          "token1": {
+            "id": "0xca8aaceec5db1e91b9ed3a344ba026c4a2b3ebf6",
+            "symbol": "WHSK",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0xd7f74bfdec4b6e0905e9911f2aa900ae01fe96fc",
+          "feeTier": "500",
+          "liquidity": "128525662552923801081728085",
+          "sqrtPrice": "64856620633223082544265549625",
+          "tick": "-4004",
+          "totalValueLockedUSD": "20023144.632764425970976843521737",
+          "token0": {
+            "id": "0x0284ea6081c90fd5a48bccc324c7be1e46ea8cdb",
+            "symbol": "TT2",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0x98b6173a8b7dfc52ce8bc88f1184a918a1ccaa4f",
+            "symbol": "USDT",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0xe0662ad10652a27b2e26b980f9cfe2a173e9e0dd",
+          "feeTier": "3000",
+          "liquidity": "0",
+          "sqrtPrice": "2609022527511596720105721525",
+          "tick": "-68271",
+          "totalValueLockedUSD": "0.000000000000001337152082476260004842218757514908",
+          "token0": {
+            "id": "0xad43fe2e222201962f071310f4957e8cfb16d15c",
+            "symbol": "HKT",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xca8aaceec5db1e91b9ed3a344ba026c4a2b3ebf6",
+            "symbol": "WHSK",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0xe0a69ad435df971af51f3942a3690fefd52d1db3",
+          "feeTier": "500",
+          "liquidity": "0",
+          "sqrtPrice": "162389070814544768689298314746253668850659520966",
+          "tick": "843326",
+          "totalValueLockedUSD": "0",
+          "token0": {
+            "id": "0x0284ea6081c90fd5a48bccc324c7be1e46ea8cdb",
+            "symbol": "TT2",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xfe4c2199d51f23b55952e946f7a4dc4aa45f3a35",
+            "symbol": "TK3",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0xecb84943b34b31a0ead637d073bf6ab891c277fc",
+          "feeTier": "10000",
+          "liquidity": "0",
+          "sqrtPrice": "8939706829665776556263118872",
+          "tick": "-43639",
+          "totalValueLockedUSD": "0.000000000000000001",
+          "token0": {
+            "id": "0x98b6173a8b7dfc52ce8bc88f1184a918a1ccaa4f",
+            "symbol": "USDT",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xca8aaceec5db1e91b9ed3a344ba026c4a2b3ebf6",
+            "symbol": "WHSK",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0xede60babec9875d5b342949edf21fdcd53cee432",
+          "feeTier": "10000",
+          "liquidity": "0",
+          "sqrtPrice": "7561710520718885087461653851",
+          "tick": "-46988",
+          "totalValueLockedUSD": "0.0000000000000008697069937749261646095417419029037",
+          "token0": {
+            "id": "0x5596778fab408ce729590b57c086d90827dc87f0",
+            "symbol": "SWAP1",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xca8aaceec5db1e91b9ed3a344ba026c4a2b3ebf6",
+            "symbol": "WHSK",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0xefc38363d764fd353453ba4549a57eb3b8a93bf5",
+          "feeTier": "500",
+          "liquidity": "93924766559819260800079",
+          "sqrtPrice": "71425601364699008526853814724",
+          "tick": "-2074",
+          "totalValueLockedUSD": "19823.29736699178635006919076824612",
+          "token0": {
+            "id": "0x98b6173a8b7dfc52ce8bc88f1184a918a1ccaa4f",
+            "symbol": "USDT",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xfe4c2199d51f23b55952e946f7a4dc4aa45f3a35",
+            "symbol": "TK3",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0xf23b1d97d79ab36f220adccff3c1ad78174a2b9f",
+          "feeTier": "10000",
+          "liquidity": "0",
+          "sqrtPrice": "44777143608567746120529525699",
+          "tick": "-11414",
+          "totalValueLockedUSD": "0.000000000000000008663764290662406629284121693533773",
+          "token0": {
+            "id": "0x0284ea6081c90fd5a48bccc324c7be1e46ea8cdb",
+            "symbol": "TT2",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xc383e13c47112b76be60f41ef5e5d8f9a8e75ae5",
+            "symbol": "TT1",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0xf440719509f4bf76ff3dfb0c29230d1fc73ef299",
+          "feeTier": "10000",
+          "liquidity": "57735026918962576423859",
+          "sqrtPrice": "45742400955009932511290670151",
+          "tick": "-10987",
+          "totalValueLockedUSD": "0",
+          "token0": {
+            "id": "0xb2e865538bbc7ce17b4e5fd5f42168e7ff48874b",
+            "symbol": "QTKA",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xc70c9386d34c3fd15d0376fc411887f53f405b45",
+            "symbol": "QTK B",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0xf6c1c33e93600f69437e54d44f5723c6bceb2adf",
+          "feeTier": "3000",
+          "liquidity": "12422927218619333644848",
+          "sqrtPrice": "91370374345650381689514664626",
+          "tick": "2851",
+          "totalValueLockedUSD": "2000.076472843904364334",
+          "token0": {
+            "id": "0x98b6173a8b7dfc52ce8bc88f1184a918a1ccaa4f",
+            "symbol": "USDT",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xb2e865538bbc7ce17b4e5fd5f42168e7ff48874b",
+            "symbol": "QTKA",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0xf826c65abdff3b817e846db4dfb68107cefeb6b5",
+          "feeTier": "3000",
+          "liquidity": "424787373830210639696",
+          "sqrtPrice": "45572482661888092273398720957",
+          "tick": "-11062",
+          "totalValueLockedUSD": "1581.871740705175679064283397179929",
+          "token0": {
+            "id": "0x0284ea6081c90fd5a48bccc324c7be1e46ea8cdb",
+            "symbol": "TT2",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xc383e13c47112b76be60f41ef5e5d8f9a8e75ae5",
+            "symbol": "TT1",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0xfa887000c2d191aa5103a847b514ab0037eaea26",
+          "feeTier": "10000",
+          "liquidity": "17776388834647",
+          "sqrtPrice": "1561140425347874270257803111738073800",
+          "tick": "335943",
+          "totalValueLockedUSD": "55297.85119235406748514376626936808",
+          "token0": {
+            "id": "0x93f960a8dab5a541e93e6ddacd54f49a1750de81",
+            "symbol": "USDC",
+            "decimals": "6"
+          },
+          "token1": {
+            "id": "0xca8aaceec5db1e91b9ed3a344ba026c4a2b3ebf6",
+            "symbol": "WHSK",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0xfe85d84099a0e1d77f3472343abaf84fd8350e82",
+          "feeTier": "10000",
+          "liquidity": "1000000000000053",
+          "sqrtPrice": "79228162514264337593543950336000000",
+          "tick": "276324",
+          "totalValueLockedUSD": "0",
+          "token0": {
+            "id": "0x6fa21673dd2238e2155789cd90e43f0cbcc637f0",
+            "symbol": "QTK C",
+            "decimals": "6"
+          },
+          "token1": {
+            "id": "0xb2e865538bbc7ce17b4e5fd5f42168e7ff48874b",
+            "symbol": "QTKA",
+            "decimals": "18"
+          }
+        },
+        {
+          "id": "0xff2b7e501c870980bf5641b4a70d0f9fb0f6f6ab",
+          "feeTier": "500",
+          "liquidity": "4357594644943231824550",
+          "sqrtPrice": "8956919924426784140792350481",
+          "tick": "-43601",
+          "totalValueLockedUSD": "41162.61021773254059176698675737313",
+          "token0": {
+            "id": "0x98b6173a8b7dfc52ce8bc88f1184a918a1ccaa4f",
+            "symbol": "USDT",
+            "decimals": "18"
+          },
+          "token1": {
+            "id": "0xca8aaceec5db1e91b9ed3a344ba026c4a2b3ebf6",
+            "symbol": "WHSK",
+            "decimals": "18"
+          }
+        }
+      ],
+      "visual_ui_comparison": "NOT_PERFORMED: this command checks source data, not the rendered UI",
+      "transaction_sent": false
+    }
+  },
+  "current_app_sources": [
+    {
+      "url": "https://app.hskswap.com/?lng=en-US",
+      "sha256": "ce84e1ada9d45887412bdae809b91bc197519cd77a5df596edeb7940f0260c0a",
+      "bytes": 9629
+    },
+    {
+      "url": "https://app.hskswap.com/assets/index-BDLi8o2S.js",
+      "sha256": "cafc3c9f8ec7d40bec1688052d4ea1a2274150dfedaf14216f6815509d9e55af",
+      "bytes": 5313
+    },
+    {
+      "url": "https://app.hskswap.com/assets/src-RbqUeYme.js",
+      "sha256": "564471bb1cb3097edfca0ee63e344f532a928e55ba5e53fa476f475d4e6618cd",
+      "bytes": 1144654
+    },
+    {
+      "url": "https://app.hskswap.com/assets/DeveloperDocsPage-4XuHGrwl.js",
+      "sha256": "33374bc00651d4b4a38447867394dffc497fe6a310c22aa4374edc9d957e800d",
+      "bytes": 99905
+    }
+  ]
+}
