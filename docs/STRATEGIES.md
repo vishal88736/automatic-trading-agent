@@ -2,7 +2,23 @@
 
 All terminal strategies produce typed BUY/HOLD/SELL signals; they cannot submit orders. Confidence is a transparent rule-agreement heuristic, not a calibrated probability of profit. Parameters are Pydantic-validated and saved with versions/audit events. Disabled strategies cannot produce executable candidates.
 
-## Implemented signals
+## KRONO 2.0 built-in registry
+
+The active registry has exactly five initial entries. `backend/strategy_registry.py` provides the common validation/evaluation/configuration contract over the retained numerical implementation. All evaluation outputs include measured evidence, public rationale, direction, invalid conditions and exit policy; risk/reward stays unavailable when there is no defensible target estimate.
+
+| ID                   | Entry and exit logic                                                                                                                                                                   |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `momentum_v1`        | Configurable EMA, RSI, MACD and volume agreement; owned-position invalidation and ATR stop.                                                                                            |
+| `mean_reversion_v1`  | Bollinger displacement and RSI in a constrained range; mean recovery or standing invalidation.                                                                                         |
+| `trend_following_v1` | Persistent slow EMA slope, SMA50/EMA alignment, positive MACD and participation; slow EMA/slope reversal or ATR stop.                                                                  |
+| `breakout_v1`        | Prior-only Donchian channel plus configurable ATR buffer and volume confirmation; channel-midpoint invalidation or ATR stop. The latest candle is excluded from the reference channel. |
+| `spread_research_v1` | Arbitrage detection boundary; ineligible while compatible fresh routes, net fees/gas/slippage and settlement proof are unavailable.                                                    |
+
+`backend/selection.py` recalculates continuous feature and signal scores for all enabled strategies, assesses costs, optionally incorporates sufficiently sampled source/asset-matched chronological holdout results, and accepts only bounded eligible model advice. Missing performance is null, not an invented win rate. Configurable weights, minimum hold, switching cooldown and a score-improvement margin reduce churn. Selection never closes a position merely because its entry strategy lost rank. News is supporting intelligence; one unverified headline cannot replace deterministic strategy and risk checks.
+
+## Original terminal signals (compatibility reference)
+
+The following describes the earlier signal implementation. Its `news_aware_v1` evaluator remains available to direct compatibility/backtest callers; it is not a sixth built-in strategy in KRONO 2.0.
 
 | Strategy             | Entry evidence                                                                                                                                          | Exit / invalidation                                                                                        | Unavailable conditions                                                                                                                   |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |

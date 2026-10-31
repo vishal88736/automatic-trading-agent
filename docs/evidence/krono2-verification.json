@@ -1,0 +1,27 @@
+{
+  "verified_date": "2026-10-31",
+  "environment": "local",
+  "mode": "SIMULATION",
+  "python_tests_passed": 144,
+  "python_subtests_passed": 10,
+  "platform_infrastructure_tests_passed": 16,
+  "chromium_workflows_passed": 12,
+  "frontend_build": "PASSED",
+  "platform_types": "PASSED",
+  "platform_build": "PASSED",
+  "infrastructure_synthesis": "PASSED",
+  "production_restart_simulation": "PASSED",
+  "aws_deployment_verified": false,
+  "live_cognito_verified": false,
+  "live_bedrock_verified": false,
+  "live_fargate_verified": false,
+  "blockchain_submission_attempted": false,
+  "browser_platform_providers": "test-only auth, memory store, model and runtime fixtures",
+  "dependency_audit": {
+    "moderate_entries": 2,
+    "underlying_advisory": "GHSA-g3hv-75wg-m249",
+    "location": "development-only aws-cdk-lib bundled minimatch",
+    "high": 0,
+    "critical": 0
+  }
+}

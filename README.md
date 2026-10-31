@@ -1,5 +1,7 @@
 # Krono — an auditable crypto trading workspace
 
+**KRONO 2.0:** a Cognito/DynamoDB tenant control plane, centralized Bedrock MiniMax provider, conversational agent drafts and isolated ECS runtime infrastructure have been added. Configure your account using [the AWS setup guide](docs/AWS_SETUP.md) and [environment template](deploy/aws/.env.example). Cloud deployment and model access remain pending account configuration; the local simulation terminal still runs independently.
+
 Research → deterministic strategy → independent risk → quote preview → human authorization → simulated execution → reconciled portfolio.
 
 Krono is an independent platform built for the HSKSwap AI Agent Trading hackathon track, extending [AlpacaTradingAgent](https://github.com/vishal88736/alpaca-trading-agent). HSKSwap is the target exchange integration on HSKChain. Python, LangGraph, FastAPI and SQLite power a React/TypeScript/Tailwind terminal. The original trading framework, Dash interface and Alpaca utilities remain in the repository.
@@ -53,7 +55,7 @@ Full walkthrough, including autonomous simulation and restart recovery: [DEMO.md
 | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Ten terminal workspaces, responsive navigation, candles, volume, EMA and equity charts | Built and exercised with Chromium at desktop and mobile sizes. 1h/4h/1d charts use complete buckets; analysis remains hourly.                                                                                                                     |
 | Market and news ingestion                                                              | Typed Coinbase reference prices/candles and hosted cryptocurrency.cv news/breaking feeds; bounded concurrency, timeouts, caching and stale/unavailable states.                                                                                    |
-| Strategy registry                                                                      | Real momentum, constrained mean reversion and news-confirmed signals; price-spread research remains disabled without compatible executable quotes.                                                                                                |
+| Strategy registry                                                                      | Five built-ins: momentum, mean reversion, trend following, breakout and arbitrage detection. Dynamic ranking uses measured inputs; arbitrage remains ineligible without verified executable routes.                                               |
 | Upstream framework reuse                                                               | Original regime classifier, Wilder ATR, bull/bear node factories, structured trader schema and provider factory. 220 of 223 preserved upstream files are byte-identical; three small adaptations are documented.                                  |
 | Optional AI research                                                                   | Actual upstream bull/bear nodes and a structured trader consolidation; bounded, read-only and subordinate to deterministic strategies/risk. Tested with a fixture model; no live LLM provider has been validated in this run.                     |
 | Independent risk and simulation execution                                              | Decimal amounts, hard caps, fresh-quote validation, explicit authorization, idempotent intents, transaction-state separation and atomic ledger reconciliation.                                                                                    |
@@ -88,7 +90,7 @@ npm run test:e2e
 
 Chromium tests use the installed `/usr/bin/chromium` when available. Otherwise install Playwright's browser into the project cache with `PLAYWRIGHT_BROWSERS_PATH="$PWD/.cache/ms-playwright" npx playwright install chromium`, and keep that variable set for the test command. CI installs its own browser and OS dependencies on its disposable runner.
 
-Recorded validation: **125 tests + 10 subtests**, **nine browser workflows**, strict TypeScript/production build, formatting and the production restart smoke test passed. Browser checks include bundled font loading, reading sizes, text contrast, responsive charts, discovery controls and workspace search. A third-party LangGraph deprecation warning remains. These checks do not verify profitability or live trading. Detailed evidence and exact boundaries: [VERIFICATION.md](docs/VERIFICATION.md).
+Validation commands and evidence boundaries are recorded in [VERIFICATION.md](docs/VERIFICATION.md). The AWS control-plane suites run with isolated providers and synthesized infrastructure; they do not verify account-level deployment or model access. A third-party LangGraph deprecation warning remains. No test establishes profitability or live trading.
 
 Public read-only provider probes are opt-in and separate from offline tests:
 

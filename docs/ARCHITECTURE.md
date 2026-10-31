@@ -1,5 +1,7 @@
 # Terminal architecture
 
+For the KRONO 2.0 control plane, tenant keys, role boundaries, deployment lifecycle and current limitations, see [AWS setup and architecture](AWS_SETUP.md). The localhost terminal described below remains separate from the public Cognito API. Its SQLite store is used inside each approved isolated Python worker, with lease-fenced durable cloud checkpoints; it is not a shared tenant database.
+
 The initial local folder contained no implementation. The source framework was inspected at revision `2495276210d977dd09a5190def02755f5b96bea8`, then preserved with its license, CLI, Dash UI, prompts and tests. This terminal adds a modular monolith around that code.
 
 ## Runtime paths
