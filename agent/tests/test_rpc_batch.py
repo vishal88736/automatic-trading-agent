@@ -1,6 +1,7 @@
 """Pinned batches retain the read-only, chain and reorg boundaries."""
 
 import json
+import threading
 import time
 
 import httpx
@@ -143,5 +144,84 @@ def test_mainnet_retains_serial_reads_without_batch_support():
         rpc.prefetch(block, [call_read(ADDRESS, "decimals()", block)])
         assert rpc.call(ADDRESS, "decimals()", ["uint8"], block) == (18,)
         assert methods == ["eth_chainId", "eth_call"]
+    finally:
+        rpc.close()
+
+
+def parallel_rpc(handler, urls=("https://rpc.test",)):
+    return ReadOnlyRpc(
+        177, list(urls), attempts=1, retry_delay=0, transport=httpx.MockTransport(handler)
+    )
+
+
+def test_mainnet_prefetch_reads_concurrently_with_chain_checks_around_the_set():
+    calls = []
+    lock = threading.Lock()
+
+    def handler(request):
+        data = json.loads(request.content)
+        assert isinstance(data, dict), "Mainnet must not require RPC batches"
+        with lock:
+            calls.append(data["method"])
+        result = "0xb1" if data["method"] == "eth_chainId" else "0x" + encode(["uint8"], [18]).hex()
+        return httpx.Response(200, json={"id": data["id"], "result": result})
+
+    rpc = parallel_rpc(handler)
+    block = BlockRef(100, "hash", int(time.time()))
+    reads = [call_read(ADDRESS, "decimals()", block), call_read(ADDRESS, "symbol()", block)]
+    try:
+        rpc.prefetch(block, reads)
+        assert calls[0] == calls[-1] == "eth_chainId"
+        assert calls.count("eth_call") == 2 and calls.count("eth_chainId") == 2
+        count = len(calls)
+        # Decoding is served from the published set, with no further network reads.
+        assert rpc.call(ADDRESS, "decimals()", ["uint8"], block) == (18,)
+        assert len(calls) == count
+    finally:
+        rpc.close()
+
+
+@pytest.mark.parametrize("failure", ["revert", "wrong_chain_after", "http_429", "bad_id"])
+def test_failed_parallel_read_publishes_nothing_and_falls_back_to_serial(failure):
+    block = BlockRef(100, "hash", int(time.time()))
+    good, failing = call_read(ADDRESS, "decimals()", block), call_read(ADDRESS, "symbol()", block)
+    state = {"parallel_round": True, "chain_checks": 0}
+    lock = threading.Lock()
+    served = "0x" + encode(["uint8"], [18]).hex()
+
+    def handler(request):
+        data = json.loads(request.content)
+        reply = {"id": data["id"], "result": served}
+        if data["method"] == "eth_chainId":
+            with lock:
+                state["chain_checks"] += 1
+                changed = failure == "wrong_chain_after" and state["chain_checks"] == 2
+            return httpx.Response(200, json={**reply, "result": "0x1" if changed else "0xb1"})
+        if state["parallel_round"] and data["params"][0]["data"] == failing[1][0]["data"]:
+            if failure == "revert":
+                return httpx.Response(
+                    200, json={"id": data["id"], "error": {"code": 3, "message": "reverted"}}
+                )
+            if failure == "http_429":
+                return httpx.Response(429, json={})
+            if failure == "bad_id":
+                return httpx.Response(200, json={"id": 999999, "result": served})
+        return httpx.Response(200, json=reply)
+
+    rpc = parallel_rpc(handler)
+    try:
+        rpc.prefetch(block, [good, failing])
+        assert rpc._prefetched == {}, "A partial set must never be published"
+        state["parallel_round"] = False
+        assert rpc.call(ADDRESS, "decimals()", ["uint8"], block) == (18,)
+    finally:
+        rpc.close()
+
+
+def test_read_many_rejects_writes_and_unknown_methods():
+    rpc = parallel_rpc(lambda request: pytest.fail("no request may be sent"))
+    try:
+        with pytest.raises(DiscoveryError, match="contract state reads"):
+            rpc.read_many([("eth_sendRawTransaction", ["0x00"])])
     finally:
         rpc.close()

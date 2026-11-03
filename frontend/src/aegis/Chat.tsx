@@ -4,7 +4,20 @@ import { api } from "../api";
 import { Modal } from "../ui";
 import { useAegis } from "./context";
 import { ParamsConfirmation } from "./LiveControls";
-import { utcTime } from "./types";
+import { utcTime, type AegisState } from "./types";
+
+/** A size shortcut the risk policy will accept for this account, never a fixed amount. */
+export function sizeSuggestion(state: AegisState | null | undefined) {
+  const nav = Number(state?.pnl?.nav_usdt);
+  const capPct = Number(state?.caps?.max_position_size_pct);
+  if (!state?.valuation_fresh || !(nav > 0) || !(capPct > 0))
+    return "Set position size to 5% and frequency to 30s";
+  // 80% of the USDT ceiling, rounded down to two significant digits.
+  const budget = (nav * capPct * 0.8) / 100;
+  const step = 10 ** (Math.floor(Math.log10(budget)) - 1);
+  const rounded = Number((Math.floor(budget / step) * step).toPrecision(2));
+  return `Set position size to ${rounded} USDT and frequency to 30s`;
+}
 
 export function AegisChat() {
   const { messages, busy, send, setChatOpen, state } = useAegis();
@@ -75,9 +88,9 @@ export function AegisChat() {
       <div className="aegis-chips">
         {[
           "Show my open positions and real-time P&L",
-          "Set position size to 25 USDT and frequency to 30s",
+          sizeSuggestion(state),
           "Switch risk appetite to conservative with a 1.5% stop-loss",
-          "Focus target assets on WHSK and WETH arbitrage spreads",
+          `Focus target assets on ${(state?.supported_assets ?? ["WHSK", "WETH"]).slice(0, 2).join(" and ")}`,
         ].map((text) => (
           <button disabled={busy} key={text} onClick={() => submit(text)}>
             {text}
@@ -125,8 +138,10 @@ export function AegisChat() {
 }
 
 export function AegisConfirmations() {
-  const { preview, setPreview, busy, act } = useAegis();
+  const { preview, setPreview, busy, act, state } = useAegis();
   if (!preview) return null;
+  const signed = state?.mode === "testnet";
+  const mode = signed ? "testnet" : "paper";
   if (preview.kind === "params_change")
     return (
       <Modal title="Confirm settings change" close={() => setPreview(null)}>
@@ -134,9 +149,14 @@ export function AegisConfirmations() {
       </Modal>
     );
   return (
-    <Modal title="Confirm paper position unwind" close={() => setPreview(null)}>
+    <Modal
+      title={`Confirm ${mode} position unwind`}
+      close={() => setPreview(null)}
+    >
       <p>
-        Close {preview.positions.length} paper position(s) into virtual USDT.
+        {signed
+          ? `Close ${preview.positions.length} testnet position(s) into testnet USDT. Each exit signs a real Guard Vault swap on chain 133.`
+          : `Close ${preview.positions.length} paper position(s) into virtual USDT.`}{" "}
         Entries will pause. Fresh quotes and risk limits apply to each exit.
       </p>
       <p>
@@ -162,10 +182,10 @@ export function AegisConfirmations() {
               });
               setPreview(null);
               await api("/aegis/check", "POST");
-            }, "Confirmed paper unwind requested; entries paused.")
+            }, `Confirmed ${mode} unwind requested; entries paused.`)
           }
         >
-          Confirm paper unwind
+          Confirm {mode} unwind
         </button>
       </div>
     </Modal>

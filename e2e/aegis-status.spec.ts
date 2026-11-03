@@ -30,3 +30,68 @@ test("AEGIS shows one status card, a first-run guide, and a compact assistant bu
   await launcher.hover();
   await expect(launcher).toContainText("Ask AEGIS");
 });
+
+test("a signed testnet runtime is never labelled paper, and shortcuts fit the account", async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.goto("/#/aegis");
+  await page.getByRole("button", { name: "Refresh HSKSwap data" }).click();
+  await expect(page.getByRole("heading", { name: "Get started" })).toHaveCount(
+    0,
+  );
+  // Explicit read-response fixture: the same state, as the signed runtime reports it.
+  await page.route(
+    (url) => url.pathname === "/api/aegis/state",
+    async (route) => {
+      const response = await route.fetch();
+      const state = await response.json();
+      await route.fulfill({
+        response,
+        json: {
+          ...state,
+          mode: "testnet",
+          live_enabled: true,
+          supported_assets: ["WHSK"],
+          pnl: { ...state.pnl, nav_usdt: "0.27" },
+        },
+      });
+    },
+  );
+  await page.reload();
+  const status = page.getByRole("region", { name: "Agent status" });
+  await expect(status.getByText("TESTNET", { exact: true })).toBeVisible();
+  await expect(status).not.toContainText("virtual");
+  await expect(
+    page.getByRole("button", { name: "Start testnet agent" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Testnet performance" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "AEGIS on HSKSwap" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("risk-controlled signed testnet execution"),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Open trading assistant" }).click();
+  // 80% of the 10% ceiling on a 0.27 USDT account, and only assets with a testnet pool.
+  await expect(
+    page.getByRole("button", {
+      name: "Set position size to 0.021 USDT and frequency to 30s",
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", {
+      name: "Focus target assets on WHSK",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Close AEGIS assistant" }).click();
+  await page.goto("/#/aegis/wallet");
+  await expect(page.getByRole("note").first()).toContainText(
+    "signing on testnet chain 133",
+  );
+  expect(errors).toEqual([]);
+});

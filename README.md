@@ -119,11 +119,11 @@ The same validated controls serve web chat and the optional private Telegram ada
 - **Show my open positions and real-time P&L.**
 - **Set position size to 8 USDT and frequency to 45s.** On a fresh 100-USDT ledger this fits the reviewed 10% ceiling; lower NAV can require a smaller budget.
 - **Switch risk appetite to conservative with a 1.5% stop-loss.**
-- **Focus target assets on WHSK and WETH arbitrage spreads.**
+- **Focus target assets on WHSK and WETH.**
 - **Explain the latest decision.**
 - **Pause**, **PANIC**, or **close all positions**. Closing produces a separate human-confirmed preview.
 
-An out-of-range request such as **25 USDT on 100 USDT NAV** is refused. Risk presets apply bounded settings, and explicit values in the same request take precedence. Monitoring frequency does not override trade-frequency caps.
+An out-of-range request such as **25 USDT on 100 USDT NAV** is refused; the chat's size shortcut is calculated from the current NAV so it always fits. Risk presets apply bounded settings, and explicit values in the same request take precedence. Monitoring frequency does not override trade-frequency caps.
 
 The bounded AEGIS command router works without a key. It supports **“Pause the agent”**, **“Stop trading WETH”**, portfolio/P&L questions and last-trade explanations. Current target assets are WHSK/WETH/WBTC with USDT settlement and a 15–300 second scan interval. USDC settlement, a ten-minute scan interval and changing the minimum spread threshold are explicitly refused; mixed requests are validated before any setting changes.
 

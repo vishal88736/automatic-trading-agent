@@ -152,7 +152,7 @@ class SignedGateway(ExecutionGateway):
                 if committed.route.tokens[0] == committed.route.tokens[-1]
                 else self.ledger.apply_fill
             )
-            extra = {"settlement": settlement} if apply == self.ledger.apply_fill else {}
+            extra = {"settlement": settlement}
             if origin is not None:
                 extra["origin"] = origin.model_copy(
                     update={"entry_mark": marks[token_out.address.lower()]}

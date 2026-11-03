@@ -23,7 +23,13 @@ import type {
 import { inputRange, utcTime as at } from "./aegis/types";
 import type { Strategy } from "./types";
 
-function Curve({ rows }: { rows: State["equity_curve"] }) {
+function Curve({
+  rows,
+  mode = "Paper",
+}: {
+  rows: State["equity_curve"];
+  mode?: string;
+}) {
   if (rows.length < 2)
     return (
       <Empty
@@ -56,7 +62,7 @@ function Curve({ rows }: { rows: State["equity_curve"] }) {
       <svg
         viewBox="0 0 640 145"
         role="img"
-        aria-label="Paper realized and unrealized P&L in USDT"
+        aria-label={`${mode} realized and unrealized P&L in USDT`}
       >
         <polyline
           points={points("realized_pnl_usdt")}
@@ -116,14 +122,18 @@ export function AegisDesk({
   if (view === "wallet")
     return (
       <div className="aegis-workspace">
-        <AegisWallet account={ownerAccount} onAccountChange={setOwnerAccount} />
+        <AegisWallet
+          account={ownerAccount}
+          onAccountChange={setOwnerAccount}
+          runtimeMode={state?.mode}
+        />
       </div>
     );
   if (!state)
     return (
       <div className="panel aegis-loading">
         <LoaderCircle className="spin" />
-        <p>{connectionError || error || "Opening the AEGIS paper ledger…"}</p>
+        <p>{connectionError || error || "Opening the AEGIS ledger…"}</p>
         <button className="button secondary" onClick={() => void load()}>
           Retry connection
         </button>
@@ -133,7 +143,7 @@ export function AegisDesk({
     return (
       <Panel title="AEGIS unavailable">
         <Empty
-          title="The paper runtime is not initialized"
+          title="The AEGIS runtime is not initialized"
           description={
             state.reason || "Check runtime configuration and storage."
           }
@@ -147,6 +157,8 @@ export function AegisDesk({
     );
   const active = !state.paused && !state.emergency;
   const signed = state.mode === "testnet";
+  const Mode = signed ? "Testnet" : "Paper";
+  const mode = Mode.toLowerCase();
   // First visit: no observation yet, so the data panels would all be empty placeholders.
   const firstRun =
     view === "overview" && !state.block_number && !state.last_error;
@@ -354,7 +366,7 @@ export function AegisDesk({
               </span>
             </li>
             <li>
-              <strong>Start the paper agent</strong>
+              <strong>Start the {mode} agent</strong>
               <span>
                 It then monitors on its own; every run is kept in Sessions.
               </span>
@@ -393,7 +405,7 @@ export function AegisDesk({
         <>
           <div className="aegis-metrics">
             {[
-              ["Paper NAV", state.pnl?.nav_usdt],
+              [`${Mode} NAV`, state.pnl?.nav_usdt],
               ["Net P&L", state.pnl?.net_pnl_usdt],
               ["Realized P&L", state.pnl?.realized_pnl_usdt],
               ["Unrealized P&L", state.pnl?.unrealized_pnl_usdt],
@@ -417,14 +429,18 @@ export function AegisDesk({
         <>
           <div className="aegis-columns">
             <Panel
-              title="Paper performance"
+              title={`${Mode} performance`}
               subtitle="Recorded realized and unrealized P&L; no return is guaranteed"
             >
-              <Curve rows={state.equity_curve} />
+              <Curve rows={state.equity_curve} mode={Mode} />
             </Panel>
             <Panel
               title="Risk usage"
-              subtitle="Reviewed Guard defaults, enforced off-chain for this paper ledger"
+              subtitle={
+                signed
+                  ? "Reviewed Guard defaults, enforced off-chain and by the deployed vault"
+                  : "Reviewed Guard defaults, enforced off-chain for this paper ledger"
+              }
             >
               <div className="aegis-risk">
                 <label>
@@ -538,7 +554,7 @@ export function AegisDesk({
           >
             {!state.positions.length ? (
               <Empty
-                title="No open paper positions"
+                title={`No open ${mode} positions`}
                 description="The agent waits for deterministic signals that cover modeled trading costs. Starting it does not force a trade."
               />
             ) : (
@@ -613,7 +629,7 @@ export function AegisDesk({
           <div className="aegis-columns">
             <Panel
               title="Strategy preferences"
-              subtitle="Validated against the paper policy and reviewed Guard caps"
+              subtitle={`Validated against the ${mode} policy and reviewed Guard caps`}
             >
               {form && (
                 <form
@@ -935,7 +951,11 @@ export function AegisDesk({
         <>
           <Panel
             title="Decision feed"
-            subtitle="Local paper audit. These decisions are not committed on-chain; public testnet proofs are in the Verifier."
+            subtitle={
+              signed
+                ? "Local decision audit. Signed fills carry their commit, swap and reveal receipts in the execution ledger."
+                : "Local paper audit. These decisions are not committed on-chain; public testnet proofs are in the Verifier."
+            }
           >
             <div className="aegis-decisions">
               {state.decisions
@@ -945,7 +965,7 @@ export function AegisDesk({
                     <summary>
                       <time>{at(d.created_at)}</time>
                       <strong>{d.status.replaceAll("_", " ")}</strong>
-                      <Badge>Local paper record</Badge>
+                      <Badge>Local {mode} record</Badge>
                     </summary>
                     <p className="aegis-decision-reason">
                       {String(
@@ -981,12 +1001,16 @@ export function AegisDesk({
         </>
       )}
       {show("desk", "executions") && (
-        <TradeHistory workspace="aegis" refreshKey={state.fills[0]?.id} />
+        <TradeHistory
+          workspace="aegis"
+          refreshKey={state.fills[0]?.id}
+          mode={state.mode}
+        />
       )}
       {show("strategies") && (
         <Panel
           title="Strategy engines"
-          subtitle="Original strategy rules and configurations feed the guarded paper gateway"
+          subtitle={`Original strategy rules and configurations feed the guarded ${mode} gateway`}
         >
           <div className="aegis-risk">
             <p>
@@ -1001,7 +1025,7 @@ export function AegisDesk({
                   : "No native pool engine is selected; only the strategy library's fresh reference-market signals can enter.";
               })()}{" "}
               Every fill needs a verified HSKSwap quote, an actively trading
-              pool, risk checks and the paper gateway.
+              pool, risk checks and the {mode} gateway.
             </p>
             <p>
               BTC maps to WBTC and ETH to WETH; reference assets without an

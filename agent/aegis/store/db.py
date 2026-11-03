@@ -18,7 +18,8 @@ class LedgerError(ValueError):
 
 
 class PaperLedger:
-    def __init__(self, path: Path, stable: Token, initial_cash_raw: int):
+    def __init__(self, path: Path, stable: Token, initial_cash_raw: int, *, mode: str = "paper"):
+        self.mode = mode
         if initial_cash_raw <= 0:
             raise LedgerError("Initial virtual cash must be positive")
         path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -394,11 +395,17 @@ class PaperLedger:
         marks: dict[str, Decimal],
         max_trade_bps: int,
         execution_context: dict | None = None,
+        settlement: dict | None = None,
     ) -> dict:
-        """Atomic same-settlement cycle; fees are deducted once and no intermediate holding is minted."""
+        """Atomic same-settlement cycle; fees are deducted once and no intermediate holding is minted.
+
+        With ``settlement`` the swap already happened on-chain: its confirmed receipt is recorded
+        as-is, including a loss, because the local checks can no longer prevent it."""
         if quote.route.tokens[0] != self.stable or quote.route.tokens[-1] != self.stable:
             raise LedgerError("Cycles must begin and end in the ledger settlement token")
-        if output_raw <= quote.amount_in_raw + network_fee_raw or network_fee_raw < 0:
+        if network_fee_raw < 0 or (
+            settlement is None and output_raw <= quote.amount_in_raw + network_fee_raw
+        ):
             raise LedgerError("Cycle has no positive net output after modeled costs")
         self.db.execute("BEGIN IMMEDIATE")
         try:
@@ -406,13 +413,13 @@ class PaperLedger:
             if previous is not None:
                 self.db.execute("COMMIT")
                 return previous
-            if int(time.time()) > quote.expires_at:
+            if settlement is None and int(time.time()) > quote.expires_at:
                 raise LedgerError("Cycle quote expired before ledger commit")
             row = self.balances()[self.stable.address.lower()]
             nav = Decimal(self.pnl(marks)["nav_usdt"])
-            if (
-                quote.amount_in_raw > row["amount_raw"]
-                or Decimal(quote.amount_in_raw) / 10**self.stable.decimals * 10000
+            if quote.amount_in_raw > row["amount_raw"] or (
+                settlement is None
+                and Decimal(quote.amount_in_raw) / 10**self.stable.decimals * 10000
                 > nav * max_trade_bps
             ):
                 raise LedgerError("Cycle exceeds balance or current NAV cap")
@@ -429,10 +436,10 @@ class PaperLedger:
             fill_id = str(uuid4())
             result = {
                 "id": fill_id,
-                "mode": "paper",
+                "mode": settlement["mode"] if settlement else "paper",
                 "kind": "atomic_cycle",
-                "receipt": "paper:" + fill_id,
-                "transaction_hash": None,
+                "receipt": settlement["receipt"] if settlement else "paper:" + fill_id,
+                "transaction_hash": settlement["transaction_hash"] if settlement else None,
                 "created_at": int(time.time()),
                 "chain_id": self.stable.chain_id,
                 "quote": quote.model_dump(mode="json"),
@@ -447,12 +454,15 @@ class PaperLedger:
             }
             if execution_context is not None:
                 result["execution_context"] = execution_context
+            if settlement is not None:
+                result["settlement"] = settlement
             self.db.execute(
                 "INSERT INTO fills VALUES(?,?,?,?)",
                 (fill_id, key, request_hash, json.dumps(result)),
             )
             self.record(
-                "paper_filled", {"fill_id": fill_id, "quote_id": quote.id, "kind": "atomic_cycle"}
+                "signed_filled" if settlement else "paper_filled",
+                {"fill_id": fill_id, "quote_id": quote.id, "kind": "atomic_cycle"},
             )
             self.db.execute("COMMIT")
             return result
@@ -478,7 +488,7 @@ class PaperLedger:
                 return format(value.normalize(), "f")
 
             return {
-                "mode": "paper",
+                "mode": self.mode,
                 "initial_cash_usdt": text(funding),
                 "nav_usdt": text(nav),
                 "net_pnl_usdt": text(nav - funding),

@@ -7,6 +7,7 @@ import logging
 import re
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any
 
@@ -17,6 +18,8 @@ from web3 import Web3
 from aegis.connectors.curl_rpc import CurlTransport
 
 LOG = logging.getLogger(__name__)
+# Concurrent single requests for endpoints that reject JSON-RPC batches.
+PARALLEL_READS = 8
 READ_METHODS = frozenset(
     {
         "eth_chainId",
@@ -129,13 +132,16 @@ class ReadOnlyRpc:
         if self._stopping.is_set():
             raise DiscoveryError("RPC reader is shutting down")
         self.sequence += 1
+        return self._post(url, self.sequence, method, params)
+
+    def _post(self, url: str, request_id: int, method: str, params: list) -> Any:
         response = self.client.post(
             url,
-            json={"jsonrpc": "2.0", "id": self.sequence, "method": method, "params": params},
+            json={"jsonrpc": "2.0", "id": request_id, "method": method, "params": params},
         )
         response.raise_for_status()
         payload = response.json()
-        if not isinstance(payload, dict) or payload.get("id") != self.sequence:
+        if not isinstance(payload, dict) or payload.get("id") != request_id:
             raise DiscoveryError("Invalid RPC response envelope")
         if "error" in payload:
             raise RpcResponseError(int(payload["error"]["code"]))
@@ -183,6 +189,47 @@ class ReadOnlyRpc:
                 self._stopping.wait(self.retry_delay * 2**attempt)
         raise DiscoveryError(f"No verified RPC response for {method}: {', '.join(failures)}")
 
+    def read_many(self, reads: list[tuple[str, list]]) -> dict[str, Any]:
+        """Block-pinned contract reads over concurrent single requests, all or nothing.
+
+        One endpoint serves the whole set, with its chain checked before and after: the same
+        guarantee as a batch's embedded chain check, for endpoints that reject batches. Any
+        missing result, revert, wrong chain or transport failure publishes nothing."""
+        unique = {json.dumps([m, p], sort_keys=True): (m, p) for m, p in reads}
+        for method, params in unique.values():
+            if method not in {"eth_call", "eth_getCode", "eth_getStorageAt"}:
+                raise DiscoveryError("Parallel reads accept only contract state reads")
+        failure = "no endpoint"
+        for url in self.urls:
+            if self._stopping.is_set():
+                raise DiscoveryError("RPC reader is shutting down")
+            base = self.sequence + 1
+            self.sequence += len(unique) + 2
+
+            def fetch(item):
+                index, (key, (method, params)) = item
+                if self._stopping.is_set():
+                    raise DiscoveryError("RPC reader is shutting down")
+                return key, self._post(url, base + 2 + index, method, params)
+
+            try:
+                if int(self._post(url, base, "eth_chainId", []), 16) != self.chain_id:
+                    raise DiscoveryError("RPC chain mismatch")
+                with ThreadPoolExecutor(max_workers=PARALLEL_READS) as pool:
+                    results = dict(pool.map(fetch, enumerate(unique.items())))
+                if int(self._post(url, base + 1, "eth_chainId", []), 16) != self.chain_id:
+                    raise DiscoveryError("RPC chain mismatch")
+                return results
+            except (
+                httpx.HTTPError,
+                RpcResponseError,
+                ValueError,
+                DiscoveryError,
+                TypeError,
+            ) as exc:
+                failure = type(exc).__name__
+        raise DiscoveryError(f"No complete parallel read: {failure}")
+
     def prefetch(self, block: BlockRef, reads: list[tuple[str, list]]) -> None:
         """Batch only pinned contract reads; never cache headers, receipts or pending state.
 
@@ -208,9 +255,15 @@ class ReadOnlyRpc:
             return
         if len(unique) > 256:
             raise DiscoveryError("Read batch exceeds the bounded request limit")
-        # HSK testnet's pinned endpoint supports batches. Keep other chains on
-        # their existing serial reads; mainnet's public endpoint rejects batches.
+        # HSK testnet's pinned endpoint supports batches. Mainnet's public endpoint rejects
+        # them, and serial reads took ~12s per snapshot, so read the same set concurrently.
+        # A failure publishes nothing and every read falls back to its serial, retried path.
         if self.chain_id != 133:
+            if len(unique) > 1:
+                try:
+                    self._prefetched.update(self.read_many(list(unique.values())))
+                except DiscoveryError as exc:
+                    LOG.warning(json.dumps({"event": "rpc_parallel_fallback", "reason": str(exc)}))
             return
         self.sequence += 1
         chain_request_id = self.sequence

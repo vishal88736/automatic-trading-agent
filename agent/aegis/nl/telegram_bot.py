@@ -34,6 +34,7 @@ class TelegramControl:
         self.bot_url = "https://api.telegram.org/bot" + bot_token
         self.chat_id, self.api_token, self.api_url = chat_id, api_token, api_url.rstrip("/")
         self.path = state_file
+        self.label = "PAPER"  # Replaced by the mode the backend reports.
         self.client = httpx.Client(timeout=35, transport=transport, follow_redirects=False)
         self.state = (
             json.loads(state_file.read_text())
@@ -72,14 +73,18 @@ class TelegramControl:
                 response.json().get("error", {}).get("message", "Backend rejected the request")
             )
             raise ValueError(str(message)[:500])
-        return response.json()
+        payload = response.json()
+        # Label every message with the mode the backend reports, never an assumption.
+        if isinstance(payload, dict) and payload.get("mode") in {"paper", "testnet"}:
+            self.label = payload["mode"].upper()
+        return payload
 
     def reply(self, text, *, preview=None):
         data = {"chat_id": self.chat_id, "text": str(text)[:4000]}
         if preview:
             data["reply_markup"] = {
                 "inline_keyboard": [
-                    [{"text": "Confirm PAPER unwind", "callback_data": "close:" + preview}]
+                    [{"text": f"Confirm {self.label} unwind", "callback_data": "close:" + preview}]
                 ]
             }
         return self.telegram("sendMessage", data)
@@ -113,9 +118,12 @@ class TelegramControl:
                 )
                 self.telegram(
                     "answerCallbackQuery",
-                    {"callback_query_id": callback["id"], "text": "Paper unwind requested"},
+                    {
+                        "callback_query_id": callback["id"],
+                        "text": f"{self.label.title()} unwind requested",
+                    },
                 )
-                self.reply("PAPER: confirmed bounded unwind requested; entries are paused.")
+                self.reply(f"{self.label}: confirmed bounded unwind requested; entries are paused.")
                 return
             text = message.get("text", "").strip()[:1000]
             if not text:
@@ -123,7 +131,7 @@ class TelegramControl:
             if text.split()[0].split("@")[0] == "/panic":
                 self.api("/control", body={"action": "panic"})
                 self.reply(
-                    "PAPER: emergency stop latched. Stable unwind waits for verified quotes and risk checks."
+                    f"{self.label}: emergency stop latched. Stable unwind waits for verified quotes and risk checks."
                 )
                 return
             commands = {
@@ -150,11 +158,11 @@ class TelegramControl:
                 else None,
             )
         except ValueError as exc:
-            self.reply("PAPER: " + str(exc))
+            self.reply(f"{self.label}: " + str(exc))
         except Exception:
             # Exceptions may carry a token-bearing Telegram URL. Never log or forward that exception.
             self.reply(
-                "PAPER: request outcome is uncertain. Inspect the dashboard before repeating an action."
+                f"{self.label}: request outcome is uncertain. Inspect the dashboard before repeating an action."
             )
 
     def alerts(self):
@@ -171,7 +179,7 @@ class TelegramControl:
                 in {"circuit_breaker", "exit_executed", "signal_executed", "exit_blocked"}
             ):
                 self.reply(
-                    "PAPER alert: "
+                    f"{self.label} alert: "
                     + decision["status"].replace("_", " ")
                     + ". Inspect the recorded decision in the dashboard."
                 )

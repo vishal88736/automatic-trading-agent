@@ -590,7 +590,13 @@ function AppContent({
     (n) => CLOUD_PLATFORM || PRIMARY_PAGES.includes(n.id),
   );
   const nav = workspacePages.find((n) => n.id === page) || workspacePages[0];
-  const titles = isAegis ? AEGIS_TITLES[page as AegisView] : TITLES[page];
+  const titles = isAegis
+    ? (AEGIS_TITLES[page as AegisView].map((text) =>
+        aegis.state?.mode === "testnet"
+          ? text.replace(/\bpaper\b/g, "signed testnet")
+          : text,
+      ) as [string, string])
+    : TITLES[page];
   const agentActive = isAegis
     ? aegis.state?.available && !aegis.state.paused && !aegis.state.emergency
     : data?.scheduler.state === "RUNNING";
@@ -624,7 +630,9 @@ function AppContent({
             </strong>
             <small>
               {isAegis
-                ? "Autonomous paper trading"
+                ? aegis.state?.mode === "testnet"
+                  ? "Autonomous testnet trading"
+                  : "Autonomous paper trading"
                 : page === "platform"
                   ? "Private AWS workspace"
                   : "Simulation mode"}
@@ -640,7 +648,10 @@ function AppContent({
               value={route.workspace}
               onChange={(e) => switchWorkspace(e.target.value as Workspace)}
             >
-              <option value="aegis">HSKSwap · AEGIS paper</option>
+              <option value="aegis">
+                HSKSwap · AEGIS{" "}
+                {aegis.state?.mode === "testnet" ? "testnet" : "paper"}
+              </option>
               <option value="research">Research · simulation</option>
               {page === "platform" && (
                 <option value="platform">Agent platform · AWS</option>

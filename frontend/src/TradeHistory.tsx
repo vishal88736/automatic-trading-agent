@@ -242,10 +242,13 @@ function RecordedTrade({ trade, close }: { trade: Trade; close: () => void }) {
 export function TradeHistory({
   workspace,
   refreshKey,
+  mode = "paper",
 }: {
   workspace: Workspace;
   refreshKey?: string;
+  mode?: "paper" | "testnet";
 }) {
+  const signed = mode === "testnet";
   const [page, setPage] = useState<TradePage | null>(null);
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
@@ -305,7 +308,11 @@ export function TradeHistory({
   const filtered = Boolean(search || asset || side || since || until);
   return (
     <Panel
-      title={workspace === "aegis" ? "Paper execution ledger" : "Past trades"}
+      title={
+        workspace === "aegis"
+          ? `${signed ? "Testnet" : "Paper"} execution ledger`
+          : "Past trades"
+      }
       subtitle="Permanent local SQLite archive · filled trades, original quotes, settings and audit evidence"
       action={
         <button
@@ -410,7 +417,9 @@ export function TradeHistory({
           <p className="panel-note">
             {page.total_stored} retained fills · {page.storage} ·{" "}
             {workspace === "aegis"
-              ? "AEGIS paper account (USDT)"
+              ? signed
+                ? "AEGIS testnet account (USDT, mirrors Guard Vault receipts)"
+                : "AEGIS paper account (USDT)"
               : "Research simulation account (USD)"}
             . {page.note}
             {loading ? " Refreshing…" : ""}
@@ -497,7 +506,7 @@ export function TradeHistory({
                   filtered
                     ? "No matching past trades"
                     : workspace === "aegis"
-                      ? "No paper fills yet"
+                      ? `No ${mode} fills yet`
                       : "No completed trades yet"
                 }
                 description="Analysis, HOLD decisions and rejected previews do not create fills. Completed trades appear here with their original evidence after execution."

@@ -31,16 +31,30 @@ test("judge pipeline and conversational controls share live runtime preferences"
   const messages = page.locator(".aegis-assistant .chat-message.assistant");
   await expect(messages.last()).toContainText("Balances are virtual");
   const before = await (await page.request.get("/api/aegis/state")).json();
+  // A typed over-limit amount is still refused by the risk policy...
   await page
-    .getByRole("button", {
-      name: "Set position size to 25 USDT and frequency to 30s",
-      exact: true,
-    })
+    .getByLabel("Message AEGIS")
+    .fill("Set position size to 25 USDT and frequency to 30s");
+  await page
+    .getByRole("button", { name: "Send to AEGIS", exact: true })
     .click();
   await expect(page.getByRole("alert")).toContainText("NAV cap");
+  // ...while the shortcut only ever suggests an amount this account may use.
+  const shortcut = page.getByRole("button", {
+    name: /^Set position size to [\d.]+ USDT and frequency to 30s$/,
+  });
+  await expect(shortcut).toBeVisible();
+  const suggested = Number(
+    /to ([\d.]+) USDT/.exec((await shortcut.textContent()) ?? "")?.[1],
+  );
+  const nav = Number(before.pnl.nav_usdt);
+  expect(suggested).toBeGreaterThan(0);
+  expect(suggested).toBeLessThanOrEqual(nav * 0.1);
   const refused = await (await page.request.get("/api/aegis/state")).json();
   expect(refused.params_version).toBe(before.params_version);
   expect(refused.params).toEqual(before.params);
+  await shortcut.click();
+  await expect(messages.last()).toContainText("position_size_usdt");
   await page
     .getByRole("button", {
       name: "Switch risk appetite to conservative with a 1.5% stop-loss",
@@ -50,7 +64,7 @@ test("judge pipeline and conversational controls share live runtime preferences"
   await expect(messages.last()).toContainText("stop_loss_pct");
   await page
     .getByRole("button", {
-      name: "Focus target assets on WHSK and WETH arbitrage spreads",
+      name: "Focus target assets on WHSK and WETH",
       exact: true,
     })
     .click();

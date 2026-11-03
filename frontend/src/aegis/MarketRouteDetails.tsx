@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { api } from "../api";
 import { Badge, Empty, StatusBadge, number } from "../ui";
+import { useAegis } from "./context";
 import { utcTime } from "./types";
 
 export type MarketDetails = {
@@ -63,6 +64,7 @@ export function MarketRouteDetails({
   asset: string;
   paramsVersion: number;
 }) {
+  const signed = useAegis().state?.mode === "testnet";
   const [data, setData] = useState<MarketDetails | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -165,7 +167,11 @@ export function MarketRouteDetails({
               </strong>
             </div>
             <div>
-              <span>Additional paper slippage</span>
+              <span>
+                {signed
+                  ? "Settlement slippage allowance"
+                  : "Additional paper slippage"}
+              </span>
               <strong>{data.costs.extra_slippage_bps} bps</strong>
             </div>
             <div>
@@ -202,7 +208,11 @@ export function MarketRouteDetails({
                         </dd>
                       </div>
                       <div>
-                        <dt>Modeled paper fill floor</dt>
+                        <dt>
+                          {signed
+                            ? "Modeled minimum output"
+                            : "Modeled paper fill floor"}
+                        </dt>
                         <dd>
                           {number(route.modeled_fill_floor, 10)} {data.asset}
                         </dd>

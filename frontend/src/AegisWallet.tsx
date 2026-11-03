@@ -62,7 +62,12 @@ function recovered(): Operation | null {
 export function AegisWallet({
   account: sharedAccount = "",
   onAccountChange,
-}: { account?: string; onAccountChange?: (value: string) => void } = {}) {
+  runtimeMode,
+}: {
+  account?: string;
+  onAccountChange?: (value: string) => void;
+  runtimeMode?: "paper" | "testnet";
+} = {}) {
   const [operation, setOperation] = useState<Operation | null>(recovered);
   const [network, setNetwork] = useState<Network>(
     () => recovered()?.plan.network || "testnet",
@@ -241,9 +246,18 @@ export function AegisWallet({
     <div id="aegis-owner-wallet" tabIndex={-1}>
       <Panel
         title="Owner wallet"
-        subtitle="Real vault funding and withdrawals are signed on your device. The paper ledger is separate."
+        subtitle={
+          runtimeMode === "testnet"
+            ? "Real vault funding and withdrawals are signed on your device."
+            : "Real vault funding and withdrawals are signed on your device. The paper ledger is separate."
+        }
       >
         <div className="aegis-risk">
+          <p role="note" className="muted">
+            {runtimeMode === "testnet"
+              ? "The running agent is signing on testnet chain 133. This selector only chooses the vault for your owner operations."
+              : "This selector only chooses the vault for your owner operations. The running agent stays in paper mode; signed testnet trading starts only with make demo-testnet."}
+          </p>
           <div className="inline gap">
             <Badge>
               {network === "testnet" ? "TESTNET · 133" : "MAINNET · 177"}

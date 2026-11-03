@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import json
 from decimal import Decimal, localcontext
 from pathlib import Path
 from typing import Annotated
 
 import yaml
+from eth_abi import decode
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from web3 import Web3
 
@@ -335,24 +337,38 @@ class HSKSwapData:
                 pools[pool.token0] = (pool, False)
             elif pool.token0 == "USDT" and pool.token1 in assets:
                 pools[pool.token1] = (pool, True)
-        result = []
+        refs = []
         for offset in sorted(set(offsets)):
             number = block_number - round(offset / seconds_per_block)
-            if number <= 0:
-                continue
-            ref = BlockRef(
-                number=number,
-                hash=f"history:{n.chain_id}:{number}",
-                timestamp=block_timestamp - round((block_number - number) * seconds_per_block),
-            )
+            if number > 0:
+                refs.append(
+                    BlockRef(
+                        number=number,
+                        hash=f"history:{n.chain_id}:{number}",
+                        timestamp=block_timestamp
+                        - round((block_number - number) * seconds_per_block),
+                    )
+                )
+        requests = {
+            (ref.number, asset): call_read(pool.address, "slot0()", ref)
+            for ref in refs
+            for asset, (pool, _) in pools.items()
+        }
+        fetched = rpc.read_many(list(requests.values()))
+        result = []
+        for ref in refs:
+            number = ref.number
             markets = {}
             for asset, (pool, inverted) in pools.items():
-                slot = rpc.call(
-                    pool.address,
-                    "slot0()",
-                    ["uint160", "int24", "uint16", "uint16", "uint16", "uint8", "bool"],
-                    ref,
-                )
+                method, params = requests[(number, asset)]
+                raw = fetched[json.dumps([method, params], sort_keys=True)]
+                try:
+                    slot = decode(
+                        ["uint160", "int24", "uint16", "uint16", "uint16", "uint8", "bool"],
+                        bytes.fromhex(raw[2:]),
+                    )
+                except Exception as exc:
+                    raise DiscoveryError("Pool returned invalid historical slot0") from exc
                 t0, t1 = n.tokens[pool.token0], n.tokens[pool.token1]
                 with localcontext() as ctx:
                     ctx.prec = 78

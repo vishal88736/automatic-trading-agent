@@ -23,7 +23,10 @@ def unavailable(reason: str) -> list[dict]:
     ]
 
 
-def build_pipeline(market, signals, spreads, events, fills, params, *, paused, emergency):
+def build_pipeline(
+    market, signals, spreads, events, fills, params, *, paused, emergency, mode="paper"
+):
+    hashes = [f.get("transaction_hash") for f in fills if f.get("transaction_hash")]
     rejects = [
         e for e in events if e["status"] in {"risk_rejected", "exit_blocked", "arbitrage_rejected"}
     ]
@@ -72,16 +75,20 @@ def build_pipeline(market, signals, spreads, events, fills, params, *, paused, e
             "step": 5,
             "label": LABELS[4],
             "status": "executed" if fills else "skipped",
-            "summary": f"{len(fills)} reconciled virtual fill(s)"
+            "summary": f"{len(fills)} reconciled {'virtual' if mode == 'paper' else 'signed'} fill(s)"
             if fills
             else "No eligible fill; no transaction sent",
             "evidence": {
-                "mode": "paper",
+                "mode": mode,
                 "fills": [
-                    {"id": f["id"], "receipt": f["receipt"], "transaction_hash": None}
+                    {
+                        "id": f["id"],
+                        "receipt": f["receipt"],
+                        "transaction_hash": f.get("transaction_hash"),
+                    }
                     for f in fills
                 ],
-                "public_transaction_hash": None,
+                "public_transaction_hash": hashes[-1] if hashes else None,
             },
         },
     ]

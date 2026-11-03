@@ -69,7 +69,9 @@ class PaperRuntime:
         self.live = connector or HSKSwapConnector(load_network("mainnet"))
         self.halted, self.emergency = halted or threading.Event(), emergency or threading.Event()
         self.halted.set()  # Every restart requires an explicit paper resume.
-        self.ledger = PaperLedger(path, self.live.tokens["USDT"], self._initial_cash_raw(path))
+        self.ledger = PaperLedger(
+            path, self.live.tokens["USDT"], self._initial_cash_raw(path), mode=self.mode
+        )
         self.params = AgentParams.model_validate(self.ledger.metadata("agent_params", {}))
         self.version = self.ledger.metadata("params_version", 1)
         self.running = False
@@ -960,6 +962,7 @@ class PaperRuntime:
                 self.params.model_dump(mode="json"),
                 paused=self.halted.is_set(),
                 emergency=self.emergency.is_set(),
+                mode=self.mode,
             )
             self.ledger.record(
                 "closed_loop",
@@ -1116,19 +1119,19 @@ class PaperRuntime:
             candidate = AgentParams.model_validate({**self.params.model_dump(mode="json"), **patch})
         except ValidationError as exc:
             raise ValueError(
-                "PAPER settings refused: "
+                f"{self.mode.upper()} settings refused: "
                 + "; ".join(f"{e['loc'][0]}: {e['msg']}" for e in exc.errors())
             ) from None
         if "position_size_usdt" in patch and candidate.position_size_usdt is not None:
             state = self.view()
             if not state["valuation_fresh"] or not state["pnl"]:
                 raise ValueError(
-                    "PAPER: refresh verified prices before setting a USDT position budget"
+                    f"{self.mode.upper()}: refresh verified prices before setting a USDT position budget"
                 )
             cap = Decimal(state["pnl"]["nav_usdt"]) * candidate.position_size_pct / 100
             if candidate.position_size_usdt > cap:
                 raise ValueError(
-                    f"PAPER: requested USDT size exceeds the {candidate.position_size_pct}% NAV cap ({dec(cap)} USDT). No settings changed."
+                    f"{self.mode.upper()}: requested USDT size exceeds the {candidate.position_size_pct}% NAV cap ({dec(cap)} USDT). No settings changed."
                 )
         return candidate
 
@@ -1362,7 +1365,11 @@ class PaperRuntime:
             self.halted.set()
         elif action == "resume":
             if acknowledgement != "AUTHORIZE_PAPER_AUTOMATION":
-                raise ValueError("Acknowledge paper automation; funds and fills remain virtual")
+                raise ValueError(
+                    "Acknowledge paper automation; funds and fills remain virtual"
+                    if self.mode == "paper"
+                    else "Acknowledge testnet automation; every fill signs a Guard Vault swap"
+                )
             if self.emergency.is_set():
                 raise ValueError("Emergency stop is latched; review and clear it before resuming")
             self.running = True
@@ -1423,7 +1430,7 @@ class PaperRuntime:
             self.unwind = True
             self.running = True
         else:
-            raise ValueError("Unsupported paper control")
+            raise ValueError(f"Unsupported {self.mode} control")
         # Sessions are reconstructed from these rows: keep the settings and NAV in force.
         latest_pnl = (self.latest or {}).get("pnl") or {}
         self.ledger.record(

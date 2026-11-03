@@ -9,7 +9,14 @@ import threading
 from typing import get_args
 
 from aegis.nl.providers import BedrockConverse, OpenAICompatible, ProviderRateLimited
-from aegis.nl.tools import SYSTEM_PROMPT, StrategyConfigUpdate, ToolCall, chat, execute_tool
+from aegis.nl.tools import (
+    SYSTEM_PROMPT,
+    StrategyConfigUpdate,
+    ToolCall,
+    chat,
+    execute_tool,
+    relabel,
+)
 from aegis.risk.policy import AgentParams
 from aegis.strategy.library import StrategyId
 
@@ -42,7 +49,7 @@ def tool_schemas():
     empty = {"type": "object", "properties": {}, "additionalProperties": False}
     definitions = {
         "get_status": ("Read current mode, pause state and data health", empty),
-        "get_positions": ("Read actual paper holdings and freshness", empty),
+        "get_positions": ("Read actual holdings and freshness", empty),
         "get_portfolio_and_pnl": (
             "Read real-time positions, virtual balances, realized/unrealized P&L, win rate and risk state",
             empty,
@@ -88,7 +95,10 @@ def tool_schemas():
             },
         ),
         "pause": ("Pause new entries while preserving risk exits", empty),
-        "resume": ("Explicitly enable virtual paper automation; cannot clear an emergency", empty),
+        "resume": (
+            "Explicitly enable autonomous entries in the current mode; cannot clear an emergency",
+            empty,
+        ),
         "close_all_positions": (
             "Prepare a close preview only. The human must confirm outside the model",
             empty,
@@ -266,7 +276,9 @@ class ControlAgent:
             return chat(runtime, message)
         # Do not forward wallet-key-shaped strings or credential requests to a provider.
         if re.search(r"private.?key|seed phrase|recovery phrase", message, re.I):
-            raise ValueError("PAPER: wallet credentials are never accepted by the assistant")
+            raise ValueError(
+                relabel(runtime, "PAPER: wallet credentials are never accepted by the assistant")
+            )
         clean = re.sub(
             r"(?<![0-9a-fA-F])(?:0x)?[0-9a-fA-F]{64}(?![0-9a-fA-F])|sk-[A-Za-z0-9_-]{20,}",
             "[redacted credential-shaped value]",
@@ -354,8 +366,8 @@ class ControlAgent:
                     ):
                         text = "Validated tool results are attached; no return is guaranteed."
                     return {
-                        "mode": "paper",
-                        "response": "PAPER: " + text,
+                        "mode": getattr(runtime, "mode", "paper"),
+                        "response": relabel(runtime, "PAPER: ") + text,
                         "tool": applied[-1]["tool"],
                         "data": applied[-1]["data"],
                         "engine": provider
@@ -371,21 +383,33 @@ class ControlAgent:
                         {"name": block["name"], "arguments": block["input"]}
                     )
                     if call.name in {"close_all_positions", "request_close_all"} and call.arguments:
-                        raise ValueError("PAPER: only a human can confirm a close preview")
+                        raise ValueError(
+                            relabel(runtime, "PAPER: only a human can confirm a close preview")
+                        )
                     # Mark before running a tool: an uncertain tool failure must never trigger replay.
                     applied.append({"tool": call.name, "data": {"execution_uncertain": True}})
                     data = execute_tool(runtime, call)
                     applied[-1]["data"] = data
                     self.last_provider, self.last_status = provider, "active"
                     runtime.ledger.record(
-                        "tool_called", {"tool": call.name, "provider": provider, "mode": "paper"}
+                        "tool_called",
+                        {
+                            "tool": call.name,
+                            "provider": provider,
+                            "mode": getattr(runtime, "mode", "paper"),
+                        },
                     )
                     if data.get("requires_confirmation"):
                         return {
-                            "mode": "paper",
-                            "response": "PAPER: review and explicitly confirm the settings change; nothing changed yet."
+                            "mode": getattr(runtime, "mode", "paper"),
+                            "response": relabel(
+                                runtime,
+                                "PAPER: review and explicitly confirm the settings change; nothing changed yet.",
+                            )
                             if data.get("kind") == "params_change"
-                            else "PAPER: review and explicitly confirm the position unwind.",
+                            else relabel(
+                                runtime, "PAPER: review and explicitly confirm the position unwind."
+                            ),
                             "tool": call.name,
                             "data": data,
                             "engine": provider
@@ -408,8 +432,11 @@ class ControlAgent:
             if applied:
                 self.last_status = "unavailable_after_tool"
                 return {
-                    "mode": "paper",
-                    "response": "PAPER: the validated tool completed, but the model explanation is unavailable. Inspect the attached result.",
+                    "mode": getattr(runtime, "mode", "paper"),
+                    "response": relabel(
+                        runtime,
+                        "PAPER: the validated tool completed, but the model explanation is unavailable. Inspect the attached result.",
+                    ),
                     "tool": applied[-1]["tool"],
                     "data": applied[-1]["data"],
                     "engine": provider + " response unavailable after tool execution",

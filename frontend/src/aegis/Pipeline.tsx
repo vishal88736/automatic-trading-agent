@@ -30,7 +30,7 @@ export function ClosedLoopStatus({ state }: { state: AegisState }) {
   return (
     <Panel
       title="Closed-Loop Pipeline & Risk Status"
-      subtitle={`HSK Chain · chain ${state.chain_id} · ${state.valuation_fresh ? "connected" : "awaiting fresh data"} · block ${state.block_number ?? "—"} · paper NAV ${number(state.pnl?.nav_usdt, 4)} USDT`}
+      subtitle={`HSK Chain · chain ${state.chain_id} · ${state.valuation_fresh ? "connected" : "awaiting fresh data"} · block ${state.block_number ?? "—"} · ${state.mode === "testnet" ? "testnet" : "paper"} NAV ${number(state.pnl?.nav_usdt, 4)} USDT`}
       action={
         <Badge
           tone={state.ai_engine?.status === "active" ? "positive" : "accent"}
