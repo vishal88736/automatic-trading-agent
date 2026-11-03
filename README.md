@@ -70,6 +70,8 @@ Use the **Execution workspace** selector to switch to **HSKSwap · AEGIS paper**
 
 Entry checkboxes and library engines are separate controls. **Strategy engines** shows current readiness and provides versioned enable/disable buttons for supported engines. A checked entry displays its disabled/unavailable blocker explicitly. Arbitrage Detection remains unavailable until its required executable legs are configured. Target filters are checked before entry analysis and again before filling, including intermediate assets in a cycle; removing an asset keeps its protective exit rules active.
 
+**Entries need a pool that trades.** If a pool's recorded mid price has not moved for 15 minutes, it has had no swaps: a fill there only pays the round-trip LP fee and price impact, and its stop-loss/take-profit can never trigger. AEGIS marks such pools **Inactive pool · entries blocked** on the market cards and refuses new entries there (exits are never blocked); a pool not yet observed long enough shows **Checking pool activity**. One library strategy also holds at most one position at a time, so a single signal cannot open several correlated bets. New ledgers start with V3 arbitrage and spread research switched off, because neither has an executable route today; they can still be enabled explicitly. Unmapped reference assets such as SOL are no longer evaluated.
+
 A new AEGIS ledger starts with **100 virtual USDT** and entries paused. Fills, holdings, preferences, position timers and risk baselines persist. Every restart pauses new entries; a latched emergency remains active until reviewed. PANIC blocks entries and requests bounded stable exits, subject to fresh quotes and risk checks.
 
 ### Permanent local trade history

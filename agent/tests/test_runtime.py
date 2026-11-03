@@ -18,7 +18,12 @@ from aegis.strategy.mean_reversion import evaluate
 class ReplayConnector(MockConnector):
     """Explicit local test data, never selected by application configuration."""
 
+    # When set, every refresh nudges each pool's mid by ±1 ppm: a pool with real swaps.
+    drift = False
+
     def refresh(self):
+        if self.drift:
+            self._nudge()
         # Like a real chain, a different pool state never shares a block hash. Hashing the state
         # keeps replays across process restarts or repricing from colliding with stored ticks.
         state = "".join(p.model_dump_json() for p in self._fixture.pools)
@@ -31,6 +36,18 @@ class ReplayConnector(MockConnector):
             }
         )
         return self._fixture
+
+    def _nudge(self):
+        self._tick_parity = not getattr(self, "_tick_parity", False)
+        f = Decimal("1.000001") if self._tick_parity else Decimal("0.999999")
+        self._fixture = self._fixture.model_copy(
+            update={
+                "pools": [
+                    p.model_copy(update={"mid_token1_per_token0": p.mid_token1_per_token0 * f})
+                    for p in self._fixture.pools
+                ]
+            }
+        )
 
     def reprice(self, factor: str):
         f = Decimal(factor)
@@ -45,6 +62,22 @@ class ReplayConnector(MockConnector):
                 )
             pools.append(p)
         self._fixture = self._fixture.model_copy(update={"pools": pools})
+
+
+def mark_pools_active(runtime, seconds_ago=300):
+    """Record an earlier observation at slightly different prices: evidence the pools trade."""
+    assert runtime.latest, "tick once before marking pools active"
+    runtime.ledger.observe(
+        {
+            **runtime.latest,
+            "block_hash": f"activity-probe:{seconds_ago}",
+            "observed_at": int(time.time()) - seconds_ago,
+            "markets": {
+                a: {**m, "price": str(Decimal(m["price"]) * Decimal("1.0001"))}
+                for a, m in runtime.latest["markets"].items()
+            },
+        }
+    )
 
 
 def seed_entry(runtime):

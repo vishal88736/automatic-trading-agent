@@ -35,6 +35,14 @@ ALL_STRATEGIES = (
     "breakout_v1",
     "spread_research_v1",
 )
+# Selected for a new ledger: V3 arbitrage has no closed verified route and spread research has
+# no funded second leg, so enabling them by default only produced blocked evaluations.
+DEFAULT_STRATEGIES = tuple(
+    s for s in ALL_STRATEGIES if s not in {"arbitrage", "spread_research_v1"}
+)
+# Entries need evidence that a pool trades: a mid price that has not moved for this long marks
+# it inactive, because fills there only pay the round-trip cost and stops can never trigger.
+POOL_ACTIVITY_WINDOW_SECONDS = 900
 
 
 # Reviewed Guard constructor defaults: the single source for paper limits, AgentParams
@@ -74,7 +82,7 @@ class AgentParams(StrictModel):
     tick_seconds: int = Field(
         default=30, ge=TICK_SECONDS_RANGE[0], le=TICK_SECONDS_RANGE[1], strict=True
     )
-    active_strategies: tuple[ActiveStrategy, ...] = ALL_STRATEGIES
+    active_strategies: tuple[ActiveStrategy, ...] = DEFAULT_STRATEGIES
     # "fixed": the percentage/USDT cap is the entry size. "risk_per_trade": size so that the
     # nearest stop loses at most risk_per_trade_pct of NAV; the cap still bounds it.
     sizing_mode: Literal["fixed", "risk_per_trade"] = "fixed"

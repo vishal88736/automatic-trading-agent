@@ -9,7 +9,7 @@ import pytest
 from aegis.runtime import PaperRuntime
 from aegis.strategy.library import LibrarySnapshot
 from aegis.strategy.mean_reversion import evaluate as pool_signal
-from agent.tests.test_runtime import ReplayConnector
+from agent.tests.test_runtime import ReplayConnector, mark_pools_active
 from agent.tests.test_runtime import runtime as runtime
 from backend.aegis_bridge import collect_library
 from backend.data import fixture_market
@@ -87,6 +87,7 @@ async def library_snapshot(runtime, *, source=None):
 
 def start(runtime):
     runtime.tick(evaluate_entries=False)
+    mark_pools_active(runtime)
     runtime.control("resume", acknowledgement="AUTHORIZE_PAPER_AUTOMATION")
 
 
@@ -95,7 +96,7 @@ async def test_original_library_entries_flow_through_the_gateway_with_durable_st
 ):
     start(runtime)
     snapshot = await library_snapshot(runtime)
-    assert len(snapshot.catalog) == 5 and len(snapshot.signals) == 15
+    assert len(snapshot.catalog) == 5 and len(snapshot.signals) == 10  # BTC, ETH
     assert {s.strategy_id for s in snapshot.signals} == set(REGISTRY)
     entry = next(
         s for s in snapshot.signals if s.strategy_id == "momentum_v1" and s.symbol == "BTC"
@@ -200,10 +201,9 @@ async def test_library_configuration_changed_during_quote_blocks_an_old_signal(r
 async def test_no_unverified_sol_mapping_or_original_arbitrage_is_invented(runtime):
     start(runtime)
     state = runtime.tick(library=await library_snapshot(runtime))
-    unsupported = [s for s in state["library_signals"] if s["asset"] == "SOL"]
-    assert len(unsupported) == 5
-    assert all("No verified HSKSwap token mapping" in s["reason"] for s in unsupported)
-    assert all(s["execution_status"] == "BLOCKED" for s in unsupported)
+    # SOL has no verified HSKSwap token, so it is not evaluated at all (no blocked noise).
+    assert not [s for s in state["library_signals"] if s["asset"] == "SOL"]
+    assert {s["asset"] for s in state["library_signals"]} == {"WBTC", "WETH"}
     assert all(
         s["execution_status"] != "ENTRY_EXECUTED"
         for s in state["library_signals"]

@@ -556,3 +556,8 @@
     flex: 1;
   }
 }
+
+.aegis-metric .pool-activity {
+  display: block;
+  margin-top: 8px;
+}
