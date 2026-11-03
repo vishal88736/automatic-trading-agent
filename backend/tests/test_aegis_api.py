@@ -68,7 +68,10 @@ async def test_original_strategy_settings_invalidate_inflight_library_snapshots(
     assert after["library_revision"] == state["library_revision"] + 1
 
 
-async def test_original_strategy_to_hskswap_authenticated_loop_preserves_the_library(client):
+async def test_original_strategy_to_hskswap_authenticated_loop_preserves_the_library(
+    client, monkeypatch
+):
+    monkeypatch.setattr(ReplayConnector, "drift", True)  # Pools that trade between checks.
     first = (await client.post("/api/aegis/check", headers=H)).json()
     engine = client._transport.app.state.engine
     configurations = engine.strategies()
@@ -88,7 +91,7 @@ async def test_original_strategy_to_hskswap_authenticated_loop_preserves_the_lib
     )
     state = (await client.post("/api/aegis/check", headers=H)).json()
     assert len(state["library_catalog"]) == 5
-    assert len(state["library_signals"]) == 15
+    assert len(state["library_signals"]) == 10
     assert len(state["fills"]) == 1
     assert state["fills"][0]["origin"]["strategy_id"] == "momentum_v1"
     assert state["positions"][0]["asset"] == "WBTC"

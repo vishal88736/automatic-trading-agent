@@ -563,7 +563,7 @@ function AppContent({
         throw new Error(
           "Analysis recorded a failed stage. Inspect the Observatory for safe error details.",
         );
-    }, "Analysis recorded. Review the hypothesis, risk checks and execution preview.");
+    }, "Analysis recorded — nothing was traded yet. Review the preview and authorize the simulated fill to record a trade.");
   };
   const openIntent = (intent: Intent) => {
     setOverride(intent);

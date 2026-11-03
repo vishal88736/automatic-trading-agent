@@ -673,6 +673,10 @@ export function Overview(
                 <StatusBadge value={pending.risk.verdict} />
               </div>
               <p className="clamp-2">{pending.proposal.rationale}</p>
+              <p className="muted pending-note">
+                Not traded yet: an analysis only proposes. Open the preview and
+                authorize the simulated fill to record it in Past trades.
+              </p>
               <button
                 className="button secondary full"
                 onClick={() => openIntent(pending)}

@@ -25,6 +25,7 @@ from aegis.risk.policy import (
     MEAN_REVERSION_Z,
     NATIVE_STRATEGIES,
     PARAM_BOUNDS,
+    POOL_ACTIVITY_WINDOW_SECONDS,
     RISK_PRESETS,
     SUPPORTED_ASSETS,
     AgentParams,
@@ -33,6 +34,7 @@ from aegis.risk.policy import (
     tightened,
 )
 from aegis.store.db import LedgerError, PaperLedger
+from aegis.strategy.activity import pool_activity
 from aegis.strategy.arbitrage import evaluate as evaluate_cycle
 from aegis.strategy.library import (
     ASSET_MAP,
@@ -45,6 +47,9 @@ from aegis.strategy.mean_reversion import contiguous_prices, evaluate
 from aegis.strategy.pipeline import build_pipeline, unavailable
 from aegis.strategy.signals import NativeOrigin
 from aegis.strategy.spreads import compare_reference
+
+# A failed chain-history read is retried at most this often; live ticks keep warming up meanwhile.
+BACKFILL_RETRY_SECONDS = 300
 
 
 def dec(value) -> str:
@@ -78,6 +83,11 @@ class PaperRuntime:
         self.library_revision = lambda: 0
         self.library_snapshot_revision = 0
         self.library_selection = self.ledger.metadata("library_selection", {})
+        self.pool_activity: dict[str, dict] = {}
+        # Chain-read prices from just before this process started (never persisted): they let
+        # rolling statistics and the pool activity gate continue instead of warming up again.
+        self.backfill: list[dict] = []
+        self._backfill_attempted_at = 0
         self.latest = self.ledger.observations(1)
         self.latest = self.latest[-1] if self.latest else None
         self.pipeline = self.latest.get("pipeline", []) if self.latest else []
@@ -263,12 +273,17 @@ class PaperRuntime:
             now=int(time.time()),
             params=self.params,
         )
+        if quote.route.tokens[-1] != self.ledger.stable:
+            if quote.route.tokens[-1].asset_id not in self.params.target_assets:
+                raise RiskRejected("Target asset is disabled")
+            if any(p["asset"] == quote.route.tokens[-1].asset_id for p in positions):
+                raise RiskRejected("A position in this asset is already open")
+        # Last, after target/strategy filters: every pool the entry trades through must be live.
+        for token in quote.route.tokens:
+            if token != self.ledger.stable:
+                self._require_active_pool(token.asset_id)
         if quote.route.tokens[-1] == self.ledger.stable:
             return
-        if quote.route.tokens[-1].asset_id not in self.params.target_assets:
-            raise RiskRejected("Target asset is disabled")
-        if any(p["asset"] == quote.route.tokens[-1].asset_id for p in positions):
-            raise RiskRejected("A position in this asset is already open")
         if self.library_intent is not None:
             candidate = self.library_intent
             candidate.guard(int(time.time()), allow_fixture=self.allow_test_connectors)
@@ -296,6 +311,62 @@ class PaperRuntime:
                 raise RiskRejected(
                     "Modeled round-trip execution costs exceed 25% of the configured take-profit target; target is not a profit forecast"
                 )
+
+    def _ensure_backfill(self, market: dict) -> None:
+        reader = getattr(self.live, "price_history", None)
+        if (
+            self.backfill
+            or reader is None
+            or time.time() - self._backfill_attempted_at < BACKFILL_RETRY_SECONDS
+        ):
+            return
+        self._backfill_attempted_at = time.time()
+        tick = self.params.tick_seconds
+        # 20 tick-spaced samples for the rolling mean, then sparser points across the rest of
+        # the activity window so a price change anywhere inside it is caught.
+        offsets = [tick * k for k in range(1, 21)]
+        offsets += list(range(offsets[-1] + 90, POOL_ACTIVITY_WINDOW_SECONDS, 90))
+        offsets.append(POOL_ACTIVITY_WINDOW_SECONDS + tick)
+        try:
+            self.backfill = reader(
+                market["block_number"],
+                market["block_timestamp"],
+                offsets,
+                list(market["markets"]),
+            )
+            self.ledger.record(
+                "history_backfilled",
+                {
+                    "points": len(self.backfill),
+                    "covers_seconds": max(offsets),
+                    "source": "pool slot0 at earlier blocks",
+                },
+            )
+        except Exception as exc:  # noqa: BLE001 - backfill is optional; warm-up still applies.
+            self.backfill = []
+            self.ledger.record(
+                "history_backfill_failed",
+                {"reason": str(exc)[:200], "action": "rolling statistics warm up from live ticks"},
+            )
+
+    def _signal_history(self) -> list[dict]:
+        """Recorded observations plus chain-read prices from before this process, oldest first.
+        Both are real pool states, so interleaving them keeps the run contiguous."""
+        history = self.ledger.observations(120)
+        # Chain points fill only the time before this process recorded its own first tick.
+        first_live = min(
+            (o["observed_at"] for o in history if o["observed_at"] >= self.started_at),
+            default=float("inf"),
+        )
+        extra = [o for o in self.backfill if o["observed_at"] < first_live]
+        return sorted([*extra, *history], key=lambda o: o["observed_at"]) if extra else history
+
+    def _require_active_pool(self, asset: str) -> None:
+        activity = self.pool_activity.get(asset)
+        if not activity:
+            raise RiskRejected(f"{asset} pool activity has not been observed this session")
+        if activity["status"] != "active":
+            raise RiskRejected(activity["reason"])
 
     def _library(
         self,
@@ -360,6 +431,21 @@ class PaperRuntime:
                         raise RiskRejected("Entries paused or an exit takes precedence")
                     if asset not in self.params.target_assets:
                         raise RiskRejected("Mapped asset is excluded by the HSKSwap preferences")
+                    self._require_active_pool(asset)
+                    sibling = next(
+                        (
+                            p
+                            for p in self._positions(marks)
+                            if p.get("strategy_id") == candidate.strategy_id
+                        ),
+                        None,
+                    )
+                    if sibling:
+                        # One signal family moves correlated assets together; cap it at one bet.
+                        raise RiskRejected(
+                            f"{candidate.strategy_name} already holds {sibling['asset']}; "
+                            "one open position per strategy limits correlated exposure"
+                        )
                     # Cheap pre-checks before any quote: the gateway would refuse these anyway.
                     if owned:
                         raise RiskRejected("A position in this asset is already open")
@@ -680,8 +766,12 @@ class PaperRuntime:
                     self.ledger.set_metadata(key, {a: v for a, v in rows.items() if a in held})
             if not positions:
                 self.unwind = False
-            history = self.ledger.observations(120)
-            same_block = bool(history and history[-1]["block_hash"] == market["block_hash"])
+            self._ensure_backfill(market)
+            history = self._signal_history()
+            self.pool_activity = pool_activity(
+                history, market["markets"], self.last_tick_at, POOL_ACTIVITY_WINDOW_SECONDS
+            )
+            same_block = bool(history and history[-1].get("block_hash") == market["block_hash"])
             signals = []
             spreads = []
             if not same_block and library is not None and not library.error:
@@ -754,6 +844,8 @@ class PaperRuntime:
                         if exiting
                         else "A position in this asset is already open"
                         if asset in open_assets
+                        else self.pool_activity.get(asset, {}).get("reason")
+                        if self.pool_activity.get(asset, {}).get("status") != "active"
                         else "Entry cooldown: another entry already executed this tick"
                         if self.tick_entry
                         else None
@@ -889,6 +981,7 @@ class PaperRuntime:
                 "library_error": library.error if library else None,
                 "pipeline": self.pipeline,
                 "spreads": spreads,
+                "pool_activity": self.pool_activity,
             }
             if not same_block:
                 self.ledger.observe(self.latest)
@@ -940,6 +1033,7 @@ class PaperRuntime:
             "valuation_fresh": fresh,
             "signals": latest.get("signals", []),
             "spreads": latest.get("spreads", []),
+            "pool_activity": latest.get("pool_activity", {}),
             "pipeline": self.pipeline,
             "library_signals": latest.get("library_signals", []),
             "library_catalog": latest.get("library_catalog", []),

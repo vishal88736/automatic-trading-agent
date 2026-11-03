@@ -407,6 +407,28 @@ export function AegisDesk({
                 ) : (
                   <span>{m.fee_pips / 10000}% LP fee</span>
                 )}
+                {state.pool_activity?.[asset] && (
+                  <span
+                    className="pool-activity"
+                    title={state.pool_activity[asset].reason ?? undefined}
+                  >
+                    <Badge
+                      tone={
+                        state.pool_activity[asset].status === "active"
+                          ? "positive"
+                          : state.pool_activity[asset].status === "inactive"
+                            ? "negative"
+                            : "neutral"
+                      }
+                    >
+                      {state.pool_activity[asset].status === "active"
+                        ? "Pool trading"
+                        : state.pool_activity[asset].status === "inactive"
+                          ? "Inactive pool · entries blocked"
+                          : "Checking pool activity"}
+                    </Badge>
+                  </span>
+                )}
               </div>
             ))}
           </div>

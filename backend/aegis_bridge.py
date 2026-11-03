@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 from decimal import Decimal
 
-from aegis.risk.policy import ALL_STRATEGIES
+from aegis.risk.policy import DEFAULT_STRATEGIES
 from aegis.strategy.library import ASSET_MAP, LibrarySignal, LibrarySnapshot
 from backend.models import NewsFeed, StrategyConfig, now
 from backend.selection import SelectionConfig, rank_strategies, selection_inputs
@@ -52,13 +52,15 @@ async def collect_library(engine, state: dict) -> LibrarySnapshot:
     }
     versions = {item["id"]: item["version"] for item in catalog}
     positions = {p["asset"]: p for p in state.get("positions", [])}
-    active = set((state.get("params") or {}).get("active_strategies", ALL_STRATEGIES))
+    active = set((state.get("params") or {}).get("active_strategies", DEFAULT_STRATEGIES))
     selector = SelectionConfig.model_validate(engine.store.config("selection")[0])
     selection, result = {}, []
     for symbol, market in engine.markets.items():
         if symbol not in {"BTC", "ETH", "SOL"}:
             continue
         wrapped = ASSET_MAP.get(symbol)
+        if wrapped is None:
+            continue  # No verified HSKSwap token: evaluating it could only ever be blocked.
         owner = positions.get(wrapped, {}).get("strategy_id")
         signals = [
             evaluate(identifier, market, news, config, holding=owner == identifier, clock=clock)

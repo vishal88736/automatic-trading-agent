@@ -70,6 +70,8 @@ Use the **Execution workspace** selector to switch to **HSKSwap · AEGIS paper**
 
 Entry checkboxes and library engines are separate controls. **Strategy engines** shows current readiness and provides versioned enable/disable buttons for supported engines. A checked entry displays its disabled/unavailable blocker explicitly. Arbitrage Detection remains unavailable until its required executable legs are configured. Target filters are checked before entry analysis and again before filling, including intermediate assets in a cycle; removing an asset keeps its protective exit rules active.
 
+**Entries need a pool that trades.** If a pool's recorded mid price has not moved for 15 minutes, it has had no swaps: a fill there only pays the round-trip LP fee and price impact, and its stop-loss/take-profit can never trigger. AEGIS marks such pools **Inactive pool · entries blocked** on the market cards and refuses new entries there (exits are never blocked); a pool not yet observed long enough shows **Checking pool activity**. One library strategy also holds at most one position at a time, so a single signal cannot open several correlated bets. New ledgers start with V3 arbitrage and spread research switched off, because neither has an executable route today; they can still be enabled explicitly. Unmapped reference assets such as SOL are no longer evaluated.
+
 A new AEGIS ledger starts with **100 virtual USDT** and entries paused. Fills, holdings, preferences, position timers and risk baselines persist. Every restart pauses new entries; a latched emergency remains active until reviewed. PANIC blocks entries and requests bounded stable exits, subject to fresh quotes and risk checks.
 
 ### Permanent local trade history
@@ -257,18 +259,18 @@ Copy `.env.example` to ignored `.env`, configure the selected provider and resta
 
 **Research Ask Krono** is a key-free command interface for recorded analysis, portfolio/P&L, risk and supported controls. Unknown requests explain its limits. **AEGIS chat** can additionally use a configured tool-calling model for free-form phrasing. Setting a model key alone does not change Research chat into a general assistant.
 
-| Provider               | Configuration                                                                                                                      |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Deterministic fallback | Default `AEGIS_LLM_PROVIDER=none`; no model key required                                                                           |
-| Anthropic              | `AEGIS_LLM_PROVIDER=anthropic`, `ANTHROPIC_API_KEY` or `AEGIS_ANTHROPIC_API_KEY`, `AEGIS_ANTHROPIC_MODEL`                          |
-| OpenAI-compatible      | `AEGIS_LLM_PROVIDER=openai`, `OPENAI_API_KEY` or `AEGIS_OPENAI_API_KEY`, `AEGIS_OPENAI_MODEL`, optional `AEGIS_OPENAI_BASE_URL`    |
-| Groq                   | `AEGIS_LLM_PROVIDER=groq`, `GROQ_API_KEY` or `AEGIS_GROQ_API_KEY`; optional `AEGIS_GROQ_MODEL` (default `llama-3.3-70b-versatile`) |
-| AWS Bedrock            | `AEGIS_LLM_PROVIDER=bedrock`, `AEGIS_BEDROCK_MODEL`, `AEGIS_BEDROCK_REGION`, local AWS credentials/profile                         |
-| Ordered fallback       | `AEGIS_LLM_FALLBACKS=openai,bedrock`, or opt-in `AEGIS_LLM_PROVIDER=auto`                                                          |
+| Provider               | Configuration                                                                                                                                                                                 |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Deterministic fallback | Default `AEGIS_LLM_PROVIDER=none`; no model key required                                                                                                                                      |
+| Anthropic              | `AEGIS_LLM_PROVIDER=anthropic`, `ANTHROPIC_API_KEY` or `AEGIS_ANTHROPIC_API_KEY`, `AEGIS_ANTHROPIC_MODEL`                                                                                     |
+| OpenAI-compatible      | `AEGIS_LLM_PROVIDER=openai`, `OPENAI_API_KEY` or `AEGIS_OPENAI_API_KEY`, `AEGIS_OPENAI_MODEL`, optional `AEGIS_OPENAI_BASE_URL`                                                               |
+| Groq                   | `AEGIS_LLM_PROVIDER=groq`, `GROQ_API_KEY` or `AEGIS_GROQ_API_KEY`; optional `AEGIS_GROQ_MODEL` (default `openai/gpt-oss-120b`) and `AEGIS_GROQ_FALLBACK_MODEL` (default `openai/gpt-oss-20b`) |
+| AWS Bedrock            | `AEGIS_LLM_PROVIDER=bedrock`, `AEGIS_BEDROCK_MODEL`, `AEGIS_BEDROCK_REGION`, local AWS credentials/profile                                                                                    |
+| Ordered fallback       | `AEGIS_LLM_FALLBACKS=openai,bedrock`, or opt-in `AEGIS_LLM_PROVIDER=auto`                                                                                                                     |
 
 Use a tool-capable model available to your account. The UI distinguishes readiness, **Active (Tool-Calling)** after successful tool use, and **Deterministic Fallback**. A provider failure after a tool starts retains the tool result and does not replay the mutation. Actual model entitlement and external delivery require credentials.
 
-For Groq, create a key at [console.groq.com/keys](https://console.groq.com/keys), set `GROQ_API_KEY` in your local `.env` (`AEGIS_LLM_PROVIDER=groq` is already selected there), then restart `make demo`. Groq uses the same OpenAI-compatible tool-calling adapter and validated tools. Groq's free tier limits tokens per minute per model (8000 for `openai/gpt-oss-120b`); a short limit is waited out automatically and a longer one is reported in the chat reply. Give research its own `RESEARCH_MODEL` so both features do not share one budget.
+For Groq, create a key at [console.groq.com/keys](https://console.groq.com/keys), set `GROQ_API_KEY` in your local `.env` (`AEGIS_LLM_PROVIDER=groq` is already selected there), then restart `make demo`. Groq uses the same OpenAI-compatible tool-calling adapter and validated tools. Groq's free tier limits tokens per minute per model (8000 for `openai/gpt-oss-120b`); a short limit is waited out automatically, a longer one hands the turn to `AEGIS_GROQ_FALLBACK_MODEL`, and only if both are limited is the reason shown in the chat reply. Give research its own `RESEARCH_MODEL` (for example `qwen/qwen3.8-27b`) so it does not share the chat budget. Groq retires models over time; `GET https://api.groq.com/openai/v1/models` lists the current ones.
 
 For Anthropic, set `AEGIS_LLM_PROVIDER=anthropic`, `ANTHROPIC_API_KEY` and `AEGIS_ANTHROPIC_MODEL` in your local `.env`, then restart `make demo`. Keep API keys, wallet keys and passwords out of chat and Git.
 

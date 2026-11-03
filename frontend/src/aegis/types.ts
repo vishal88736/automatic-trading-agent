@@ -148,6 +148,16 @@ export type AegisState = {
     evidence?: Record<string, unknown>;
   }[];
   spreads?: Record<string, unknown>[];
+  pool_activity?: Record<
+    string,
+    {
+      status: "active" | "inactive" | "warming";
+      reason: string | null;
+      steady_seconds: number;
+      last_change_at: number | null;
+      price_changes: number;
+    }
+  >;
   params: Params;
   params_version: number;
   pnl: Pnl | null;

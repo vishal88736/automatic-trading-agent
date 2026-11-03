@@ -257,6 +257,9 @@ def evaluate(
     else:
         raise ValueError("Unknown strategy")
     action = "SELL" if holding and exit_signal else "BUY" if enter and not holding else "HOLD"
+    if action == "HOLD" and holding and enter:
+        # Entry filters still agree, but the position is already open: say so plainly.
+        reason = f"{reason} Already holding this position; no new entry.".strip()
     return Signal(
         **{
             **base,

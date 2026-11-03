@@ -4227,3 +4227,8 @@ select {
     padding: 8px 14px 4px;
   }
 }
+
+.pending-note {
+  font-size: 12px;
+  margin: 8px 0 12px;
+}

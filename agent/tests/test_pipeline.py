@@ -80,7 +80,7 @@ async def test_active_strategy_filter_preserves_library_and_safety_exits(runtime
     original = snapshot.model_dump(mode="json")
     runtime.set_params({"active_strategies": []}, runtime.version)
     state = runtime.tick(library=snapshot)
-    assert len(state["library_signals"]) == 15 and state["fills"] == []
+    assert len(state["library_signals"]) == 10 and state["fills"] == []
     assert snapshot.model_dump(mode="json") == original
     assert any("live AEGIS selection" in s["reason"] for s in state["library_signals"])
     # A risk stop is independent of the user's active entry-strategy selection.

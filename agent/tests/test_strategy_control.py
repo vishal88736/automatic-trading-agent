@@ -205,7 +205,7 @@ def test_groq_provider_uses_openai_compatible_endpoint(monkeypatch):
     agent = ControlAgent.from_environment()
     try:
         assert [(name, model) for name, model, _ in agent.providers] == [
-            ("groq", "llama-3.3-70b-versatile")
+            ("groq", "openai/gpt-oss-120b")
         ]
         assert agent.providers[0][2].url == "https://api.groq.com/openai/v1/chat/completions"
         assert agent.status()["configured_providers"] == ["groq"]
@@ -278,3 +278,64 @@ def test_long_rate_limit_explains_itself_and_falls_back_without_running_tools(mo
     assert "40s" in result["response"]
     assert agent.status()["last_failure"].startswith("Groq rate limit")
     client.close()
+
+
+def test_rate_limited_model_hands_the_turn_to_its_fallback_model():
+    import httpx
+
+    from aegis.nl.providers import OpenAICompatible
+
+    models = []
+
+    def handler(request):
+        model = json.loads(request.content)["model"]
+        models.append(model)
+        if model == "openai/gpt-oss-120b":
+            return httpx.Response(429, headers={"retry-after": "45"}, json={"error": {}})
+        return httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}]})
+
+    client = OpenAICompatible(
+        "gsk_test",
+        "https://api.groq.com/openai/v1",
+        transport=httpx.MockTransport(handler),
+        name="Groq",
+        sleep=lambda _: pytest.fail("a long limit is not waited out"),
+        fallback_models=["openai/gpt-oss-20b"],
+    )
+    result = client.create(
+        model="openai/gpt-oss-120b", system="s", tools=[], messages=[], max_tokens=10
+    )
+    assert models == ["openai/gpt-oss-120b", "openai/gpt-oss-20b"]
+    assert client.last_model == "openai/gpt-oss-20b"
+    assert result.content[0].value["text"] == "ok"
+    client.close()
+
+
+def test_groq_fallback_model_is_configurable(monkeypatch):
+    monkeypatch.setenv("AEGIS_LLM_PROVIDER", "groq")
+    monkeypatch.setenv("AEGIS_LLM_FALLBACKS", "")
+    monkeypatch.setenv("GROQ_API_KEY", "gsk_test")
+    monkeypatch.setenv("AEGIS_GROQ_MODEL", "openai/gpt-oss-120b")
+    monkeypatch.delenv("AEGIS_GROQ_FALLBACK_MODEL", raising=False)
+    agent = ControlAgent.from_environment()
+    assert agent.providers[0][2].fallback_models == ["openai/gpt-oss-20b"]
+    agent.close()
+    monkeypatch.setenv("AEGIS_GROQ_FALLBACK_MODEL", "")
+    agent = ControlAgent.from_environment()
+    assert agent.providers[0][2].fallback_models == []
+    agent.close()
+
+
+def test_compact_tool_schemas_keep_every_constraint():
+    from aegis.nl.agent import compact_schema
+
+    raw = json.dumps([t["input_schema"] for t in tool_schemas()])
+    assert '"title"' not in raw and '"default"' not in raw
+    params = next(t for t in tool_schemas() if t["name"] == "set_params")["input_schema"]
+    size = params["properties"]["position_size_pct"]
+    assert size["type"] == "number" and size["maximum"] == 10.0 and "anyOf" not in size
+    assert params["properties"]["risk_level"]["enum"] == ["conservative", "balanced", "aggressive"]
+    nullable = compact_schema(
+        {"anyOf": [{"type": "number", "maximum": 5}, {"type": "string"}, {"type": "null"}]}
+    )
+    assert nullable == {"anyOf": [{"type": "number", "maximum": 5}, {"type": "null"}]}
