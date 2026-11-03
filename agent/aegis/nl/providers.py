@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import re
+import time
 from types import SimpleNamespace
 from urllib.parse import urlparse
 
@@ -53,8 +55,44 @@ def openai_messages(system: str, messages: list[dict]) -> list[dict]:
     return result
 
 
+class ProviderRateLimited(RuntimeError):
+    """The provider refused the request for quota reasons; nothing was executed."""
+
+    def __init__(self, provider: str, retry_after: float | None):
+        self.retry_after = retry_after
+        wait = f" Retry in about {retry_after:.0f}s." if retry_after else ""
+        super().__init__(f"{provider} rate limit reached (tokens or requests per minute).{wait}")
+
+
+def retry_after_seconds(response) -> float | None:
+    """Seconds the provider asked us to wait, from Retry-After or its error message."""
+    header = response.headers.get("retry-after")
+    try:
+        if header:
+            return max(0.0, float(header))
+    except ValueError:
+        pass
+    try:
+        text = response.json().get("error", {}).get("message", "")
+    except ValueError:
+        text = response.text
+    match = re.search(r"try again in (?:(\d+)m)?([\d.]+)(ms|s)", text or "")
+    if not match:
+        return None
+    minutes, value, unit = match.groups()
+    seconds = float(value) / (1000 if unit == "ms" else 1)
+    return seconds + 60 * int(minutes or 0)
+
+
 class OpenAICompatible:
-    def __init__(self, key: str, base_url: str, *, transport=None):
+    # Free provider tiers (Groq: 8000 tokens/minute on gpt-oss-120b) refuse bursts with HTTP 429.
+    # A refused request ran nothing, so waiting the advertised time and resending is safe.
+    MAX_RATE_LIMIT_RETRIES = 2
+    MAX_RATE_LIMIT_WAIT_SECONDS = 12.0
+
+    def __init__(
+        self, key: str, base_url: str, *, transport=None, name="provider", sleep=time.sleep
+    ):
         url = urlparse(base_url)
         if (
             (
@@ -70,6 +108,7 @@ class OpenAICompatible:
                 "LLM endpoint must use HTTPS or loopback HTTP without embedded credentials"
             )
         self.url = base_url.rstrip("/") + "/chat/completions"
+        self.name, self.sleep = name, sleep
         self.http = httpx.Client(
             timeout=15, transport=transport, headers={"Authorization": "Bearer " + key}
         )
@@ -79,7 +118,22 @@ class OpenAICompatible:
         self.http.close()
 
     def create(self, *, model, system, tools, messages, max_tokens):
-        result = self.http.post(
+        for attempt in range(self.MAX_RATE_LIMIT_RETRIES + 1):
+            result = self._post(model, system, tools, messages, max_tokens)
+            if result.status_code not in (429, 503):
+                break
+            wait = retry_after_seconds(result)
+            if (
+                attempt == self.MAX_RATE_LIMIT_RETRIES
+                or wait is None
+                or wait > self.MAX_RATE_LIMIT_WAIT_SECONDS
+            ):
+                raise ProviderRateLimited(self.name, wait)
+            self.sleep(wait + 0.25)
+        return self._parse(result)
+
+    def _post(self, model, system, tools, messages, max_tokens):
+        return self.http.post(
             self.url,
             json={
                 "model": model,
@@ -99,6 +153,9 @@ class OpenAICompatible:
                 "parallel_tool_calls": False,
             },
         )
+
+    @staticmethod
+    def _parse(result):
         result.raise_for_status()
         if len(result.content) > 1000000:
             raise RuntimeError("Provider response exceeded the control-plane bound")

@@ -8,7 +8,7 @@ import re
 import threading
 from typing import get_args
 
-from aegis.nl.providers import BedrockConverse, OpenAICompatible
+from aegis.nl.providers import BedrockConverse, OpenAICompatible, ProviderRateLimited
 from aegis.nl.tools import SYSTEM_PROMPT, StrategyConfigUpdate, ToolCall, chat, execute_tool
 from aegis.risk.policy import AgentParams
 from aegis.strategy.library import StrategyId
@@ -126,6 +126,7 @@ class ControlAgent:
             else ([("anthropic", model, client)] if client else [])
         )
         self.last_provider = None
+        self.last_failure = None
         self.last_status = "configured" if self.providers else "deterministic"
         self.stopping = threading.Event()
 
@@ -143,6 +144,7 @@ class ControlAgent:
             "status": self.last_status,
             "provider": self.last_provider,
             "configured_providers": [p[0] for p in self.providers],
+            "last_failure": self.last_failure,
             "label": "AI Engine: Active (Tool-Calling)"
             if active
             else "AI Engine: Unavailable (Tool Result Retained)"
@@ -197,6 +199,7 @@ class ControlAgent:
                             OpenAICompatible(
                                 key,
                                 os.getenv("AEGIS_GROQ_BASE_URL", "https://api.groq.com/openai/v1"),
+                                name="Groq",
                             ),
                         )
                     )
@@ -260,16 +263,26 @@ class ControlAgent:
         for index, (name, model, client) in enumerate(self.providers):
             try:
                 result = self._respond_provider(runtime, messages.copy(), name, model, client)
+                self.last_failure = None
                 return result
             except ValueError:
                 raise
-            except Exception:
+            except ProviderRateLimited as exc:
+                self.last_status, self.last_failure = "unavailable", str(exc)
+                if index + 1 < len(self.providers):
+                    continue
+            except Exception as exc:
                 self.last_status = "unavailable"
+                self.last_failure = f"{name} request failed ({type(exc).__name__})"
                 if index + 1 < len(self.providers):
                     continue
         self.last_status = "deterministic"
         result = chat(runtime, message)
-        result["response"] = "Configured AI providers are unavailable. " + result["response"]
+        result["response"] = (
+            f"AI provider unavailable: {self.last_failure}. Answered by the built-in commands instead. "
+            if self.last_failure
+            else "Configured AI providers are unavailable. "
+        ) + result["response"]
         result["engine"] = (
             "Explicit deterministic fallback; provider request failed before any tool ran"
         )

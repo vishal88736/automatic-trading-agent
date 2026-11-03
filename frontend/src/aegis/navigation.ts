@@ -14,6 +14,7 @@ export const AEGIS_VIEWS: AegisView[] = [
   "risk",
   "wallet",
   "settings",
+  "sessions",
 ];
 const RESEARCH_VIEWS: Page[] = [
   "overview",
@@ -27,6 +28,7 @@ const RESEARCH_VIEWS: Page[] = [
   "risk",
   "wallet",
   "settings",
+  "sessions",
 ];
 
 export function readRoute(): Route {

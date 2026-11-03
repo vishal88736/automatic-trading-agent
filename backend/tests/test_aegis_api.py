@@ -201,3 +201,25 @@ async def test_owner_routes_require_auth_and_refuse_unregistered_actions(
             },
         )
     ).status_code == 422
+
+
+async def test_sessions_api_lists_and_rejects_unknown_ids(client):
+    assert (await client.get("/api/aegis/sessions")).status_code == 401
+    await client.post("/api/aegis/check", headers=H)
+    resumed = await client.post(
+        "/api/aegis/control",
+        headers=H,
+        json={"action": "resume", "acknowledgement": "AUTHORIZE_PAPER_AUTOMATION"},
+    )
+    assert resumed.status_code == 200, resumed.text
+    listed = await client.get("/api/aegis/sessions", headers=H)
+    assert listed.status_code == 200, listed.text
+    [session] = listed.json()["items"]
+    assert session["status"] == "running"
+    detail = await client.get(f"/api/aegis/sessions/{session['id']}", headers=H)
+    assert detail.status_code == 200 and detail.json()["timeline"][0]["kind"] == "start"
+    missing = await client.get(
+        "/api/aegis/sessions/00000000-0000-0000-0000-000000000000", headers=H
+    )
+    assert missing.status_code == 404
+    assert (await client.get("/api/aegis/sessions/not-an-id", headers=H)).status_code == 404

@@ -3871,3 +3871,359 @@ select {
     grid-template-columns: 1fr;
   }
 }
+
+/* Trading sessions: list of start → stop runs and a readable session report. */
+.sessions-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.sessions-list {
+  display: grid;
+  gap: 8px;
+  position: sticky;
+  top: 84px;
+  max-height: calc(100vh - 110px);
+  overflow: auto;
+  padding-right: 2px;
+}
+.sessions-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.session-card {
+  display: grid;
+  gap: 6px;
+  text-align: left;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+}
+.session-card:hover {
+  border-color: #3b3e45;
+}
+.session-card.is-selected {
+  background: var(--raised);
+  border-color: var(--accent);
+}
+.session-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.session-card-meta {
+  color: var(--subtle);
+}
+.pnl.positive {
+  color: var(--positive);
+}
+.pnl.negative {
+  color: var(--negative);
+}
+.sessions-detail,
+.session-detail {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.session-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.session-header h2 {
+  margin: 0 0 4px;
+  font-size: 20px;
+}
+.session-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+.session-kpi {
+  display: grid;
+  gap: 6px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  min-width: 0;
+}
+.session-kpi span {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.session-kpi strong {
+  font-size: 18px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.session-kpi small {
+  color: var(--subtle);
+  font-size: 12px;
+}
+.session-kpi small.pnl.positive,
+.session-kpi small.pnl.negative {
+  opacity: 0.9;
+}
+.session-chart {
+  position: relative;
+  padding: 8px 16px 16px;
+}
+.session-chart svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  touch-action: none;
+}
+.session-chart .grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.session-chart .axis {
+  fill: var(--subtle);
+  font-size: 11px;
+}
+.session-chart .nav-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+.session-chart .nav-area {
+  fill: var(--accent);
+  opacity: 0.08;
+}
+.session-chart .marker {
+  stroke: var(--panel);
+  stroke-width: 2;
+}
+.session-chart .marker.buy {
+  fill: var(--positive);
+}
+.session-chart .marker.sell {
+  fill: var(--negative);
+}
+.session-chart .crosshair {
+  stroke: var(--muted);
+  stroke-width: 1;
+}
+.session-chart .focus-dot {
+  fill: var(--accent);
+  stroke: var(--panel);
+  stroke-width: 2;
+}
+.session-tooltip {
+  position: absolute;
+  top: 12px;
+  display: grid;
+  gap: 3px;
+  background: var(--raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 2;
+}
+.session-chart-empty {
+  padding: 4px 20px 20px;
+}
+.session-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 8px 20px 4px;
+}
+.session-step {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 12px;
+  position: relative;
+  padding-bottom: 18px;
+}
+.session-step:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 14px;
+  top: 30px;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+}
+.session-step-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--raised);
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.kind-buy .session-step-icon {
+  color: var(--positive);
+}
+.kind-sell .session-step-icon {
+  color: var(--negative);
+}
+.kind-start .session-step-icon,
+.kind-stop .session-step-icon {
+  color: var(--accent);
+}
+.kind-risk .session-step-icon {
+  color: var(--negative);
+}
+.session-step-body {
+  min-width: 0;
+  padding-top: 5px;
+}
+.session-step-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+}
+.session-step-head time {
+  color: var(--subtle);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.session-step-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin-top: 8px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.session-step-values span {
+  display: grid;
+  gap: 2px;
+}
+.session-step-values small {
+  color: var(--subtle);
+  font-size: 11px;
+}
+.session-step-body p {
+  margin: 8px 0 0;
+  color: #b7c0cd;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.session-activity {
+  padding: 4px 20px 18px;
+  font-size: 12px;
+  margin: 0;
+}
+.session-positions {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.session-positions th {
+  text-align: left;
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.session-positions td {
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.session-positions tr:last-child td {
+  border-bottom: 0;
+}
+.session-positions td small {
+  display: block;
+  color: var(--subtle);
+  font-size: 11px;
+  margin-top: 3px;
+}
+.session-positions .num {
+  text-align: right;
+}
+.session-strategies {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 4px 20px 0;
+}
+.session-strategies > div {
+  display: grid;
+  gap: 3px;
+  background: var(--raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  font-size: 12px;
+}
+.session-strategies small {
+  color: var(--subtle);
+}
+.session-settings {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px 20px;
+  margin: 0;
+  padding: 16px 20px 20px;
+  font-size: 13px;
+}
+.session-settings dt {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+.session-settings dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.sessions-loading {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+@media (max-width: 900px) {
+  .sessions-layout {
+    grid-template-columns: 1fr;
+  }
+  .sessions-list {
+    position: static;
+    max-height: none;
+  }
+  .session-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 520px) {
+  .session-positions th,
+  .session-positions td {
+    padding: 10px 12px;
+  }
+  .session-timeline {
+    padding: 8px 14px 4px;
+  }
+}
