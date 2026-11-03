@@ -1330,10 +1330,32 @@ class PaperRuntime:
             self.running = True
         else:
             raise ValueError("Unsupported paper control")
+        # Sessions are reconstructed from these rows: keep the settings and NAV in force.
+        latest_pnl = (self.latest or {}).get("pnl") or {}
         self.ledger.record(
-            "control_changed", {"action": action, "mode": self.mode, "paused": self.halted.is_set()}
+            "control_changed",
+            {
+                "action": action,
+                "mode": self.mode,
+                "paused": self.halted.is_set(),
+                "params_version": self.version,
+                **({"params": self.params.model_dump(mode="json")} if action == "resume" else {}),
+                **({"nav_usdt": latest_pnl["nav_usdt"]} if latest_pnl.get("nav_usdt") else {}),
+            },
         )
         return self.view()
+
+    def sessions(self) -> dict:
+        from aegis.sessions import list_sessions
+
+        return {"items": list_sessions(self.ledger, int(time.time())), "mode": self.mode}
+
+    def session_detail(self, session_id: str) -> dict:
+        from aegis.sessions import session_detail
+
+        return session_detail(
+            self.ledger, session_id, int(time.time()), self.params.model_dump(mode="json")
+        )
 
     def _balances_hash(self):
         return hashlib.sha256(

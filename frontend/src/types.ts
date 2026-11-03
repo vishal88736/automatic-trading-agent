@@ -12,7 +12,8 @@ export type Page =
   | "observatory"
   | "risk"
   | "wallet"
-  | "settings";
+  | "settings"
+  | "sessions";
 export interface Token {
   asset_id: string;
   symbol: string;

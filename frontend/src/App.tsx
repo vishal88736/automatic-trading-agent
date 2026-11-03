@@ -11,6 +11,7 @@ import {
   Globe2,
   History,
   LayoutDashboard,
+  ListChecks,
   LoaderCircle,
   Menu,
   MessageSquare,
@@ -43,6 +44,7 @@ import { KronoBrand, KronoMark } from "./brand";
 import { WorkspaceHighlights, WorkspaceSearch } from "./discovery";
 import { PlatformWorkspace } from "./platform/Platform";
 import { TradingDesk } from "./TradingDesk";
+import { SessionsWorkspace } from "./Sessions";
 import { platform } from "./platform/client";
 import type {
   Dashboard,
@@ -77,6 +79,7 @@ const NAV: { id: Page; name: string; icon: LucideIcon; group?: string }[] = [
   { id: "news", name: "News Intelligence", icon: Newspaper },
   { id: "strategies", name: "Strategies", icon: SlidersHorizontal },
   { id: "positions", name: "Positions", icon: BookOpen, group: "EXECUTION" },
+  { id: "sessions", name: "Sessions", icon: ListChecks },
   { id: "executions", name: "Execution History", icon: History },
   {
     id: "observatory",
@@ -94,6 +97,7 @@ const PRIMARY_PAGES: Page[] = [
   "desk",
   "strategies",
   "positions",
+  "sessions",
   "risk",
   "settings",
 ];
@@ -101,7 +105,12 @@ const focusPlatform = () =>
   document
     .querySelector<HTMLTextAreaElement>(".platform-composer textarea")
     ?.focus();
+const SESSIONS_TITLE: [string, string] = [
+  "Trading sessions",
+  "Every run of the agent from start to stop: results, trades and each decision with its value.",
+];
 const TITLES: Record<Page, [string, string]> = {
+  sessions: SESSIONS_TITLE,
   aegis: [
     "AEGIS on HSKSwap",
     "Verified pool data, autonomous paper trading and bounded human control.",
@@ -157,6 +166,7 @@ const TITLES: Record<Page, [string, string]> = {
 };
 
 const AEGIS_TITLES: Record<AegisView, [string, string]> = {
+  sessions: SESSIONS_TITLE,
   overview: [
     "AEGIS on HSKSwap",
     "Market monitoring, on-chain analysis, signals and risk-controlled paper execution.",
@@ -1036,6 +1046,7 @@ function AppContent({
                 />
               )}{" "}
               {page === "settings" && <Settings {...base} />}
+              {page === "sessions" && <SessionsWorkspace />}
             </ActionFeedbackContext.Provider>
           ) : (
             <div className="initial-loading">

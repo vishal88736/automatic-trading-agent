@@ -86,6 +86,10 @@ make db-backup  # Private, verified snapshots under .runtime/backups/
 
 Backups use SQLite's backup API so committed WAL data is included while the app runs. Database files and their WAL/SHM sidecars are ignored by Git. Keys and signer journals are kept outside these browser exports. On-chain proofs remain in the separate public verifier and deployment evidence.
 
+### Trading sessions
+
+Open **Sessions** in the left sidebar (Research or AEGIS). Every run of the agent from **Start** to **Pause / PANIC / restart** is one session, rebuilt from the permanent ledger, so earlier runs stay available after restarts. A session shows its net P&L against the starting portfolio value, the NAV chart with each buy/sell marked, a step-by-step story of what the agent did (price, amount, strategy, confidence and reason at that moment), every position paired with its exit, and the settings in force when it started. Exits that settle after the stop, such as a PANIC unwind, belong to the session that opened them. `GET /api/aegis/sessions` and `/api/aegis/sessions/{id}` serve the same read-only data.
+
 ### Inspect the executable market details
 
 Open **AEGIS → Markets**, select WHSK, WETH or WBTC, and choose **Inspect executable routes**. The read-only inspector compares verified QuoterV2 routes for the current entry budget at a single observed block. It shows quoted output, the modeled paper fill floor, LP fees, price impact, gas units, expiry, target/pause state and quote preflight results. Expand a route for its exact token amounts, pool addresses, `sqrtPriceX96`, tick, liquidity and fee tiers. Expired quotes lose their quoted status; changing the asset or settings clears the prior inspection.
@@ -264,7 +268,7 @@ Copy `.env.example` to ignored `.env`, configure the selected provider and resta
 
 Use a tool-capable model available to your account. The UI distinguishes readiness, **Active (Tool-Calling)** after successful tool use, and **Deterministic Fallback**. A provider failure after a tool starts retains the tool result and does not replay the mutation. Actual model entitlement and external delivery require credentials.
 
-For Groq, create a key at [console.groq.com/keys](https://console.groq.com/keys), set `GROQ_API_KEY` in your local `.env` (`AEGIS_LLM_PROVIDER=groq` is already selected there), then restart `make demo`. Groq uses the same OpenAI-compatible tool-calling adapter and validated tools.
+For Groq, create a key at [console.groq.com/keys](https://console.groq.com/keys), set `GROQ_API_KEY` in your local `.env` (`AEGIS_LLM_PROVIDER=groq` is already selected there), then restart `make demo`. Groq uses the same OpenAI-compatible tool-calling adapter and validated tools. Groq's free tier limits tokens per minute per model (8000 for `openai/gpt-oss-120b`); a short limit is waited out automatically and a longer one is reported in the chat reply. Give research its own `RESEARCH_MODEL` so both features do not share one budget.
 
 For Anthropic, set `AEGIS_LLM_PROVIDER=anthropic`, `ANTHROPIC_API_KEY` and `AEGIS_ANTHROPIC_MODEL` in your local `.env`, then restart `make demo`. Keep API keys, wallet keys and passwords out of chat and Git.
 

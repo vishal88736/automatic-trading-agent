@@ -519,6 +519,19 @@ def create_app(
             confirmation=body.confirmation,
         )
 
+    @app.get("/api/aegis/sessions")
+    async def aegis_sessions(request: Request):
+        return await request.app.state.aegis.call("sessions")
+
+    @app.get("/api/aegis/sessions/{session_id}")
+    async def aegis_session(session_id: str, request: Request):
+        if not re.fullmatch(r"[0-9a-f-]{36}", session_id):
+            return error(request, "SESSION_NOT_FOUND", "Session not found", 404)
+        try:
+            return await request.app.state.aegis.call("session_detail", session_id)
+        except ValueError as exc:
+            return error(request, "SESSION_NOT_FOUND", str(exc), 404)
+
     @app.post("/api/aegis/chat")
     async def aegis_chat(body: ChatRequest, request: Request):
         return await request.app.state.aegis.call("chat", body.message)

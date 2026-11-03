@@ -8,7 +8,8 @@ export type AegisView =
   | "observatory"
   | "risk"
   | "wallet"
-  | "settings";
+  | "settings"
+  | "sessions";
 export type Params = {
   position_size_pct: string;
   position_size_usdt?: string | null;

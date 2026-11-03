@@ -15,7 +15,7 @@ test("home retains the original coin artwork, reference markets and strategy pre
     page
       .getByRole("navigation", { name: "Main navigation" })
       .getByRole("button"),
-  ).toHaveCount(6);
+  ).toHaveCount(7); // Six primary workspaces plus Sessions
   await expect(
     page.getByRole("heading", { name: "News intelligence", exact: true }),
   ).toHaveCount(0);
@@ -426,7 +426,7 @@ test("HSKSwap navigation uses one ledger and never loads reference-market endpoi
     page
       .getByRole("navigation", { name: "Main navigation" })
       .getByRole("button"),
-  ).toHaveCount(6);
+  ).toHaveCount(7); // Six primary workspaces plus Sessions
   await expect(
     page.getByRole("button", { name: "Emergency stop", exact: true }),
   ).toHaveCount(1);

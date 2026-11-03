@@ -1,4 +1,5 @@
 import { StructuredView } from "./StructuredView";
+import { SessionsWorkspace } from "./Sessions";
 import { useEffect, useState } from "react";
 import { LoaderCircle, Pause, Play, RefreshCw } from "lucide-react";
 import { api } from "./api";
@@ -100,6 +101,12 @@ export function AegisDesk({
     if (state?.params) setForm(state.params);
   }, [version]);
   const show = (...views: AegisView[]) => views.includes(view);
+  if (view === "sessions")
+    return (
+      <div className="aegis-workspace">
+        <SessionsWorkspace />
+      </div>
+    );
   if (view === "wallet")
     return (
       <div className="aegis-workspace">

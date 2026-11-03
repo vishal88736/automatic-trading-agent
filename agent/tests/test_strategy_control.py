@@ -211,3 +211,70 @@ def test_groq_provider_uses_openai_compatible_endpoint(monkeypatch):
         assert agent.status()["configured_providers"] == ["groq"]
     finally:
         agent.close()
+
+
+def test_openai_compatible_waits_out_a_short_rate_limit_then_succeeds():
+    import httpx
+
+    from aegis.nl.providers import OpenAICompatible
+
+    calls, waits = [], []
+
+    def handler(request):
+        calls.append(request)
+        if len(calls) == 1:
+            return httpx.Response(
+                429,
+                json={"error": {"message": "Rate limit reached ... Please try again in 4.6125s."}},
+            )
+        return httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}]})
+
+    client = OpenAICompatible(
+        "gsk_test",
+        "https://api.groq.com/openai/v1",
+        transport=httpx.MockTransport(handler),
+        name="Groq",
+        sleep=waits.append,
+    )
+    result = client.create(model="m", system="s", tools=[], messages=[], max_tokens=10)
+    assert len(calls) == 2 and waits == [pytest.approx(4.8625)]
+    assert result.content[0].value == {"type": "text", "text": "ok"}
+    client.close()
+
+
+def test_long_rate_limit_explains_itself_and_falls_back_without_running_tools(monkeypatch):
+    import httpx
+
+    from aegis.nl.providers import OpenAICompatible
+
+    def handler(request):
+        return httpx.Response(429, headers={"retry-after": "40"}, json={"error": {}})
+
+    client = OpenAICompatible(
+        "gsk_test",
+        "https://api.groq.com/openai/v1",
+        transport=httpx.MockTransport(handler),
+        name="Groq",
+        sleep=lambda _: pytest.fail("must not wait longer than the bound"),
+    )
+    agent = ControlAgent(providers=[("groq", "m", client)])
+    runtime = SimpleNamespace(
+        view=lambda: {
+            "mode": "paper",
+            "paused": True,
+            "emergency": False,
+            "valuation_fresh": False,
+            "pnl": None,
+            "positions": [],
+            "params": {},
+            "caps": {},
+        }
+    )
+    monkeypatch.setattr(
+        "aegis.nl.agent.chat", lambda rt, msg: {"response": "status", "tool": "get_status"}
+    )
+    result = agent.respond(runtime, "hello")
+    assert result["response"].startswith("AI provider unavailable: Groq rate limit reached")
+    assert "40s" in result["response"]
+    assert agent.status()["last_failure"].startswith("Groq rate limit")
+    client.close()
