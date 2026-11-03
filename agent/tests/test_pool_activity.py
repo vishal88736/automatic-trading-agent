@@ -122,3 +122,84 @@ def test_holding_hold_reason_says_why():
             break
     else:
         pytest.skip("Fixture market produced no entry for any library strategy")
+
+
+class HistoryConnector:
+    """Wraps the replay connector with chain-read history, like HSKSwapConnector."""
+
+    def __new__(cls, fail=False):
+        from agent.tests.test_runtime import ReplayConnector
+
+        class Connector(ReplayConnector):
+            def price_history(self, block_number, block_timestamp, offsets, assets):
+                if fail:
+                    raise RuntimeError("archive state unavailable")
+                self.requested = (offsets, assets)
+                base = {
+                    p.token0: p.mid_token1_per_token0
+                    for p in self._fixture.pools
+                    if p.token1 == "USDT"
+                }
+                return [
+                    {
+                        "observed_at": block_timestamp - offset,
+                        "block_number": block_number - offset // 2,
+                        "markets": {
+                            a: {"price": str(base[a] * (Decimal(1) + Decimal(offset % 7) / 10000))}
+                            for a in assets
+                            if a in base
+                        },
+                        "source": "chain_history",
+                    }
+                    for offset in offsets
+                ]
+
+        return Connector()
+
+
+def test_chain_history_removes_the_restart_warm_up(tmp_path):
+    from aegis.runtime import PaperRuntime
+
+    connector = HistoryConnector()
+    runtime = PaperRuntime(tmp_path / "p.sqlite3", connector=connector, allow_test_connectors=True)
+    try:
+        runtime.set_params({"target_assets": ["WHSK"]}, runtime.version)
+        state = runtime.tick()
+        offsets, assets = connector.requested
+        assert len([o for o in offsets if o <= 600]) == 20 and max(offsets) > 900
+        assert "WHSK" in assets
+        assert state["pool_activity"]["WHSK"]["status"] == "active"
+        reasons = [s.get("reason", "") for s in state["signals"] if s.get("asset") == "WHSK"]
+        assert reasons and not any(r.startswith("Warming up") for r in reasons)
+        assert any(d["status"] == "history_backfilled" for d in state["decisions"])
+        # Chain history is used in memory only; the ledger keeps just live observations.
+        assert all(o.get("source") != "chain_history" for o in runtime.ledger.observations(300))
+    finally:
+        runtime.close()
+
+
+def test_failed_history_read_falls_back_to_live_warm_up(tmp_path):
+    from aegis.runtime import PaperRuntime
+
+    runtime = PaperRuntime(
+        tmp_path / "p.sqlite3", connector=HistoryConnector(fail=True), allow_test_connectors=True
+    )
+    try:
+        runtime.set_params({"target_assets": ["WHSK"]}, runtime.version)
+        state = runtime.tick()
+        failed = [d for d in state["decisions"] if d["status"] == "history_backfill_failed"]
+        assert failed and "archive state unavailable" in failed[0]["payload"]["reason"]
+        assert state["pool_activity"]["WHSK"]["status"] == "warming"
+        runtime.tick()  # No retry storm: a failed read waits before trying again.
+        assert (
+            len(
+                [
+                    d
+                    for d in runtime.ledger.decisions(100)
+                    if d["status"] == "history_backfill_failed"
+                ]
+            )
+            == 1
+        )
+    finally:
+        runtime.close()

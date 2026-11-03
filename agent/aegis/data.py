@@ -313,6 +313,63 @@ class HSKSwapData:
                 unlocked=slot[6],
             )
 
+    def price_history(
+        self, block_number: int, block_timestamp: int, offsets: list[int], assets: list[str]
+    ) -> list[dict]:
+        """Pool mid prices at earlier blocks, read from chain state (slot0 only).
+
+        Used once after a restart so rolling statistics do not need a fresh warm-up. The pools
+        are the registry's verified addresses; the latest snapshot has already checked their
+        code and identity. Block times are measured from two real headers, not assumed."""
+        rpc, n = self.rpc, self.network
+        span = 1000
+        older = rpc.request("eth_getBlockByNumber", [hex(block_number - span), False])
+        if older is None:
+            raise DiscoveryError("Historical block header unavailable")
+        seconds_per_block = (block_timestamp - int(older["timestamp"], 16)) / span
+        if not 0.2 <= seconds_per_block <= 60:
+            raise DiscoveryError("Implausible block time for history backfill")
+        pools = {}
+        for pool in n.pools:
+            if pool.token1 == "USDT" and pool.token0 in assets:
+                pools[pool.token0] = (pool, False)
+            elif pool.token0 == "USDT" and pool.token1 in assets:
+                pools[pool.token1] = (pool, True)
+        result = []
+        for offset in sorted(set(offsets)):
+            number = block_number - round(offset / seconds_per_block)
+            if number <= 0:
+                continue
+            ref = BlockRef(
+                number=number,
+                hash=f"history:{n.chain_id}:{number}",
+                timestamp=block_timestamp - round((block_number - number) * seconds_per_block),
+            )
+            markets = {}
+            for asset, (pool, inverted) in pools.items():
+                slot = rpc.call(
+                    pool.address,
+                    "slot0()",
+                    ["uint160", "int24", "uint16", "uint16", "uint16", "uint8", "bool"],
+                    ref,
+                )
+                t0, t1 = n.tokens[pool.token0], n.tokens[pool.token1]
+                with localcontext() as ctx:
+                    ctx.prec = 78
+                    price = mid_price(slot[0], t0.decimals, t1.decimals)
+                # Same arithmetic as the live mark (inversion in the default context), so an
+                # unchanged pool yields an identical price string.
+                markets[asset] = {"price": format(Decimal(1) / price if inverted else price, "f")}
+            result.append(
+                {
+                    "observed_at": ref.timestamp,
+                    "block_number": number,
+                    "markets": markets,
+                    "source": "chain_history",
+                }
+            )
+        return result
+
     def snapshot(self) -> MarketSnapshot:
         n = self.network
         block = self.rpc.block(

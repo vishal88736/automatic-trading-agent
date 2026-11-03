@@ -7,6 +7,19 @@ take-profit) cannot change. Such pools are blocked for new entries; exits are ne
 
 from __future__ import annotations
 
+from decimal import Decimal, InvalidOperation
+
+# Relative difference below which two recorded marks are the same pool state (rounding only).
+SAME_PRICE = Decimal("1e-12")
+
+
+def _moved(a: str, b: str) -> bool:
+    try:
+        x, y = Decimal(a), Decimal(b)
+    except (InvalidOperation, TypeError):
+        return a != b
+    return abs(x - y) > SAME_PRICE * max(abs(x), abs(y))
+
 
 def pool_activity(history: list[dict], markets: dict, now: int, window: int) -> dict[str, dict]:
     result = {}
@@ -21,7 +34,7 @@ def pool_activity(history: list[dict], markets: dict, now: int, window: int) -> 
         # The last price seen before the window anchors how long the pool has been still.
         seq = older[-1:] + recent + [(now, market["price"])]
         j = len(seq) - 1
-        while j > 0 and seq[j - 1][1] == seq[j][1]:
+        while j > 0 and not _moved(seq[j - 1][1], seq[j][1]):
             j -= 1
         steady = now - seq[j][0]
         # Active only if a change provably happened inside the window: the earlier point of
@@ -29,7 +42,7 @@ def pool_activity(history: list[dict], markets: dict, now: int, window: int) -> 
         changes = [
             seq[i][0]
             for i in range(1, len(seq))
-            if seq[i][1] != seq[i - 1][1] and now - seq[i - 1][0] <= window
+            if _moved(seq[i][1], seq[i - 1][1]) and now - seq[i - 1][0] <= window
         ]
         if changes:
             status, reason = "active", None

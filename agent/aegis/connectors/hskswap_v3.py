@@ -68,6 +68,9 @@ class HSKSwapConnector:
         self._observed = time.monotonic()
         return self._market
 
+    def price_history(self, block_number, block_timestamp, offsets, assets) -> list[dict]:
+        return self.reader.price_history(block_number, block_timestamp, offsets, assets)
+
     def market(self) -> MarketSnapshot:
         if self._market is None or time.monotonic() - self._observed > 3:
             return self.refresh()

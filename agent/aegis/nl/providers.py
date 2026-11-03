@@ -91,7 +91,14 @@ class OpenAICompatible:
     MAX_RATE_LIMIT_WAIT_SECONDS = 12.0
 
     def __init__(
-        self, key: str, base_url: str, *, transport=None, name="provider", sleep=time.sleep
+        self,
+        key: str,
+        base_url: str,
+        *,
+        transport=None,
+        name="provider",
+        sleep=time.sleep,
+        fallback_models: list[str] | None = None,
     ):
         url = urlparse(base_url)
         if (
@@ -109,6 +116,8 @@ class OpenAICompatible:
             )
         self.url = base_url.rstrip("/") + "/chat/completions"
         self.name, self.sleep = name, sleep
+        self.fallback_models = list(fallback_models or [])
+        self.last_model = None
         self.http = httpx.Client(
             timeout=15, transport=transport, headers={"Authorization": "Bearer " + key}
         )
@@ -118,6 +127,18 @@ class OpenAICompatible:
         self.http.close()
 
     def create(self, *, model, system, tools, messages, max_tokens):
+        # A refused request executed nothing, so another model may take the same turn.
+        limited = None
+        for candidate in [model, *self.fallback_models]:
+            try:
+                result = self._create_once(candidate, system, tools, messages, max_tokens)
+                self.last_model = candidate
+                return result
+            except ProviderRateLimited as exc:
+                limited = exc
+        raise limited
+
+    def _create_once(self, model, system, tools, messages, max_tokens):
         for attempt in range(self.MAX_RATE_LIMIT_RETRIES + 1):
             result = self._post(model, system, tools, messages, max_tokens)
             if result.status_code not in (429, 503):

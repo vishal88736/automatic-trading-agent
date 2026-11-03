@@ -14,6 +14,30 @@ from aegis.risk.policy import AgentParams
 from aegis.strategy.library import StrategyId
 
 
+def compact_schema(schema):
+    """Drop pydantic titles and defaults: they cost provider tokens on every request but carry
+    no constraint. Types, enums and bounds stay; the server validates every call again."""
+    if isinstance(schema, dict):
+        options = schema.get("anyOf")
+        if isinstance(options, list) and {"type": "string"} in options:
+            # Pydantic Decimal fields accept number-or-string; models only need the number.
+            numeric = [o for o in options if o.get("type") in {"number", "integer", "null"}]
+            if numeric and len(numeric) == len(options) - 1:
+                schema = {k: v for k, v in schema.items() if k != "anyOf"}
+                if len(numeric) == 1:
+                    schema.update(numeric[0])
+                else:
+                    schema["anyOf"] = numeric
+        return {
+            key: compact_schema(value)
+            for key, value in schema.items()
+            if key not in {"title", "default"}
+        }
+    if isinstance(schema, list):
+        return [compact_schema(value) for value in schema]
+    return schema
+
+
 def tool_schemas():
     empty = {"type": "object", "properties": {}, "additionalProperties": False}
     definitions = {
@@ -112,7 +136,7 @@ def tool_schemas():
         ),
     }
     return [
-        {"name": name, "description": description, "input_schema": schema}
+        {"name": name, "description": description, "input_schema": compact_schema(schema)}
         for name, (description, schema) in definitions.items()
     ]
 
@@ -190,7 +214,7 @@ class ControlAgent:
                     )
             elif name == "groq":
                 key = os.getenv("AEGIS_GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
-                model = os.getenv("AEGIS_GROQ_MODEL") or "llama-3.3-70b-versatile"
+                model = os.getenv("AEGIS_GROQ_MODEL") or "openai/gpt-oss-120b"
                 if key:
                     providers.append(
                         (
@@ -200,6 +224,17 @@ class ControlAgent:
                                 key,
                                 os.getenv("AEGIS_GROQ_BASE_URL", "https://api.groq.com/openai/v1"),
                                 name="Groq",
+                                # Groq limits tokens per minute per model: a second model has its
+                                # own budget when the first is exhausted. Empty disables it.
+                                fallback_models=[
+                                    m
+                                    for m in [
+                                        os.getenv(
+                                            "AEGIS_GROQ_FALLBACK_MODEL", "openai/gpt-oss-20b"
+                                        ).strip()
+                                    ]
+                                    if m and m != model
+                                ],
                             ),
                         )
                     )
@@ -323,7 +358,9 @@ class ControlAgent:
                         "response": "PAPER: " + text,
                         "tool": applied[-1]["tool"],
                         "data": applied[-1]["data"],
-                        "engine": provider + " tool calling: " + model,
+                        "engine": provider
+                        + " tool calling: "
+                        + (getattr(client, "last_model", None) or model),
                     }
                 messages.append({"role": "assistant", "content": blocks})
                 results = []
@@ -351,7 +388,9 @@ class ControlAgent:
                             else "PAPER: review and explicitly confirm the position unwind.",
                             "tool": call.name,
                             "data": data,
-                            "engine": provider + " tool calling: " + model,
+                            "engine": provider
+                            + " tool calling: "
+                            + (getattr(client, "last_model", None) or model),
                         }
                     sanitized = {k: v for k, v in data.items() if k != "confirmation"}
                     content = json.dumps(sanitized, ensure_ascii=False)
