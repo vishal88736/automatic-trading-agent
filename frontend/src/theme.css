@@ -2289,3 +2289,51 @@ td > small {
     flex: 1 1 120px;
   }
 }
+
+/* Assistant launcher: an icon until hovered or focused, so it never covers page content. */
+.chat-launcher {
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  justify-content: center;
+  gap: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  transition:
+    width 160ms ease,
+    padding 160ms ease,
+    gap 160ms ease;
+}
+.chat-launcher > span,
+.chat-launcher > kbd {
+  max-width: 0;
+  opacity: 0;
+  margin-left: 0;
+  transition:
+    max-width 160ms ease,
+    opacity 120ms ease;
+}
+.chat-launcher:hover,
+.chat-launcher:focus-visible {
+  width: auto;
+  padding: 0 18px;
+  gap: 9px;
+}
+.chat-launcher:hover > span,
+.chat-launcher:hover > kbd,
+.chat-launcher:focus-visible > span,
+.chat-launcher:focus-visible > kbd {
+  max-width: 120px;
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat-launcher,
+  .chat-launcher > span,
+  .chat-launcher > kbd {
+    transition: none;
+  }
+}
+/* Room under the last panel so the launcher never sits on top of it. */
+.workspace-footer {
+  margin-bottom: 72px;
+}

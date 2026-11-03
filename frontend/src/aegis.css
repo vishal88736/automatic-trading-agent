@@ -561,3 +561,135 @@
   display: block;
   margin-top: 8px;
 }
+
+/* One status card: state, mode, data and pool activity, then the two actions. */
+.aegis-statusbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 14px 18px;
+  padding: 16px 20px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--panel);
+}
+.aegis-status-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+.aegis-status-main p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.aegis-status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-top: 6px;
+  flex: none;
+  background: var(--muted);
+}
+.aegis-status-dot.positive {
+  background: var(--positive);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--positive) 20%, transparent);
+}
+.aegis-status-dot.negative {
+  background: var(--negative);
+}
+.aegis-status-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.aegis-status-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.aegis-first-run {
+  margin: 0;
+  padding: 16px 20px 20px 40px;
+  display: grid;
+  gap: 14px;
+  font-size: 13px;
+}
+.aegis-first-run li {
+  display: list-item; /* grid would drop the step number marker */
+  padding-left: 4px;
+}
+.aegis-first-run li > * {
+  display: block;
+}
+.aegis-first-run li > span {
+  margin-top: 3px;
+}
+.aegis-first-run span {
+  color: var(--muted);
+}
+@media (max-width: 1100px) {
+  .aegis-statusbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .aegis-status-actions {
+    grid-column: 1 / -1;
+    justify-content: stretch;
+  }
+  .aegis-status-actions button {
+    flex: 1;
+  }
+}
+@media (max-width: 640px) {
+  .aegis-statusbar {
+    grid-template-columns: 1fr;
+    padding: 14px 16px;
+  }
+  .aegis-status-badges {
+    justify-content: flex-start;
+  }
+}
+
+.aegis-advanced {
+  grid-column: 1 / -1;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.aegis-advanced > summary {
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  font-size: 13px;
+}
+.aegis-advanced > summary small {
+  color: var(--muted);
+}
+.aegis-advanced-body {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 14px;
+}
+@media (max-width: 640px) {
+  .aegis-advanced-body {
+    grid-template-columns: 1fr;
+  }
+}
+.aegis-first-run {
+  list-style: decimal;
+}
+.aegis-first-run li::marker {
+  color: var(--accent);
+  font-weight: 600;
+}
+.aegis-advanced-body label:has(> input[type="checkbox"]) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  align-self: start;
+  margin-top: 26px;
+}

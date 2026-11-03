@@ -27,8 +27,14 @@ function Curve({ rows }: { rows: State["equity_curve"] }) {
   if (rows.length < 2)
     return (
       <Empty
-        title="Waiting for observations"
-        description="The P&L curve uses recorded pool observations. Refresh market data to begin."
+        title={
+          rows.length ? "One market check recorded" : "Waiting for observations"
+        }
+        description={
+          rows.length
+            ? "The P&L curve needs at least two recorded checks; the next check (or a running agent) adds the second point."
+            : "The P&L curve uses recorded pool observations. Refresh market data to begin."
+        }
       />
     );
   const values = rows.flatMap((r) => [
@@ -141,6 +147,36 @@ export function AegisDesk({
     );
   const active = !state.paused && !state.emergency;
   const signed = state.mode === "testnet";
+  // First visit: no observation yet, so the data panels would all be empty placeholders.
+  const firstRun =
+    view === "overview" && !state.block_number && !state.last_error;
+  const pools = Object.values(state.pool_activity ?? {});
+  const blockedPools = pools.filter((p) => p.status !== "active");
+  const poolSummary = !pools.length
+    ? null
+    : blockedPools.length === 0
+      ? {
+          label: "Pools trading",
+          tone: "positive",
+          detail: "Every target pool moved recently.",
+        }
+      : blockedPools.some((p) => p.status === "inactive")
+        ? {
+            label: `${blockedPools.filter((p) => p.status === "inactive").length} of ${pools.length} pools inactive · entries blocked there`,
+            tone: "negative",
+            detail: blockedPools.map((p) => p.reason).join(" "),
+          }
+        : {
+            label: "Checking pool activity",
+            tone: "neutral",
+            detail: blockedPools.map((p) => p.reason).join(" "),
+          };
+  const statusTone =
+    connectionError || state.emergency
+      ? "negative"
+      : state.paused
+        ? "neutral"
+        : "positive";
   // Input limits come from the backend AgentParams model, never from copied numbers.
   const bounds = (field: keyof Params) =>
     inputRange(state.param_bounds?.[field]);
@@ -173,17 +209,6 @@ export function AegisDesk({
     });
   return (
     <div className="aegis-workspace">
-      <div className="aegis-disclosure">
-        <Badge tone="accent">{signed ? "TESTNET" : "PAPER"}</Badge>
-        <span>
-          {signed
-            ? "HashKey chain 133 · signed Guard Vault swaps · commit → swap → reveal per fill"
-            : "Live HSKSwap quotes · virtual funds · modeled costs · local decision records"}
-        </span>
-        <Badge>
-          {state.data_status === "LIVE" ? "LIVE DATA" : state.data_status}
-        </Badge>
-      </div>
       {signed && state.public_deployment && (
         <p role="note" className="simulation-notice">
           {state.disclosure}{" "}
@@ -228,26 +253,47 @@ export function AegisDesk({
         </div>
       )}
       {notice && <p role="status">{notice}</p>}
-      <div className="aegis-toolbar">
-        <div>
-          <strong>
-            {connectionError
-              ? "Backend connection unavailable"
-              : state.emergency
-                ? "Emergency stop latched"
-                : state.paused
-                  ? "Entries paused"
-                  : signed
-                    ? "Autonomous testnet trading"
-                    : "Autonomous paper trading"}
-          </strong>
-          <p className="muted">
-            {state.block_number
-              ? `Observed block ${state.block_number} · ${state.block_timestamp ? at(state.block_timestamp) : ""}`
-              : "No verified market observation yet"}
-          </p>
+      <section className="aegis-statusbar" aria-label="Agent status">
+        <div className="aegis-status-main">
+          <span
+            className={`aegis-status-dot ${statusTone}`}
+            aria-hidden="true"
+          />
+          <div>
+            <strong>
+              {connectionError
+                ? "Backend connection unavailable"
+                : state.emergency
+                  ? "Emergency stop latched"
+                  : state.paused
+                    ? "Entries paused"
+                    : signed
+                      ? "Autonomous testnet trading"
+                      : "Autonomous paper trading"}
+            </strong>
+            <p className="muted">
+              <Badge tone="accent">{signed ? "TESTNET" : "PAPER"}</Badge>{" "}
+              {signed
+                ? "Signed Guard Vault swaps on chain 133"
+                : "Live HSKSwap quotes · virtual funds"}
+              {" · "}
+              {state.block_number
+                ? `block ${state.block_number}${state.block_timestamp ? ` · ${at(state.block_timestamp)}` : ""}`
+                : "no verified market observation yet"}
+            </p>
+          </div>
         </div>
-        <div className="inline gap">
+        <div className="aegis-status-badges">
+          <Badge tone={state.data_status === "LIVE" ? "positive" : "neutral"}>
+            {state.data_status === "LIVE" ? "LIVE DATA" : state.data_status}
+          </Badge>
+          {poolSummary && (
+            <span title={poolSummary.detail}>
+              <Badge tone={poolSummary.tone}>{poolSummary.label}</Badge>
+            </span>
+          )}
+        </div>
+        <div className="inline gap aegis-status-actions">
           <button
             className="button secondary"
             disabled={busy || state.refresh_in_progress}
@@ -287,7 +333,35 @@ export function AegisDesk({
                 : "Start paper agent"}
           </button>
         </div>
-      </div>
+      </section>
+      {firstRun && (
+        <Panel
+          title="Get started"
+          subtitle="Three steps; nothing trades until you start the agent"
+        >
+          <ol className="aegis-first-run">
+            <li>
+              <strong>Refresh HSKSwap data</strong>
+              <span>
+                Reads the latest verified pool block, prices and liquidity.
+              </span>
+            </li>
+            <li>
+              <strong>Choose strategies and assets</strong>
+              <span>
+                In Strategies: position size, stop-loss, targets and entry
+                strategies.
+              </span>
+            </li>
+            <li>
+              <strong>Start the paper agent</strong>
+              <span>
+                It then monitors on its own; every run is kept in Sessions.
+              </span>
+            </li>
+          </ol>
+        </Panel>
+      )}
       {state.emergency && (
         <div className="aegis-error" role="alert">
           <span>
@@ -312,7 +386,7 @@ export function AegisDesk({
           </button>
         </div>
       )}
-      {show("overview", "desk", "observatory") && (
+      {!firstRun && show("overview", "desk", "observatory") && (
         <ClosedLoopStatus state={state} />
       )}
       {show("positions", "executions") && (
@@ -339,7 +413,7 @@ export function AegisDesk({
           </div>
         </>
       )}
-      {show("overview", "positions", "risk") && (
+      {!firstRun && show("overview", "positions", "risk") && (
         <>
           <div className="aegis-columns">
             <Panel
@@ -387,7 +461,7 @@ export function AegisDesk({
           </div>
         </>
       )}
-      {show("overview", "markets", "desk") && (
+      {!firstRun && show("overview", "markets", "desk") && (
         <>
           <div className="aegis-market-grid">
             {Object.entries(state.markets).map(([asset, m]) => (
@@ -435,7 +509,7 @@ export function AegisDesk({
         </>
       )}
       {show("desk", "markets") && <AegisMarketAnalysis />}
-      {show("overview", "positions") && (
+      {!firstRun && show("overview", "positions") && (
         <>
           <Panel
             title="AEGIS positions"
@@ -681,72 +755,98 @@ export function AegisDesk({
                       required
                     />
                   </label>
-                  <label>
-                    Sizing
-                    <select
-                      aria-label="AEGIS sizing mode"
-                      value={form.sizing_mode ?? "fixed"}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          sizing_mode: e.target.value as Params["sizing_mode"],
-                        })
-                      }
-                    >
-                      <option value="fixed">Fixed % of NAV</option>
-                      <option value="risk_per_trade">Risk per trade</option>
-                    </select>
-                    <small>
-                      Risk per trade sizes each entry so its nearest stop loses
-                      at most the set % of NAV. The % cap above still bounds it.
-                    </small>
-                  </label>
-                  <label>
-                    Risk per trade (% of NAV)
-                    <input
-                      aria-label="AEGIS risk per trade"
-                      type="number"
-                      step="any"
-                      {...bounds("risk_per_trade_pct")}
-                      disabled={form.sizing_mode !== "risk_per_trade"}
-                      value={form.risk_per_trade_pct ?? ""}
-                      onChange={(e) =>
-                        setForm({ ...form, risk_per_trade_pct: e.target.value })
-                      }
-                    />
-                  </label>
-                  <label>
-                    Auto-derisk at daily loss (%, optional)
-                    <input
-                      aria-label="AEGIS auto-derisk threshold"
-                      type="number"
-                      step="any"
-                      {...bounds("derisk_daily_loss_pct")}
-                      value={form.derisk_daily_loss_pct ?? ""}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          derisk_daily_loss_pct: e.target.value || null,
-                        })
-                      }
-                    />
-                    <small>
-                      Once per UTC day, tightens toward the conservative preset
-                      before the {number(state.caps?.daily_loss_limit_pct)}%
-                      breaker. It never loosens a value.
-                    </small>
-                  </label>
-                  <label className="inline gap">
-                    <input
-                      type="checkbox"
-                      aria-label="AEGIS regime scaling"
-                      checked={form.regime_scaling ?? false}
-                      onChange={(e) =>
-                        setForm({ ...form, regime_scaling: e.target.checked })
-                      }
-                    />
-                    Scale entries down in hostile market regimes
-                  </label>
+                  <details className="aegis-advanced">
+                    <summary>
+                      Advanced sizing &amp; safeguards
+                      <small>
+                        {form.sizing_mode === "risk_per_trade"
+                          ? `Risk per trade · ${form.risk_per_trade_pct}% of NAV`
+                          : "Fixed % of NAV"}
+                        {form.derisk_daily_loss_pct
+                          ? ` · auto-derisk at ${form.derisk_daily_loss_pct}%`
+                          : ""}
+                        {form.regime_scaling ? " · regime scaling on" : ""}
+                      </small>
+                    </summary>
+                    <div className="aegis-advanced-body">
+                      <label>
+                        Sizing
+                        <select
+                          aria-label="AEGIS sizing mode"
+                          value={form.sizing_mode ?? "fixed"}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              sizing_mode: e.target
+                                .value as Params["sizing_mode"],
+                            })
+                          }
+                        >
+                          <option value="fixed">Fixed % of NAV</option>
+                          <option value="risk_per_trade">Risk per trade</option>
+                        </select>
+                        <small>
+                          Risk per trade sizes each entry so its nearest stop
+                          loses at most the set % of NAV. The % cap above still
+                          bounds it.
+                        </small>
+                      </label>
+                      {form.sizing_mode === "risk_per_trade" && (
+                        <label>
+                          Risk per trade (% of NAV)
+                          <input
+                            aria-label="AEGIS risk per trade"
+                            type="number"
+                            step="any"
+                            {...bounds("risk_per_trade_pct")}
+                            value={form.risk_per_trade_pct ?? ""}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                risk_per_trade_pct: e.target.value,
+                              })
+                            }
+                          />
+                        </label>
+                      )}
+                      <label>
+                        Auto-derisk at daily loss (%, optional)
+                        <input
+                          aria-label="AEGIS auto-derisk threshold"
+                          type="number"
+                          step="any"
+                          {...bounds("derisk_daily_loss_pct")}
+                          value={form.derisk_daily_loss_pct ?? ""}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              derisk_daily_loss_pct: e.target.value || null,
+                            })
+                          }
+                        />
+                        <small>
+                          Once per UTC day, tightens toward the conservative
+                          preset before the{" "}
+                          {number(state.caps?.daily_loss_limit_pct)}% breaker.
+                          It never loosens a value.
+                        </small>
+                      </label>
+                      <label className="inline gap">
+                        <input
+                          type="checkbox"
+                          aria-label="AEGIS regime scaling"
+                          checked={form.regime_scaling ?? false}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              regime_scaling: e.target.checked,
+                            })
+                          }
+                        />
+                        Scale entries down in hostile market regimes
+                      </label>
+                    </div>
+                  </details>
                   <fieldset>
                     <legend>Target assets</legend>
                     {(state.supported_assets ?? []).map((asset) => (
@@ -890,16 +990,24 @@ export function AegisDesk({
         >
           <div className="aegis-risk">
             <p>
-              HSKSwap evaluates its pool mean reversion and closed-route
-              arbitrage, plus the existing strategy library's fresh
-              reference-market signals. Every fill passes a verified HSKSwap
-              quote, risk checks and the paper gateway.
+              {(() => {
+                const active = state.params?.active_strategies ?? [];
+                const native = [
+                  active.includes("mean_reversion") && "pool mean reversion",
+                  active.includes("arbitrage") && "closed-route arbitrage",
+                ].filter(Boolean);
+                return native.length
+                  ? `Selected native engines: ${native.join(" and ")}, plus the strategy library's fresh reference-market signals.`
+                  : "No native pool engine is selected; only the strategy library's fresh reference-market signals can enter.";
+              })()}{" "}
+              Every fill needs a verified HSKSwap quote, an actively trading
+              pool, risk checks and the paper gateway.
             </p>
             <p>
-              Original rules and settings are unchanged. BTC maps to WBTC and
-              ETH to WETH; SOL has no verified HSKSwap mapping. Synthetic or
-              stale reference feeds cannot authorize normal trading. The Trading
-              Desk shows each strategy's execution or blocking reason.
+              BTC maps to WBTC and ETH to WETH; reference assets without an
+              HSKSwap token (such as SOL) are not evaluated. Synthetic or stale
+              reference feeds cannot authorize trading. The Trading Desk shows
+              each strategy's execution or blocking reason.
             </p>
             {state.library_error && <p role="alert">{state.library_error}</p>}
             {state.library_catalog?.map((strategy) => (
