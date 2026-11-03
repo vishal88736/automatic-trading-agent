@@ -103,7 +103,7 @@ export function PortfolioMetrics({ data }: { data: Dashboard }) {
     },
     {
       label: "Active positions",
-      value: String(p.positions.length).padStart(2, "0"),
+      value: String(p.positions.length),
       note: `${money(p.exposure)} market exposure`,
       className: "",
     },
