@@ -8,6 +8,7 @@ import re
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
@@ -20,6 +21,9 @@ from aegis.connectors.curl_rpc import CurlTransport
 LOG = logging.getLogger(__name__)
 # Concurrent single requests for endpoints that reject JSON-RPC batches.
 PARALLEL_READS = 8
+# A throttled set is retried this many rounds, each at lower concurrency, before giving up.
+THROTTLE_ROUNDS = 4
+MAX_THROTTLE_WAIT_SECONDS = 2.0
 READ_METHODS = frozenset(
     {
         "eth_chainId",
@@ -119,6 +123,23 @@ class ReadOnlyRpc:
         self._prefetched: dict[str, Any] = {}
         self._prefetch_hash: str | None = None
         self._stopping = threading.Event()
+        self._parallel = PARALLEL_READS
+        self._deadline: float | None = None
+
+    @contextmanager
+    def time_budget(self, seconds: float):
+        """Stop starting new reads once an operation has used its time. A read in flight finishes
+        under its own timeout; the caller receives a normal DiscoveryError."""
+        previous = self._deadline
+        self._deadline = time.monotonic() + seconds
+        try:
+            yield
+        finally:
+            self._deadline = previous
+
+    def _check_budget(self) -> None:
+        if self._deadline is not None and time.monotonic() > self._deadline:
+            raise DiscoveryError("Market data is taking too long; the next check will retry")
 
     def cancel_pending(self) -> None:
         """Thread-safe shutdown signal: finish the current timed request, then stop retries/reads."""
@@ -131,6 +152,7 @@ class ReadOnlyRpc:
     def _request(self, url: str, method: str, params: list) -> Any:
         if self._stopping.is_set():
             raise DiscoveryError("RPC reader is shutting down")
+        self._check_budget()
         self.sequence += 1
         return self._post(url, self.sequence, method, params)
 
@@ -157,11 +179,13 @@ class ReadOnlyRpc:
         cache_key = json.dumps([method, params], sort_keys=True)
         if cache_key in self._prefetched:
             return self._prefetched[cache_key]
+        self._check_budget()
         failures = []
         for attempt in range(self.attempts):
             for index, url in enumerate(self.urls):
                 if self._stopping.is_set():
                     raise DiscoveryError("RPC reader is shutting down")
+                self._check_budget()
                 try:
                     # Recheck even cached/fallback endpoints; wrong-chain data is never accepted.
                     actual_chain = int(self._request(url, "eth_chainId", []), 16)
@@ -192,33 +216,22 @@ class ReadOnlyRpc:
     def read_many(self, reads: list[tuple[str, list]]) -> dict[str, Any]:
         """Block-pinned contract reads over concurrent single requests, all or nothing.
 
-        One endpoint serves the whole set, with its chain checked before and after: the same
-        guarantee as a batch's embedded chain check, for endpoints that reject batches. Any
-        missing result, revert, wrong chain or transport failure publishes nothing."""
+        One endpoint serves the set, with its chain checked before and after: the same guarantee
+        as a batch's embedded chain check, for endpoints that reject batches. Public endpoints
+        rate-limit bursts, so a throttled read is retried at lower concurrency instead of
+        restarting the set. Any revert, wrong chain or missing result publishes nothing."""
         unique = {json.dumps([m, p], sort_keys=True): (m, p) for m, p in reads}
-        for method, params in unique.values():
+        for method, _ in unique.values():
             if method not in {"eth_call", "eth_getCode", "eth_getStorageAt"}:
                 raise DiscoveryError("Parallel reads accept only contract state reads")
         failure = "no endpoint"
         for url in self.urls:
             if self._stopping.is_set():
                 raise DiscoveryError("RPC reader is shutting down")
-            base = self.sequence + 1
-            self.sequence += len(unique) + 2
-
-            def fetch(item):
-                index, (key, (method, params)) = item
-                if self._stopping.is_set():
-                    raise DiscoveryError("RPC reader is shutting down")
-                return key, self._post(url, base + 2 + index, method, params)
-
             try:
-                if int(self._post(url, base, "eth_chainId", []), 16) != self.chain_id:
-                    raise DiscoveryError("RPC chain mismatch")
-                with ThreadPoolExecutor(max_workers=PARALLEL_READS) as pool:
-                    results = dict(pool.map(fetch, enumerate(unique.items())))
-                if int(self._post(url, base + 1, "eth_chainId", []), 16) != self.chain_id:
-                    raise DiscoveryError("RPC chain mismatch")
+                self._check_chain(url)
+                results = self._fetch_throttled(url, unique)
+                self._check_chain(url)
                 return results
             except (
                 httpx.HTTPError,
@@ -228,7 +241,70 @@ class ReadOnlyRpc:
                 TypeError,
             ) as exc:
                 failure = type(exc).__name__
+                self._check_budget()
         raise DiscoveryError(f"No complete parallel read: {failure}")
+
+    def _next_id(self, count: int = 1) -> int:
+        first = self.sequence + 1
+        self.sequence += count
+        return first
+
+    def _check_chain(self, url: str) -> None:
+        for round_number in range(THROTTLE_ROUNDS):
+            self._check_budget()
+            try:
+                if int(self._post(url, self._next_id(), "eth_chainId", []), 16) != self.chain_id:
+                    raise DiscoveryError("RPC chain mismatch")
+                return
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code not in {429, 503}:
+                    raise
+                self._throttled_wait(exc.response, round_number)
+        raise DiscoveryError("RPC endpoint is rate limiting chain checks")
+
+    def _throttled_wait(self, response: httpx.Response | None, round_number: int) -> None:
+        self._parallel = max(1, self._parallel // 2)
+        advertised = None
+        if response is not None:
+            try:
+                advertised = float(response.headers.get("retry-after", ""))
+            except ValueError:
+                pass
+        wait = advertised if advertised is not None else 0.25 * 2**round_number
+        self._stopping.wait(min(wait, MAX_THROTTLE_WAIT_SECONDS))
+
+    def _fetch_throttled(self, url: str, unique: dict[str, tuple[str, list]]) -> dict[str, Any]:
+        results: dict[str, Any] = {}
+        pending = dict(unique)
+        for round_number in range(THROTTLE_ROUNDS):
+            self._check_budget()
+            base = self._next_id(len(pending))
+            throttled: list[httpx.Response] = []
+
+            def fetch(item):
+                index, (key, (method, params)) = item
+                if self._stopping.is_set():
+                    raise DiscoveryError("RPC reader is shutting down")
+                try:
+                    return key, self._post(url, base + index, method, params)
+                except httpx.HTTPStatusError as exc:
+                    if exc.response.status_code not in {429, 503}:
+                        raise
+                    throttled.append(exc.response)
+                    return key, None
+
+            with ThreadPoolExecutor(max_workers=max(1, self._parallel)) as pool:
+                for key, value in pool.map(fetch, enumerate(pending.items())):
+                    if value is not None:
+                        results[key] = value
+                        pending.pop(key)
+            if not pending:
+                # Speed recovers gradually once the endpoint stops refusing.
+                if not throttled:
+                    self._parallel = min(PARALLEL_READS, self._parallel + 1)
+                return results
+            self._throttled_wait(throttled[0] if throttled else None, round_number)
+        raise DiscoveryError("RPC endpoint is rate limiting reads")
 
     def prefetch(self, block: BlockRef, reads: list[tuple[str, list]]) -> None:
         """Batch only pinned contract reads; never cache headers, receipts or pending state.

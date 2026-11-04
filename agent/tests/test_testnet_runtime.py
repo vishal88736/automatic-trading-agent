@@ -50,7 +50,8 @@ class FakeSigner:
     def __init__(self, status="reconciled"):
         self.status, self.calls, self.policy_check = status, [], None
 
-    def execute(self, key, quote, *, rationale, expected_edge_bps, slippage_bps):
+    def execute(self, key, quote, *, rationale, expected_edge_bps, slippage_bps, **kwargs):
+        self.last_kwargs = kwargs
         # The runtime policy is re-checked right before commit, like LiveExecutionGateway does.
         self.policy_check(quote, "before_commit")
         self.calls.append((key, quote, rationale, expected_edge_bps, slippage_bps))
@@ -301,5 +302,27 @@ def test_signed_cycle_receipt_is_recorded_even_after_quote_expiry(tmp_path):
         )
         assert fill["mode"] == "testnet" and fill["transaction_hash"] == "0xabc"
         assert runtime.ledger.balances()[stable.address.lower()]["amount_raw"] == before - 5
+    finally:
+        runtime.close()
+
+
+def test_manual_testnet_trade_warns_and_enforces_the_previewed_minimum(tmp_path):
+    from aegis.nl.tools import chat
+
+    signer = FakeSigner()
+    runtime, _ = make(tmp_path, signer)
+    try:
+        runtime.tick()
+        preview = chat(runtime, "Buy 1 USDT of WHSK")
+        assert preview["response"].startswith("TESTNET:")
+        data = preview["data"]
+        assert data["mode"] == "testnet" and any(
+            "real Guard Vault swap" in w for w in data["warnings"]
+        )
+        assert signer.calls == []
+        minimum = int(runtime.ledger.metadata("trade_confirmation")["min_out_raw"])
+        runtime.control("trade_confirm", confirmation=data["confirmation"])
+        assert len(signer.calls) == 1 and signer.last_kwargs["minimum_out_raw"] == minimum
+        assert runtime.ledger.fills()[0]["transaction_hash"] == "0x" + "b" * 64
     finally:
         runtime.close()

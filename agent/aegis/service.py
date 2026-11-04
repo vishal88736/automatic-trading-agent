@@ -14,12 +14,25 @@ from aegis.nl.tools import ToolCall, execute_tool
 from aegis.runtime import PaperRuntime
 from aegis.strategy.library import LibrarySnapshot
 
+# How long a request waits for a market check. The check itself keeps running on its worker.
+CHECK_DEADLINE_SECONDS = 45
+
 
 class AegisService:
     def __init__(
-        self, path: Path, *, factory=None, enabled=True, reference_source=None, terminal_tool=None
+        self,
+        path: Path,
+        *,
+        factory=None,
+        enabled=True,
+        reference_source=None,
+        terminal_tool=None,
+        monitor=False,
     ):
         self.path, self.factory, self.enabled = path, factory, enabled
+        # Keep market data live while the agent is stopped. Isolated test apps leave this off.
+        self.monitor = monitor
+        self.monitor_ready = False
         self.reference_source = reference_source
         # Async callable(name, args) on the API loop for library/selector chat tools.
         self.terminal_tool = terminal_tool
@@ -111,6 +124,7 @@ class AegisService:
                 emergency=self.emergency.is_set(),
                 refresh_in_progress=self.inflight,
                 library_revision=self.library_revision,
+                monitoring=self.monitor,
             )
             import time
 
@@ -131,41 +145,77 @@ class AegisService:
         if self.inflight:
             raise ValueError("A market check is already running; wait for its recorded result")
         self.inflight = True
-        try:
-            library = None
-            if self.reference_source is not None:
-                revision = self.library_revision
-                try:
-                    library = await asyncio.wait_for(self.reference_source(self.view()), timeout=15)
-                    library = library.model_copy(update={"revision": revision})
-                except Exception:
-                    import time
+        work = asyncio.ensure_future(self._check())
 
-                    library = LibrarySnapshot(
-                        captured_at=int(time.time()),
-                        signals=[],
-                        catalog=[],
-                        error="Reference-strategy data could not refresh; library entries are blocked",
-                    )
-            return await self.call("tick", library=library)
+        def finished(task):
+            self.inflight = False
+            if not task.cancelled():
+                task.exception()  # Consumed even if the waiting request has already moved on.
+
+        work.add_done_callback(finished)
+        try:
+            # A thread cannot be cancelled mid-read: stop waiting, keep the "running" guard.
+            return await asyncio.wait_for(asyncio.shield(work), CHECK_DEADLINE_SECONDS)
+        except asyncio.TimeoutError:
+            raise ValueError(
+                "The market check is taking longer than expected. It is still running; "
+                "the page updates when it finishes."
+            ) from None
+
+    async def _check(self):
+        library = None
+        if self.reference_source is not None:
+            revision = self.library_revision
+            try:
+                library = await asyncio.wait_for(self.reference_source(self.view()), timeout=15)
+                library = library.model_copy(update={"revision": revision})
+            except Exception:
+                import time
+
+                library = LibrarySnapshot(
+                    captured_at=int(time.time()),
+                    signals=[],
+                    catalog=[],
+                    error="Reference-strategy data could not refresh; library entries are blocked",
+                )
+        return await self.call("tick", library=library)
+
+    async def observe(self):
+        if self.inflight:
+            return
+        self.inflight = True
+        try:
+            return await self.call("observe")
         finally:
             self.inflight = False
 
     async def _loop(self):
         while not self.closing:
             await asyncio.sleep(1)
-            if self.runtime and self.state.get("running") and not self.inflight:
-                import time
+            if not self.runtime or self.inflight:
+                continue
+            running = self.state.get("running")
+            if not running and not self.monitor:
+                continue
+            import time
 
-                last = self.state.get("last_tick_at") or 0
-                interval = self.state.get("params", {}).get("tick_seconds", 30)
-                if time.time() - last >= interval:
-                    try:
-                        await self.check()
-                    except Exception:
-                        self.halted.set()
-                        self.state.update(last_error="Unexpected runtime failure; entries paused")
-                        await asyncio.sleep(5)
+            last = self.state.get("last_tick_at") or 0
+            interval = self.state.get("params", {}).get("tick_seconds", 30)
+            # A stopped agent still needs one full check after startup: it fills the strategy
+            # catalog and signals. It cannot trade (entries stay paused until an explicit start).
+            first_check = self.monitor and not self.monitor_ready
+            if time.time() - last < interval and not first_check:
+                continue
+            try:
+                if running or first_check:
+                    await self.check()
+                    self.monitor_ready = True
+                else:
+                    await self.observe()
+            except Exception:
+                self.halted.set()
+                self.state.update(last_error="Unexpected runtime failure; entries paused")
+                await asyncio.sleep(5)
 
     async def close(self):
         self.closing = True

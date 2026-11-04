@@ -2860,6 +2860,8 @@ export function Settings({ data, status, act, busy }: WorkspaceProps) {
     [auto, setAuto] = useState(false),
     [offset, setOffset] = useState(0),
     [audit, setAudit] = useState(data.audit),
+    [auditError, setAuditError] = useState<string | null>(null),
+    [auditRetry, setAuditRetry] = useState(0),
     [refreshSettings, setRefreshSettings] = useState<{
       version: number;
       config: NonNullable<Status["providers"]["refresh"]>;
@@ -2879,10 +2881,22 @@ export function Settings({ data, status, act, busy }: WorkspaceProps) {
     };
   }, []);
   useEffect(() => {
-    void api<typeof data.audit>(
-      `/history/audit?limit=30&offset=${offset}`,
-    ).then(setAudit);
-  }, [offset, data.audit.items[0]?.id]);
+    let active = true;
+    setAuditError(null);
+    void api<typeof data.audit>(`/history/audit?limit=30&offset=${offset}`)
+      .then((value) => {
+        if (active) setAudit(value);
+      })
+      .catch((error) => {
+        if (active)
+          setAuditError(
+            error instanceof Error ? error.message : "The request failed",
+          );
+      });
+    return () => {
+      active = false;
+    };
+  }, [offset, data.audit.items[0]?.id, auditRetry]);
   return (
     <>
       <div className="bottom-grid">
@@ -3148,6 +3162,17 @@ export function Settings({ data, status, act, busy }: WorkspaceProps) {
         action={<Badge>{audit.total} events</Badge>}
         className="section-gap"
       >
+        {auditError && (
+          <div role="alert" className="panel-note">
+            <span>Audit history could not load: {auditError}</span>{" "}
+            <button
+              className="button secondary"
+              onClick={() => setAuditRetry((value) => value + 1)}
+            >
+              Retry
+            </button>
+          </div>
+        )}
         <div className="audit-list">
           {audit.items.map((a) => (
             <details key={a.id}>

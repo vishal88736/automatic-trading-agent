@@ -181,6 +181,15 @@ def assess(
             "No owned inventory is available to sell.",
         )
     capacity = max(D(0), capacity.quantize(D("0.00000001"), rounding=ROUND_DOWN))
+    full_exit = (
+        proposal.side == "SELL"
+        and proposal.exit_quantity is not None
+        and asset_value <= config.max_trade_notional
+    )
+    if full_exit:
+        # A full exit sells the exact holding. Rounding its size down left dust worth less than
+        # the smallest approvable amount, which then could never be closed.
+        capacity = proposal.notional
     check(
         "MAX_TRADE_NOTIONAL",
         capacity <= config.max_trade_notional,
@@ -212,7 +221,8 @@ def assess(
         )
     check(
         "SIZING_CAPACITY",
-        capacity >= D("1"),
+        # The minimum stops pointless new trades; it must never trap a remainder in a position.
+        capacity >= D("1") or (full_exit and capacity > 0),
         capacity,
         ">= 1 USD",
         "Balance or exposure capacity is too small.",
@@ -272,7 +282,12 @@ def validate_quote(
     expected_amount = (
         quote.notional if proposal.side == "BUY" else quote.notional / proposal.reference_price
     )
-    if abs(quote.input_amount - expected_amount) > D("0.000000000000000001"):
+    full_exit = (
+        proposal.exit_quantity is not None
+        and quote.input_amount == proposal.exit_quantity
+        and quote.notional == proposal.notional
+    )
+    if not full_exit and abs(quote.input_amount - expected_amount) > D("0.000000000000000001"):
         errors.append("Unexpected input amount")
     if not 0 <= (
         clock - quote.created_at

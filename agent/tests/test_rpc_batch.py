@@ -7,6 +7,7 @@ import time
 import httpx
 import pytest
 from eth_abi import encode
+from web3 import Web3
 
 from aegis.connectors.rpc import BlockRef, DiscoveryError, ReadOnlyRpc, RpcResponseError, call_read
 
@@ -225,3 +226,79 @@ def test_read_many_rejects_writes_and_unknown_methods():
             rpc.read_many([("eth_sendRawTransaction", ["0x00"])])
     finally:
         rpc.close()
+
+
+def test_throttled_reads_retry_at_lower_concurrency_without_restarting_the_set():
+    block = BlockRef(100, "hash", int(time.time()))
+    reads = [
+        call_read(ADDRESS, "decimals()", block),
+        call_read(ADDRESS, "symbol()", block),
+        call_read(ADDRESS, "name()", block),
+    ]
+    refused = set()
+    served = []
+    lock = threading.Lock()
+
+    def handler(request):
+        data = json.loads(request.content)
+        if data["method"] == "eth_chainId":
+            return httpx.Response(200, json={"id": data["id"], "result": "0xb1"})
+        selector = data["params"][0]["data"]
+        with lock:
+            first_time = selector not in refused
+            refused.add(selector)
+            if not first_time:
+                served.append(selector)
+        if first_time:
+            return httpx.Response(429, headers={"retry-after": "0"}, json={})
+        return httpx.Response(
+            200, json={"id": data["id"], "result": "0x" + encode(["uint8"], [18]).hex()}
+        )
+
+    rpc = parallel_rpc(handler)
+    try:
+        rpc.prefetch(block, reads)
+        assert len(rpc._prefetched) == 3, "Throttling must not fall back to slow serial reads"
+        assert sorted(served) == sorted(r[1][0]["data"] for r in reads), "Each read served once"
+        assert rpc._parallel < 8
+    finally:
+        rpc.close()
+
+
+def test_time_budget_stops_new_reads_with_a_clear_error():
+    rpc = parallel_rpc(lambda request: pytest.fail("no read may start past the budget"))
+    try:
+        with pytest.raises(DiscoveryError, match="taking too long"):
+            with rpc.time_budget(-1):
+                rpc.request("eth_blockNumber", [])
+        assert rpc._deadline is None
+    finally:
+        rpc.close()
+
+
+def test_identity_is_verified_first_then_only_changing_state_is_read(monkeypatch):
+    from aegis.connectors import hskswap_v3  # noqa: F401 - import order
+    from aegis.data import HSKSwapData, load_network
+
+    network = load_network("mainnet")
+    reader = HSKSwapData(network, rpc=object())
+    sent = []
+    reader.rpc = type(
+        "Rpc",
+        (ReadOnlyRpc,),
+        {"prefetch": lambda self, block, reads: sent.append(reads), "__init__": lambda self: None},
+    )()
+    block = BlockRef(100, "hash", int(time.time()))
+    reader.prefetch_snapshot(block)
+    first = sent[-1]
+    reader._identity_verified_at = time.monotonic()
+    reader.prefetch_snapshot(block)
+    routine = sent[-1]
+    assert len(routine) * 2 < len(first), (len(first), len(routine))
+    selectors = {r[1][0]["data"][:10] for r in routine if r[0] == "eth_call"}
+    assert Web3.keccak(text="slot0()").hex()[:8] in {s[2:] for s in selectors}
+    # A proxy's implementation can change at any time, so it stays in every read.
+    assert any(r[0] == "eth_getStorageAt" for r in routine)
+    reader._identity_verified_at = time.monotonic() - 301
+    reader.prefetch_snapshot(block)
+    assert len(sent[-1]) == len(first), "Identity is re-verified periodically"

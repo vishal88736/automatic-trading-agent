@@ -23,6 +23,7 @@ END_REASONS = {
     "close_all_confirm": "Closed all positions",
     "restart": "Process restarted",
     "circuit_breaker": "Circuit breaker tripped",
+    "manual_closed": "Manual positions closed",
 }
 # A PANIC right after a pause describes the same stop; it upgrades that session's end reason.
 PANIC_MERGE_SECONDS = 60
@@ -49,14 +50,16 @@ def boundaries(ledger: PaperLedger) -> list[dict]:
     events = _rows(
         ledger,
         "SELECT rowid, id, created_at, status, payload_json FROM decisions "
-        "WHERE status IN ('control_changed','recovered_paused','circuit_breaker') ORDER BY rowid",
+        "WHERE status IN ('control_changed','recovered_paused','circuit_breaker',"
+        "'manual_trade','manual_trade_failed','manual_trade_closed') ORDER BY rowid",
     )
     sessions: list[dict] = []
     current = None
     for rowid, event_id, at, status, raw in events:
         payload = json.loads(raw)
         action = payload.get("action") if status == "control_changed" else status
-        if action == "resume":
+        if action in {"resume", "manual_trade"}:
+            # A trade the person confirms outside a run is its own session.
             if current is None:
                 current = {
                     "id": event_id,
@@ -65,9 +68,20 @@ def boundaries(ledger: PaperLedger) -> list[dict]:
                     "start_payload": payload,
                     "ended_at": None,
                     "end_reason": None,
+                    "manual": action == "manual_trade",
                 }
                 sessions.append(current)
             continue
+        if action == "manual_trade_failed":
+            # Nothing executed: a session opened only for this attempt never happened.
+            if current is not None and current["id"] == payload.get("start_id"):
+                sessions.pop()
+                current = None
+            continue
+        if action == "manual_trade_closed":
+            if current is None or not current["manual"]:
+                continue
+            action = "manual_closed"
         if action == "recovered_paused":
             action = "restart"
         if action not in END_REASONS:
@@ -146,6 +160,14 @@ def trade_row(fill: dict) -> dict:
     asset = last["asset_id"] if side == "BUY" else first["asset_id"]
     quantity, notional = (amount_out, amount_in) if side == "BUY" else (amount_in, amount_out)
     origin = fill.get("origin") or {}
+    manual = (fill.get("execution_context") or {}).get("manual")
+    # The pool mid when quoted: what the market was, before fee, impact and slippage.
+    reference = _d(fill["quote"].get("reference_out_raw"))
+    mid = None
+    if reference and side == "BUY":
+        mid = amount_in / (reference / 10 ** last["decimals"])
+    elif reference:
+        mid = (reference / 10 ** last["decimals"]) / amount_in
     return {
         "fill_id": fill["id"],
         "at": fill["created_at"],
@@ -156,7 +178,8 @@ def trade_row(fill: dict) -> dict:
         "price_usdt": _s(notional / quantity) if quantity else None,
         "realized_pnl_usdt": fill.get("realized_pnl_usdt"),
         "network_fee_usdt": fill.get("modeled_network_fee_usdt"),
-        "strategy_id": origin.get("strategy_id"),
+        "strategy_id": origin.get("strategy_id") or ("manual" if manual else None),
+        "market_mid_usdt": _s(mid),
         "mode": fill.get("mode"),
         "receipt": fill.get("receipt"),
         "transaction_hash": fill.get("transaction_hash"),
@@ -176,6 +199,7 @@ def _round_trips(trades: list[dict], exit_reasons: dict[str, str]) -> list[dict]
                 "strategy_id": trade["strategy_id"],
                 "entry_at": trade["at"],
                 "entry_price_usdt": trade["price_usdt"],
+                "entry_mid_usdt": trade.get("market_mid_usdt"),
                 "cost_usdt": trade["notional_usdt"],
                 "quantity": trade["quantity"],
                 "exits": [],
@@ -191,6 +215,7 @@ def _round_trips(trades: list[dict], exit_reasons: dict[str, str]) -> list[dict]
         position["proceeds_usdt"] += _d(trade["notional_usdt"]) or Decimal(0)
         position["exit_at"] = trade["at"]
         position["exit_price_usdt"] = trade["price_usdt"]
+        position["exit_mid_usdt"] = trade.get("market_mid_usdt")
         position["exit_reason"] = exit_reasons.get(trade["fill_id"])
         sold = sum((_d(e["quantity"]) or Decimal(0)) for e in position["exits"])
         if sold >= (_d(position["quantity"]) or Decimal(0)) * Decimal("0.999999"):
@@ -201,6 +226,10 @@ def _round_trips(trades: list[dict], exit_reasons: dict[str, str]) -> list[dict]
     for trip in trips:
         cost = _d(trip["cost_usdt"]) or Decimal(0)
         closed = trip.get("closed", False)
+        # Split a closed result: how far the market moved, and what trading itself cost.
+        entry_mid, exit_mid = _d(trip.get("entry_mid_usdt")), _d(trip.get("exit_mid_usdt"))
+        move = (exit_mid / entry_mid - 1) * 100 if closed and entry_mid and exit_mid else None
+        returned = trip["realized_pnl_usdt"] / cost * 100 if closed and cost else None
         result.append(
             {
                 "asset": trip["asset"],
@@ -214,8 +243,10 @@ def _round_trips(trades: list[dict], exit_reasons: dict[str, str]) -> list[dict]
                 "exit_reason": trip.get("exit_reason"),
                 "status": "closed" if closed else "partial" if trip["exits"] else "open",
                 "realized_pnl_usdt": _s(trip["realized_pnl_usdt"]) if closed else None,
-                "return_pct": _s(trip["realized_pnl_usdt"] / cost * 100)
-                if closed and cost
+                "return_pct": _s(returned),
+                "market_move_pct": None if move is None else f"{move:.4f}",
+                "execution_cost_pct": f"{returned - move:.4f}"
+                if returned is not None and move is not None
                 else None,
                 "holding_seconds": trip["exit_at"] - trip["entry_at"] if closed else None,
             }
@@ -271,11 +302,24 @@ def _timeline(events: list[dict], fills: dict[str, dict], observations: list[dic
             reasons[payload["fill_id"]] = {
                 "why": "Exit: " + str(payload.get("reason", "")).replace("_", " "),
             }
+        elif event["status"] == "manual_filled" and payload.get("fill_id"):
+            reasons[payload["fill_id"]] = {
+                "strategy_id": "manual",
+                "strategy_name": "Manual",
+                "why": payload.get("reason"),
+            }
     items: list[dict] = []
     for event in events:
         status, payload, at = event["status"], event["payload"], event["created_at"]
         item = None
-        if status == "control_changed":
+        if status == "manual_trade" and event is events[0]:
+            item = {
+                "kind": "start",
+                "title": "Manual trading started",
+                "detail": "You confirmed a trade while the agent was stopped.",
+                "nav_usdt": payload.get("nav_usdt"),
+            }
+        elif status == "control_changed":
             action = payload.get("action")
             if action == "resume":
                 item = {
@@ -461,6 +505,13 @@ def session_detail(ledger: PaperLedger, session_id: str, now: int, current_param
         for e in events
         if e["status"] == "exit_executed"
     }
+    exit_reasons.update(
+        {
+            e["payload"].get("fill_id"): "manual sell"
+            for e in events
+            if e["status"] == "manual_filled" and e["payload"].get("side") == "SELL"
+        }
+    )
     observations = _observations(ledger, session["started_at"], session["window_end_at"])
     trades = [trade_row(f) for f in fills]
     settings, settings_source = _settings(session["start_payload"], fills, current_params)
@@ -515,4 +566,108 @@ def session_detail(ledger: PaperLedger, session_id: str, now: int, current_param
         "timeline": _timeline(events, by_id, observations),
         "series": _series(observations),
         "window_end_at": session["window_end_at"],
+    }
+
+
+def compact_session(detail: dict) -> dict:
+    """A session for the assistant: all decisions and results, without the chart series."""
+    keep = (
+        "at", "kind", "title", "detail", "asset", "notional_usdt", "price_usdt",
+        "realized_pnl_usdt", "strategy_name", "strategy_id", "confidence",
+    )  # fmt: skip
+    timeline = [
+        {k: item[k] for k in keep if item.get(k) is not None} for item in detail["timeline"]
+    ]
+    return {
+        **{k: v for k, v in detail.items() if k not in {"series", "fills", "timeline"}},
+        "timeline": timeline[-25:],
+        "timeline_omitted": max(0, len(timeline) - 25),
+    }
+
+
+def analyze_history(ledger: PaperLedger, now: int, current_params: dict) -> dict:
+    """Totals across every recorded session, and what the records say to look at."""
+    summaries = list_sessions(ledger, now)
+    positions: list[dict] = []
+    for summary in summaries:
+        if summary["trades"]:
+            detail = session_detail(ledger, summary["id"], now, current_params)
+            positions.extend(
+                {**p, "session": summary["number"]}
+                for p in detail["positions"]
+                if p["status"] == "closed"
+            )
+    pnl = [_d(p["realized_pnl_usdt"]) or Decimal(0) for p in positions]
+    wins = sum(v > 0 for v in pnl)
+
+    def group(key: str) -> list[dict]:
+        rows: dict[str, dict] = {}
+        for position, value in zip(positions, pnl):
+            name = position.get(key) or "unattributed"
+            row = rows.setdefault(name, {key: name, "trades": 0, "wins": 0, "pnl": Decimal(0)})
+            row["trades"] += 1
+            row["wins"] += value > 0
+            row["pnl"] += value
+        return sorted(
+            (
+                {**{k: v for k, v in r.items() if k != "pnl"}, "realized_pnl_usdt": _s(r["pnl"])}
+                for r in rows.values()
+            ),
+            key=lambda r: Decimal(r["realized_pnl_usdt"]),
+        )
+
+    by_strategy, by_asset, by_exit = group("strategy_id"), group("asset"), group("exit_reason")
+    known = [
+        (_d(p["market_move_pct"]), _d(p["execution_cost_pct"]))
+        for p in positions
+        if p.get("market_move_pct") is not None and p.get("execution_cost_pct") is not None
+    ]
+    average_move = sum((m for m, _ in known), Decimal(0)) / len(known) if known else None
+    average_cost = sum((c for _, c in known), Decimal(0)) / len(known) if known else None
+    held = [p["holding_seconds"] for p in positions if p.get("holding_seconds") is not None]
+    observations = []
+    if not positions:
+        observations.append("No closed trade yet, so there is no result to learn from.")
+    if known and abs(average_cost) > abs(average_move):
+        observations.append(
+            f"Trading costs ({average_cost:.2f}% per trade) outweighed market movement "
+            f"({average_move:+.2f}%). Losses came mostly from fees, price impact and thin pools, "
+            "not from the market falling."
+        )
+    if positions and wins == 0:
+        observations.append("No closed trade has been profitable yet.")
+    forced = [r for r in by_exit if "panic" in r["exit_reason"]]
+    if forced and forced[0]["trades"] * 2 >= len(positions):
+        observations.append(
+            "Most exits were forced by the PANIC stop, so the strategies' own exit rules did not "
+            "get to decide."
+        )
+    if len(by_strategy) == 1 and len(positions) >= 2:
+        observations.append(
+            f"Every closed trade came from one strategy ({by_strategy[0]['strategy_id']}), so "
+            "there is no comparison between strategies yet."
+        )
+    if 0 < len(positions) < 10:
+        observations.append(
+            f"Only {len(positions)} closed trade(s) exist; that is too few to judge a strategy."
+        )
+    return {
+        "sessions": len(summaries),
+        "closed_trades": len(positions),
+        "wins": wins,
+        "losses": sum(v < 0 for v in pnl),
+        "win_rate_pct": _s(Decimal(wins) / len(positions) * 100) if positions else None,
+        "realized_pnl_usdt": _s(sum(pnl, Decimal(0))),
+        "average_market_move_pct": None if average_move is None else f"{average_move:.4f}",
+        "average_execution_cost_pct": None if average_cost is None else f"{average_cost:.4f}",
+        "average_holding_seconds": sum(held) // len(held) if held else None,
+        "by_strategy": by_strategy,
+        "by_asset": by_asset,
+        "by_exit_reason": by_exit,
+        "session_results": [
+            {k: s[k] for k in ("number", "status", "end_label", "net_pnl_usdt", "trades")}
+            for s in summaries[:10]
+        ],
+        "observations": observations,
+        "scope": "Recorded results only. Past results do not predict future ones.",
     }

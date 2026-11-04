@@ -320,6 +320,9 @@ export function PlatformWorkspace() {
       setChecking(false);
     }
   }, []);
+  // An approval must only ever apply the exact text that was validated: any draft change, typed
+  // or from reopening the tab, withdraws it.
+  useEffect(() => setPendingProfile(null), [profileDraft]);
   useEffect(() => {
     void check();
   }, [check]);

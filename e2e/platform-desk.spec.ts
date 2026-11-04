@@ -219,3 +219,20 @@ test("Platform UI contract: conversation, reviewed deployment, runtime controls 
     ),
   ).toBe(true);
 });
+
+test("editing a validated profile withdraws its approval", async ({ page }) => {
+  await page.goto("/#/platform");
+  await page.getByLabel("Email", { exact: true }).fill("alice@fixture.test");
+  await page.getByLabel("Password", { exact: true }).fill("fixture");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await page.getByRole("button", { name: "Profile & preferences" }).click();
+  const draft = page.getByLabel("Profile configuration");
+  await expect(draft).toBeVisible();
+  const approve = page.getByRole("button", {
+    name: "Approve profile & risk changes",
+  });
+  await page.getByRole("button", { name: "Validate changes" }).click();
+  await expect(approve).toBeVisible();
+  await draft.fill((await draft.inputValue()) + " ");
+  await expect(approve).toHaveCount(0);
+});

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -226,3 +227,122 @@ async def test_sessions_api_lists_and_rejects_unknown_ids(client):
     )
     assert missing.status_code == 404
     assert (await client.get("/api/aegis/sessions/not-an-id", headers=H)).status_code == 404
+
+
+async def test_assistant_guides_and_trades_over_the_api_with_human_confirmation(client):
+    await client.post("/api/aegis/check", headers=H)
+    guide = await client.post(
+        "/api/aegis/chat",
+        headers=H,
+        json={
+            "message": "What should I do next?",
+            "history": [{"role": "user", "text": "hi"}, {"role": "assistant", "text": "hello"}],
+        },
+    )
+    assert guide.status_code == 200, guide.text
+    assert guide.json()["data"]["stage"] == "ready"
+    preview = (
+        await client.post("/api/aegis/chat", headers=H, json={"message": "Buy 1 USDT of WHSK"})
+    ).json()["data"]
+    assert preview["kind"] == "trade_preview"
+    assert (await client.get("/api/aegis/state", headers=H)).json()["fills"] == []
+    refused = await client.post(
+        "/api/aegis/control", headers=H, json={"action": "trade_confirm", "confirmation": "x"}
+    )
+    assert refused.status_code == 409
+    done = await client.post(
+        "/api/aegis/control",
+        headers=H,
+        json={"action": "trade_confirm", "confirmation": preview["confirmation"]},
+    )
+    assert done.status_code == 200, done.text
+    state = done.json()
+    assert len(state["fills"]) == 1 and state["paused"] is True
+    assert state["positions"][0]["asset"] == "WHSK"
+    [session] = (await client.get("/api/aegis/sessions", headers=H)).json()["items"]
+    assert session["trades"] == 1
+
+
+async def test_research_assistant_shares_guidance_but_sends_orders_to_aegis(client):
+    await client.post("/api/aegis/check", headers=H)
+    guide = (
+        await client.post("/api/chat", headers=H, json={"message": "How does this work?"})
+    ).json()
+    assert guide["tool"] == "explain_platform" and "HashKey" in guide["response"]
+    history = (
+        await client.post("/api/chat", headers=H, json={"message": "Analyze my past sessions"})
+    ).json()
+    assert history["tool"] == "analyze_sessions"
+    order = (
+        await client.post("/api/chat", headers=H, json={"message": "Buy 1 USDT of WHSK"})
+    ).json()
+    assert order["tool"] == "open_aegis_workspace" and "AEGIS" in order["response"]
+    assert (await client.get("/api/aegis/state", headers=H)).json()["fills"] == []
+    # Research's own commands still work.
+    assert (
+        await client.post("/api/chat", headers=H, json={"message": "pause entries"})
+    ).status_code == 200
+
+
+@pytest.mark.parametrize(
+    "failure,status,code",
+    [
+        ("view_lag", 503, "CHAIN_VIEW_LAGGING"),
+        ("no_rpc", 503, "CHAIN_UNAVAILABLE"),
+        ("not_revealed", 422, "VERIFICATION_FAILED"),
+        ("rpc_code", 422, "VERIFICATION_FAILED"),
+    ],
+)
+async def test_verifier_failures_are_explained_not_http_500(
+    client, monkeypatch, failure, status, code
+):
+    import aegis.owner
+    import aegis.verify_decision
+    from aegis.connectors.rpc import DiscoveryError, RpcResponseError, RpcViewLag
+
+    errors = {
+        "view_lag": RpcViewLag("Reveal receipt block is temporarily unavailable"),
+        "no_rpc": DiscoveryError("No verified RPC response for eth_call: rpc_-32005"),
+        "not_revealed": DiscoveryError("Decision is not revealed"),
+        "rpc_code": RpcResponseError(3),
+    }
+
+    def verify(*args):
+        raise errors[failure]
+
+    monkeypatch.setattr(aegis.verify_decision, "verify_reveal", verify)
+    monkeypatch.setattr(
+        aegis.owner,
+        "registered",
+        lambda network: (
+            SimpleNamespace(chain_id=133, rpc_urls=["https://rpc.test"]),
+            {"chain_id": 133},
+        ),
+    )
+    result = await client.post(
+        "/api/aegis/verify",
+        headers=H,
+        json={"network": "testnet", "decision_id": 2, "reveal_tx": "0x" + "a" * 64},
+    )
+    assert result.status_code == status, result.text
+    assert result.json()["error"]["code"] == code
+
+
+def test_stale_bundle_is_detected_only_when_source_is_newer(tmp_path):
+    import os
+
+    from backend.api import source_newer_than_bundle
+
+    assert source_newer_than_bundle(tmp_path) is False
+    index = tmp_path / "frontend/dist/index.html"
+    source = tmp_path / "frontend/src/App.tsx"
+    index.parent.mkdir(parents=True)
+    index.write_text("built")
+    assert source_newer_than_bundle(tmp_path) is False, "An image without source is not stale"
+    source.parent.mkdir(parents=True)
+    source.write_text("code")
+    os.utime(index, (100, 100))
+    os.utime(source, (50, 50))
+    assert source_newer_than_bundle(tmp_path) is False
+    os.utime(source, (200, 200))
+    assert source_newer_than_bundle(tmp_path) is True

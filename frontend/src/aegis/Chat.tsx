@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Bot, Send, X } from "lucide-react";
 import { api } from "../api";
-import { Modal } from "../ui";
+import { Modal, number } from "../ui";
 import { useAegis } from "./context";
 import { ParamsConfirmation } from "./LiveControls";
 import { utcTime, type AegisState } from "./types";
@@ -70,6 +70,17 @@ export function AegisChat() {
             </p>
           </div>
         )}
+        {messages.length === 0 && (
+          <div className="chat-welcome">
+            <strong>New to trading? Start here.</strong>
+            <p>
+              I can see your account and every past session. Ask me anything in
+              your own words: what to do next, what a term means, why nothing is
+              trading, or how a session went. I can also prepare a trade; you
+              always review it before it runs.
+            </p>
+          </div>
+        )}
         {messages.map((m) => (
           <div
             key={m.id}
@@ -87,6 +98,10 @@ export function AegisChat() {
       </div>
       <div className="aegis-chips">
         {[
+          "What should I do next?",
+          "How does this work?",
+          "Why is it not trading?",
+          "Analyze my past sessions",
           "Show my open positions and real-time P&L",
           sizeSuggestion(state),
           "Switch risk appetite to conservative with a 1.5% stop-loss",
@@ -142,6 +157,96 @@ export function AegisConfirmations() {
   if (!preview) return null;
   const signed = state?.mode === "testnet";
   const mode = signed ? "testnet" : "paper";
+  if (preview.kind === "trade_preview") {
+    const trade = preview;
+    const facts: [string, string | null | undefined][] =
+      trade.side === "buy"
+        ? [
+            ["You spend", `${number(trade.spend_usdt, 6)} USDT`],
+            [
+              "You receive about",
+              `${number(trade.receive_estimate, 8)} ${trade.asset}`,
+            ],
+            ["Share of portfolio", `${number(trade.percent_of_portfolio, 2)}%`],
+            ["Stop-loss sells at", `${number(trade.stop_loss_price, 6)} USDT`],
+            [
+              "Take-profit sells at",
+              `${number(trade.take_profit_price, 6)} USDT`,
+            ],
+          ]
+        : [
+            ["You sell", `${number(trade.sell_quantity, 8)} ${trade.asset}`],
+            ["You receive about", `${number(trade.receive_estimate, 6)} USDT`],
+            [
+              "Estimated result",
+              `${number(trade.estimated_result_usdt, 6)} USDT`,
+            ],
+            ["Still held after", `${number(trade.remaining_after, 8)}`],
+          ];
+    return (
+      <Modal
+        title={`Review ${mode} ${trade.side} of ${trade.asset}`}
+        close={() => setPreview(null)}
+      >
+        <p>{trade.summary}</p>
+        <dl className="trade-facts">
+          {facts.map(([label, value]) => (
+            <div key={label}>
+              <dt>{label}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+          <div>
+            <dt>Costs included</dt>
+            <dd>
+              {number(trade.lp_fee_pct, 3)}% pool fee ·{" "}
+              {number(trade.price_impact_bps, 2)} bps price impact
+            </dd>
+          </div>
+        </dl>
+        {trade.warnings.map((warning) => (
+          <p key={warning} role="alert" className="trade-warning">
+            {warning}
+          </p>
+        ))}
+        <p className="muted">
+          {signed
+            ? "This signs a real transaction with test tokens."
+            : "Virtual funds; no real money moves."}{" "}
+          Prices can move: the trade is refused if the result is more than 0.5%
+          worse. Preview expires at {utcTime(trade.expires_at)}.
+        </p>
+        <div className="inline gap">
+          <button
+            className="button secondary"
+            disabled={busy}
+            onClick={() => setPreview(null)}
+          >
+            Cancel
+          </button>
+          <button
+            className="button primary"
+            disabled={busy}
+            onClick={() =>
+              void act(
+                async () => {
+                  await api("/aegis/control", "POST", {
+                    action: "trade_confirm",
+                    confirmation: trade.confirmation,
+                  });
+                  setPreview(null);
+                  await api("/aegis/check", "POST");
+                },
+                `${trade.side === "buy" ? "Bought" : "Sold"} ${trade.asset}. It is recorded in Sessions.`,
+              )
+            }
+          >
+            Confirm {trade.side}
+          </button>
+        </div>
+      </Modal>
+    );
+  }
   if (preview.kind === "params_change")
     return (
       <Modal title="Confirm settings change" close={() => setPreview(null)}>

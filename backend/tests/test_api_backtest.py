@@ -1,4 +1,5 @@
 from datetime import timedelta
+from decimal import Decimal
 
 import httpx
 import pytest
@@ -269,3 +270,79 @@ async def test_risk_bounds_are_served_from_the_model(client):
     assert risk["bounds"] == expected == dashboard["risk"]["bounds"]
     assert risk["bounds"]["max_slippage_bps"] == {"ge": 1, "le": 100}
     assert risk["bounds"]["max_daily_loss"]["le"] == "0.05"
+
+
+async def test_full_research_exit_closes_the_whole_position_without_dust(client):
+    run = (
+        await client.post("/api/runs", headers=HEADERS, json={"symbol": "BTC", "notional": "100"})
+    ).json()
+    intent = run["intent"]
+    bought = await client.post(
+        "/api/execution/authorize",
+        headers=HEADERS,
+        json={
+            "intent_id": intent["id"],
+            "quote_id": intent["quote"]["id"],
+            "acknowledgement": "AUTHORIZE_SIMULATION",
+        },
+    )
+    assert bought.status_code == 200, bought.text
+    held = (await client.get("/api/portfolio", headers=HEADERS)).json()["positions"][0]
+    exit_intent = (await client.post("/api/positions/BTC/exit-preview", headers=HEADERS)).json()
+    assert exit_intent["quote"]["input_amount"] == held["quantity"]
+    sold = await client.post(
+        "/api/execution/authorize",
+        headers=HEADERS,
+        json={
+            "intent_id": exit_intent["id"],
+            "quote_id": exit_intent["quote"]["id"],
+            "acknowledgement": "AUTHORIZE_SIMULATION",
+        },
+    )
+    assert sold.status_code == 200, sold.text
+    assert (await client.get("/api/portfolio", headers=HEADERS)).json()["positions"] == []
+
+
+async def test_a_tiny_leftover_position_can_still_be_closed(client):
+    run = (
+        await client.post("/api/runs", headers=HEADERS, json={"symbol": "BTC", "notional": "100"})
+    ).json()
+    intent = run["intent"]
+    await client.post(
+        "/api/execution/authorize",
+        headers=HEADERS,
+        json={
+            "intent_id": intent["id"],
+            "quote_id": intent["quote"]["id"],
+            "acknowledgement": "AUTHORIZE_SIMULATION",
+        },
+    )
+    # Dust left by an earlier exit, recorded directly in the ledger as older versions did.
+    store = client._transport.app.state.engine.store
+    [row] = store.history("ledger", 1)["items"]
+    leftover = Decimal("0.000000000000085007")
+    store.db.execute(
+        "UPDATE ledger SET payload=json_set(payload,'$.quantity',?) WHERE id=?",
+        (str(leftover), row["id"]),
+    )
+    held = (await client.get("/api/portfolio", headers=HEADERS)).json()["positions"][0]
+    assert Decimal(held["quantity"]) == leftover and Decimal(held["value"]) < Decimal("0.00000001")
+    preview = await client.post("/api/positions/BTC/exit-preview", headers=HEADERS)
+    assert preview.status_code == 200, preview.text
+    exit_intent = preview.json()
+    assert exit_intent["state"] == "AWAITING_AUTHORIZATION", (
+        exit_intent.get("risk", {}).get("reasons"),
+        exit_intent.get("error"),
+        exit_intent["state"],
+    )
+    sold = await client.post(
+        "/api/execution/authorize",
+        headers=HEADERS,
+        json={
+            "intent_id": exit_intent["id"],
+            "quote_id": exit_intent["quote"]["id"],
+            "acknowledgement": "AUTHORIZE_SIMULATION",
+        },
+    )
+    assert sold.status_code == 200, sold.text
+    assert (await client.get("/api/portfolio", headers=HEADERS)).json()["positions"] == []

@@ -2,10 +2,14 @@ let csrf = "";
 let initializing: Promise<void> | null = null;
 
 async function session() {
-  if (!initializing)
+  if (!initializing) {
+    // Without a limit, a backend that never answers leaves the opening spinner up forever.
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 15000);
     initializing = fetch("/api/session", {
       method: "POST",
       credentials: "same-origin",
+      signal: controller.signal,
     })
       .then(async (response) => {
         if (!response.ok)
@@ -14,8 +18,14 @@ async function session() {
       })
       .catch((error) => {
         initializing = null;
-        throw error;
-      });
+        throw error instanceof DOMException && error.name === "AbortError"
+          ? new Error(
+              "The backend did not respond. Check that make demo is running, then retry.",
+            )
+          : error;
+      })
+      .finally(() => window.clearTimeout(timeout));
+  }
   await initializing;
 }
 

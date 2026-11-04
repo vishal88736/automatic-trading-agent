@@ -693,3 +693,48 @@
   align-self: start;
   margin-top: 26px;
 }
+
+/* Assistant: first-visit welcome and the trade review dialog. */
+.chat-welcome {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.chat-welcome p {
+  margin: 6px 0 0;
+  color: var(--muted);
+}
+.trade-facts {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+  font-size: 13px;
+}
+.trade-facts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.trade-facts dt {
+  color: var(--muted);
+}
+.trade-facts dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.trade-warning {
+  padding: 10px 12px;
+  border: 1px solid var(--negative);
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.aegis-assistant .chat-message p {
+  white-space: pre-wrap;
+}

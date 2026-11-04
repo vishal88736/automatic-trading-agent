@@ -83,6 +83,7 @@ type Detail = Summary & {
 };
 
 const STRATEGY_NAMES: Record<string, string> = {
+  manual: "Manual (you)",
   mean_reversion: "Pool mean reversion",
   arbitrage: "V3 arbitrage",
   momentum_v1: "Momentum",

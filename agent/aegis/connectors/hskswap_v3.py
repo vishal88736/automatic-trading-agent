@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from contextlib import contextmanager
 from decimal import Decimal, localcontext
 from uuid import uuid4
 
@@ -19,6 +20,10 @@ def encode_path(route: Route) -> bytes:
     for pool, token in zip(route.pools, route.tokens[1:], strict=True):
         result += pool.fee_pips.to_bytes(3, "big") + bytes.fromhex(token.address[2:])
     return result
+
+
+# Longest one operation may keep its block before a fresh read, well inside the block age limit.
+HELD_MARKET_SECONDS = 30
 
 
 class HSKSwapConnector:
@@ -59,6 +64,7 @@ class HSKSwapConnector:
         ]
         self._market: MarketSnapshot | None = None
         self._observed = 0.0
+        self._holds = 0
 
     def close(self) -> None:
         self.reader.close()
@@ -71,8 +77,21 @@ class HSKSwapConnector:
     def price_history(self, block_number, block_timestamp, offsets, assets) -> list[dict]:
         return self.reader.price_history(block_number, block_timestamp, offsets, assets)
 
+    @contextmanager
+    def hold(self):
+        """Keep one block for one operation. A quote and its portfolio marks must share a block;
+        a three-second cache expiring between them rejected valid trades and read everything
+        twice. The block's own freshness limit still applies to every quote."""
+        self._holds += 1
+        try:
+            yield
+        finally:
+            self._holds -= 1
+
     def market(self) -> MarketSnapshot:
-        if self._market is None or time.monotonic() - self._observed > 3:
+        age = time.monotonic() - self._observed
+        limit = HELD_MARKET_SECONDS if self._holds else 3
+        if self._market is None or age > limit:
             return self.refresh()
         return self._market
 

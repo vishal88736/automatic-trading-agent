@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 from decimal import Decimal, localcontext
 from pathlib import Path
 from typing import Annotated
@@ -152,13 +153,26 @@ class MarketSnapshot(StrictModel):
     ]
 
 
+# Deployed bytecode, a V3 pool's identity and token metadata cannot change without a new address
+# (a proxy's implementation can, so it is checked on every snapshot). Re-reading them each time
+# cost 48 of 68 reads and triggered public RPC rate limits, so they are re-verified periodically.
+IDENTITY_RECHECK_SECONDS = 300
+
+
 class HSKSwapData:
     def __init__(self, network: Network, rpc: ReadOnlyRpc | None = None):
+        self._identity_verified_at: float | None = None
         self.network = network
         self.rpc = rpc or ReadOnlyRpc(network.chain_id, network.rpc_urls)
 
     def close(self) -> None:
         self.rpc.close()
+
+    def _identity_due(self) -> bool:
+        return (
+            self._identity_verified_at is None
+            or time.monotonic() - self._identity_verified_at >= IDENTITY_RECHECK_SECONDS
+        )
 
     def prefetch_snapshot(self, block: BlockRef) -> None:
         """Fetch the same verified state in one bounded, block-pinned read batch."""
@@ -173,16 +187,19 @@ class HSKSwapData:
         def call(address, signature, types=None, args=None):
             reads.append(call_read(address, signature, block, types=types, args=args))
 
-        for spec in n.contracts.values():
-            code(spec.address)
-        for role in ("router", "quoter"):
-            for signature in ("factory()", "WETH9()"):
-                call(n.contracts[role].address, signature)
-        call(n.contracts["router"].address, "factoryV2()")
+        identity = self._identity_due()
+        if identity:
+            for spec in n.contracts.values():
+                code(spec.address)
+            for role in ("router", "quoter"):
+                for signature in ("factory()", "WETH9()"):
+                    call(n.contracts[role].address, signature)
+            call(n.contracts["router"].address, "factoryV2()")
         for token in n.tokens.values():
-            code(token.address)
-            call(token.address, "decimals()")
-            call(token.address, "symbol()")
+            if identity:
+                code(token.address)
+                call(token.address, "decimals()")
+                call(token.address, "symbol()")
             if token.proxy_implementation:
                 proxy = token.proxy_implementation
                 reads.append(
@@ -193,29 +210,29 @@ class HSKSwapData:
                 )
                 code(proxy.address)
         for pool in n.pools:
-            code(pool.address)
-            for signature in (
-                "factory()",
-                "token0()",
-                "token1()",
-                "fee()",
-                "slot0()",
-                "liquidity()",
-            ):
-                call(pool.address, signature)
             t0, t1 = n.tokens[pool.token0], n.tokens[pool.token1]
-            call(
-                n.contracts["factory"].address,
-                "getPool(address,address,uint24)",
-                ["address", "address", "uint24"],
-                [t0.address, t1.address, pool.fee],
-            )
+            if identity:
+                code(pool.address)
+                for signature in ("factory()", "token0()", "token1()", "fee()"):
+                    call(pool.address, signature)
+                call(
+                    n.contracts["factory"].address,
+                    "getPool(address,address,uint24)",
+                    ["address", "address", "uint24"],
+                    [t0.address, t1.address, pool.fee],
+                )
+            for signature in ("slot0()", "liquidity()"):
+                call(pool.address, signature)
             for token in (t0, t1):
                 call(token.address, "balanceOf(address)", ["address"], [pool.address])
         self.rpc.prefetch(block, reads)
 
     def verify_contracts(self, block: BlockRef) -> None:
         n = self.network
+        if not self._identity_due():
+            for asset_id, token in n.tokens.items():
+                self._verify_proxy(asset_id, token, block)
+            return
         for role, spec in n.contracts.items():
             actual = Web3.keccak(self.rpc.code(spec.address, block)).to_0x_hex()
             if actual.lower() != spec.runtime_code_hash.lower():
@@ -237,21 +254,25 @@ class HSKSwapData:
             actual = Web3.keccak(self.rpc.code(token.address, block)).to_0x_hex()
             if not token.runtime_code_hash or actual.lower() != token.runtime_code_hash.lower():
                 raise DiscoveryError(f"Token bytecode changed or is unpinned for {asset_id}")
-            if token.proxy_implementation is not None:
-                proxy = token.proxy_implementation
-                implementation = self.rpc.storage_address(token.address, proxy.storage_slot, block)
-                code_hash = Web3.keccak(self.rpc.code(proxy.address, block)).to_0x_hex()
-                if (
-                    implementation.lower() != proxy.address.lower()
-                    or code_hash.lower() != proxy.runtime_code_hash.lower()
-                ):
-                    raise DiscoveryError(f"Proxy implementation changed for {asset_id}")
+            self._verify_proxy(asset_id, token, block)
             decimals = self.rpc.call(token.address, "decimals()", ["uint8"], block)[0]
             symbol = self.rpc.call(token.address, "symbol()", ["string"], block)[0]
             if decimals != token.decimals or symbol != token.symbol:
                 raise DiscoveryError(f"On-chain metadata mismatch for {asset_id}")
 
-    def read_pool(self, pool: PoolSpec, block: BlockRef) -> PoolSnapshot:
+    def _verify_proxy(self, asset_id, token, block: BlockRef) -> None:
+        if token.proxy_implementation is None:
+            return
+        proxy = token.proxy_implementation
+        implementation = self.rpc.storage_address(token.address, proxy.storage_slot, block)
+        code_hash = Web3.keccak(self.rpc.code(proxy.address, block)).to_0x_hex()
+        if (
+            implementation.lower() != proxy.address.lower()
+            or code_hash.lower() != proxy.runtime_code_hash.lower()
+        ):
+            raise DiscoveryError(f"Proxy implementation changed for {asset_id}")
+
+    def _verify_pool_identity(self, pool: PoolSpec, block: BlockRef) -> None:
         n = self.network
         t0, t1 = n.tokens[pool.token0], n.tokens[pool.token1]
         call = self.rpc.call
@@ -276,6 +297,14 @@ class HSKSwapData:
             or lookup.lower() != pool.address.lower()
         ):
             raise DiscoveryError("Pool identity does not match the verified factory registry")
+
+    def read_pool(self, pool: PoolSpec, block: BlockRef) -> PoolSnapshot:
+        n = self.network
+        t0, t1 = n.tokens[pool.token0], n.tokens[pool.token1]
+        call = self.rpc.call
+        if self._identity_due():
+            self._verify_pool_identity(pool, block)
+        fee = pool.fee
         slot = call(
             pool.address,
             "slot0()",
@@ -396,6 +425,8 @@ class HSKSwapData:
         pools = [self.read_pool(p, block) for p in n.pools]
         self.rpc.assert_canonical(block)
         self.rpc.assert_fresh(block, n.max_block_age_seconds)
+        if self._identity_due():
+            self._identity_verified_at = time.monotonic()
         return MarketSnapshot(
             chain_id=n.chain_id,
             block_number=block.number,

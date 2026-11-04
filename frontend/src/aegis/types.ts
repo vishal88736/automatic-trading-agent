@@ -114,6 +114,7 @@ export type AegisState = {
   mode: "paper" | "testnet";
   chain_id: number;
   live_enabled?: boolean;
+  monitoring?: boolean;
   disclosure?: string;
   public_deployment?: {
     chain_id: number;
@@ -237,7 +238,30 @@ export type ParamsImpact = {
 };
 export type Change = Record<string, { before: unknown; after: unknown }>;
 /** A human-confirmed action: closing positions, or a settings change that affects them. */
+export type TradePreview = {
+  kind: "trade_preview";
+  confirmation: string;
+  expires_at: number;
+  requires_confirmation: true;
+  mode: "paper" | "testnet";
+  side: "buy" | "sell";
+  asset: string;
+  summary: string;
+  warnings: string[];
+  lp_fee_pct: string;
+  price_impact_bps: string;
+  spend_usdt?: string;
+  sell_quantity?: string;
+  receive_estimate: string;
+  receive_asset: string;
+  percent_of_portfolio?: string | null;
+  stop_loss_price?: string;
+  take_profit_price?: string;
+  estimated_result_usdt?: string;
+  remaining_after?: string;
+};
 export type Preview =
+  | TradePreview
   | {
       kind?: "close_all";
       confirmation: string;
@@ -256,3 +280,17 @@ export type Preview =
 export const utcTime = (value: number) =>
   new Date(value * 1000).toLocaleTimeString("en-GB", { timeZone: "UTC" }) +
   " UTC";
+
+/** Data status as a person reads it: a monitored feed that is catching up is not "stale". */
+export function dataStatusLabel(
+  state:
+    | Pick<AegisState, "data_status" | "monitoring" | "last_error">
+    | null
+    | undefined,
+): string {
+  if (!state) return "CONNECTING";
+  if (state.data_status === "LIVE") return "LIVE DATA";
+  if (state.monitoring && ["STALE", "UNAVAILABLE"].includes(state.data_status))
+    return state.last_error ? "RECONNECTING" : "CONNECTING";
+  return state.data_status;
+}

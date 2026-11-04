@@ -262,6 +262,8 @@ class Proposal(Model):
     evidence: list[str]
     rationale: str
     exit_policy: str = Field(min_length=10)
+    # A full exit sells exactly this quantity: deriving it from a rounded notional left dust.
+    exit_quantity: Decimal | None = Field(default=None, gt=0)
     stop_price: Positive
     notional: Positive
     reference_price: Positive
@@ -422,8 +424,15 @@ class SchedulerAction(Model):
     )
 
 
+class ChatTurn(Model):
+    role: Literal["user", "assistant"]
+    text: str = Field(max_length=4000)
+
+
 class ChatRequest(Model):
     message: str = Field(min_length=1, max_length=2000)
+    # Recent turns from this browser tab, so follow-ups make sense. Never stored by the server.
+    history: list[ChatTurn] = Field(default_factory=list, max_length=12)
 
 
 class BacktestRequest(Model):

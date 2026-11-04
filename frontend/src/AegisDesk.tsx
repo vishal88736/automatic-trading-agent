@@ -20,7 +20,7 @@ import type {
   Params,
   Preview,
 } from "./aegis/types";
-import { inputRange, utcTime as at } from "./aegis/types";
+import { dataStatusLabel, inputRange, utcTime as at } from "./aegis/types";
 import type { Strategy } from "./types";
 
 function Curve({
@@ -297,7 +297,7 @@ export function AegisDesk({
         </div>
         <div className="aegis-status-badges">
           <Badge tone={state.data_status === "LIVE" ? "positive" : "neutral"}>
-            {state.data_status === "LIVE" ? "LIVE DATA" : state.data_status}
+            {dataStatusLabel(state)}
           </Badge>
           {poolSummary && (
             <span title={poolSummary.detail}>

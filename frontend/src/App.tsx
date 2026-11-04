@@ -39,7 +39,7 @@ import {
   type Route,
   type Workspace,
 } from "./aegis/navigation";
-import type { AegisView } from "./aegis/types";
+import { dataStatusLabel, type AegisView } from "./aegis/types";
 import { KronoBrand, KronoMark } from "./brand";
 import { WorkspaceHighlights, WorkspaceSearch } from "./discovery";
 import { PlatformWorkspace } from "./platform/Platform";
@@ -249,7 +249,16 @@ function Chat({
           const response = await api<{ response: string; tool: string }>(
             "/chat",
             "POST",
-            { message: text },
+            {
+              message: text,
+              history: messages
+                .filter((m) => m.id !== 0 && !m.error)
+                .slice(-6)
+                .map((m) => ({
+                  role: m.role,
+                  text: m.content.slice(0, 500),
+                })),
+            },
           );
           setMessages((v) => [
             ...v,
@@ -288,7 +297,7 @@ function Chat({
         </span>
         <div>
           <strong>Krono assistant</strong>
-          <small>Command mode · no API key required</small>
+          <small>Commands, guidance and your session history</small>
         </div>
         <button
           className="icon-button right"
@@ -711,7 +720,7 @@ function AppContent({
               </strong>
               <small>
                 {isAegis
-                  ? `${aegis.state?.data_status === "LIVE" ? "Live pool data" : aegis.state?.data_status || "Awaiting data"} · ${aegis.state?.mode === "testnet" ? "TESTNET" : "PAPER"}`
+                  ? `${aegis.state?.data_status === "LIVE" ? "Live pool data" : dataStatusLabel(aegis.state)} · ${aegis.state?.mode === "testnet" ? "TESTNET" : "PAPER"}`
                   : status?.research.enabled
                     ? "Research provider configured"
                     : "LLM research unconfigured"}
@@ -800,7 +809,7 @@ function AppContent({
               {page === "platform"
                 ? "TENANT WORKSPACE"
                 : isAegis
-                  ? `${aegis.state?.data_status === "LIVE" ? "LIVE POOLS" : aegis.state?.data_status || "CONNECTING"}`
+                  ? `${aegis.state?.data_status === "LIVE" ? "LIVE POOLS" : dataStatusLabel(aegis.state)}`
                   : status?.providers.market === "fixture"
                     ? "FIXTURE DATA"
                     : "REFERENCE DATA"}

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
 
@@ -203,3 +204,163 @@ def test_failed_history_read_falls_back_to_live_warm_up(tmp_path):
         )
     finally:
         runtime.close()
+
+
+def test_monitor_keeps_data_fresh_without_trading_or_decision_noise(tmp_path):
+    from aegis.runtime import PaperRuntime
+    from agent.tests.test_runtime import ReplayConnector
+
+    connector = ReplayConnector()
+    runtime = PaperRuntime(tmp_path / "p.sqlite3", connector=connector, allow_test_connectors=True)
+    try:
+        assert runtime.view()["data_status"] == "UNAVAILABLE"
+        rows = len(runtime.ledger.decisions(200))
+        state = runtime.observe()
+        assert state["data_status"] == "TEST_FIXTURE" and state["valuation_fresh"]
+        assert state["block_number"] and state["pnl"]["nav_usdt"] == "100"
+        assert state["pool_activity"] and state["pipeline"][0]["status"] == "observed"
+        assert state["paused"] and not state["running"] and state["fills"] == []
+        assert state["tick_count"] == 0  # Monitoring is not an agent tick.
+        # At most the one-time history backfill audit row; a read itself decides nothing.
+        added = runtime.ledger.decisions(200)[: len(runtime.ledger.decisions(200)) - rows]
+        assert all(d["status"].startswith("history_backfill") for d in added)
+        stored = len(runtime.ledger.observations(300))
+        for _ in range(3):
+            runtime.observe()  # An unmoved pool costs no storage...
+        assert len(runtime.ledger.observations(300)) == stored
+        assert len(runtime.monitored) == 4  # ...but stays available to the rolling statistics.
+        connector.reprice("1.001")
+        runtime.observe()  # A real price change is kept.
+        assert len(runtime.ledger.observations(300)) == stored + 1
+        assert runtime.pool_activity["WHSK"]["status"] == "active"
+    finally:
+        runtime.close()
+
+
+def test_monitor_reports_an_outage_once_and_recovers(tmp_path):
+    from aegis.connectors.rpc import DiscoveryError
+    from aegis.runtime import PaperRuntime
+    from agent.tests.test_runtime import ReplayConnector
+
+    connector = ReplayConnector()
+    runtime = PaperRuntime(tmp_path / "p.sqlite3", connector=connector, allow_test_connectors=True)
+    original = connector.refresh
+
+    def down():
+        raise DiscoveryError("All RPC endpoints unavailable")
+
+    try:
+        runtime.observe()
+        connector.refresh = down
+        for _ in range(3):
+            state = runtime.observe()
+        assert state["last_error"] == "All RPC endpoints unavailable"
+        assert state["valuation_fresh"] is False
+        outages = [d for d in runtime.ledger.decisions(200) if d["status"] == "data_unavailable"]
+        assert len(outages) == 1
+        connector.refresh = original
+        state = runtime.observe()
+        assert state["last_error"] is None and state["valuation_fresh"] is True
+    finally:
+        runtime.close()
+
+
+async def test_service_monitors_a_stopped_agent_without_starting_it(tmp_path, monkeypatch):
+    import asyncio
+
+    from aegis.runtime import PaperRuntime
+    from aegis.service import AegisService
+    from agent.tests.test_runtime import ReplayConnector
+
+    def factory(path, halted, emergency):
+        runtime = PaperRuntime(
+            path,
+            connector=ReplayConnector(),
+            allow_test_connectors=True,
+            halted=halted,
+            emergency=emergency,
+        )
+        runtime.params = runtime.params.model_copy(update={"tick_seconds": 15})
+        return runtime
+
+    service = AegisService(tmp_path / "p.sqlite3", factory=factory, monitor=True)
+    await service.start()
+    try:
+        assert service.view()["monitoring"] is True
+        for _ in range(60):
+            await asyncio.sleep(0.1)
+            if service.monitor_ready:
+                break
+        state = service.view()
+        assert service.monitor_ready and state["data_status"] == "TEST_FIXTURE"
+        assert state["paused"] is True and state["running"] is False and state["fills"] == []
+    finally:
+        await service.close()
+
+
+def test_one_operation_keeps_one_block_even_past_the_short_cache():
+    from aegis.connectors.hskswap_v3 import HSKSwapConnector
+    from aegis.data import load_network
+
+    reads = []
+
+    class Reader:
+        def snapshot(self):
+            reads.append(1)
+            return SimpleNamespace(block_hash=f"block-{len(reads)}")
+
+    connector = HSKSwapConnector(load_network("mainnet"), reader=Reader())
+    first = connector.refresh()
+    connector._observed -= 4  # A slow quote: the three-second cache has expired.
+    with connector.hold():
+        assert connector.market() is first, "Quote and marks stay on one block"
+        connector._observed -= 40
+        assert connector.market() is not first, "A held block still has a limit"
+    connector._observed -= 4
+    assert connector.market().block_hash == "block-3", "Outside an operation the cache applies"
+
+
+async def test_a_slow_check_returns_a_clear_message_and_stays_guarded(tmp_path, monkeypatch):
+    import asyncio
+    import threading
+
+    from aegis import service as service_module
+    from aegis.runtime import PaperRuntime
+    from aegis.service import AegisService
+    from agent.tests.test_runtime import ReplayConnector
+
+    monkeypatch.setattr(service_module, "CHECK_DEADLINE_SECONDS", 0.05)
+    release = threading.Event()
+
+    class Slow(PaperRuntime):
+        def tick(self, **kwargs):
+            release.wait(5)
+            return super().tick(**kwargs)
+
+    def factory(path, halted, emergency):
+        return Slow(
+            path,
+            connector=ReplayConnector(),
+            allow_test_connectors=True,
+            halted=halted,
+            emergency=emergency,
+        )
+
+    service = AegisService(tmp_path / "p.sqlite3", factory=factory)
+    await service.start()
+    try:
+        with pytest.raises(ValueError, match="still running"):
+            await service.check()
+        assert service.inflight is True, "No second check may start beside the running one"
+        with pytest.raises(ValueError, match="already running"):
+            await service.check()
+        release.set()
+        for _ in range(100):
+            await asyncio.sleep(0.02)
+            if not service.inflight:
+                break
+        assert service.inflight is False
+        assert service.view()["tick_count"] == 1
+    finally:
+        release.set()
+        await service.close()

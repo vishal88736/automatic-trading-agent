@@ -170,7 +170,14 @@ export function AegisProvider({
             tool: string;
             engine?: string;
             data: Preview;
-          }>("/aegis/chat", "POST", { message });
+          }>("/aegis/chat", "POST", {
+            message,
+            // This tab's recent turns, so "and why was that?" makes sense. Not stored.
+            history: messages.slice(-6).map((row) => ({
+              role: row.who === "you" ? "user" : "assistant",
+              text: row.text.slice(0, 500),
+            })),
+          });
           setMessages((rows) => [
             ...rows,
             {

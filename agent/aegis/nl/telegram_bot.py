@@ -147,7 +147,7 @@ class TelegramControl:
             text = commands.get(text.split()[0].split("@")[0], text)
             result = self.api("/chat", body={"message": text})
             preview = result.get("data", {})
-            settings = preview.get("kind") == "params_change"
+            settings = preview.get("kind") in {"params_change", "trade_preview"}
             # The inline button confirms a position unwind only. A settings change that affects
             # open positions needs its scope chosen in the dashboard dialog.
             self.reply(

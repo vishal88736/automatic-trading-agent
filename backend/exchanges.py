@@ -66,6 +66,8 @@ class SimulationAdapter:
         input_amount = (
             notional
             if proposal.side == "BUY"
+            else proposal.exit_quantity
+            if proposal.exit_quantity is not None and notional == proposal.notional
             else (notional / proposal.reference_price).quantize(PRECISION, rounding=ROUND_DOWN)
         )
         output = (

@@ -10,7 +10,7 @@ import secrets
 import time
 from contextlib import asynccontextmanager
 from datetime import timedelta
-from decimal import Decimal
+from decimal import ROUND_UP, Decimal
 from pathlib import Path
 from typing import Literal
 
@@ -21,6 +21,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from aegis.connectors.rpc import DiscoveryError
 from aegis.data import field_bounds
 from aegis.history import TradeDetail, TradeFilters, TradePage
 from aegis.market_details import MarketDetails
@@ -84,7 +85,13 @@ class RefreshSettings(Model):
 
 class AegisControl(Model):
     action: Literal[
-        "pause", "resume", "panic", "clear_emergency", "close_all_preview", "close_all_confirm"
+        "pause",
+        "resume",
+        "panic",
+        "clear_emergency",
+        "close_all_preview",
+        "close_all_confirm",
+        "trade_confirm",
     ]
     acknowledgement: str | None = Field(default=None, max_length=80)
     confirmation: str | None = Field(default=None, max_length=100)
@@ -138,6 +145,15 @@ class DecisionProof(Model):
     reveal_tx: str = Field(pattern=r"^0x[0-9a-fA-F]{64}$")
 
 
+def source_newer_than_bundle(root: Path) -> bool:
+    """A checkout whose frontend source changed after its last build. Images ship without source."""
+    index, source = root / "frontend/dist/index.html", root / "frontend/src"
+    if not index.is_file() or not source.is_dir():
+        return False
+    built = index.stat().st_mtime
+    return any(p.is_file() and p.stat().st_mtime > built for p in source.rglob("*"))
+
+
 def create_app(
     db_path=None,
     *,
@@ -158,6 +174,16 @@ def create_app(
     sessions = {}
     counters = {"requests": 0, "errors": 0}
     bearer_token = api_token if api_token is not None else os.getenv("TERMINAL_API_TOKEN", "")
+    stale_bundle = None
+
+    def bundle_is_stale() -> bool:
+        nonlocal stale_bundle
+        if stale_bundle is None:  # Once per process: a build needs a restart anyway.
+            stale_bundle = source_newer_than_bundle(ROOT)
+            if stale_bundle:
+                logger.warning("frontend/dist is older than frontend/src; run npm run build")
+        return stale_bundle
+
     ui_port = int(os.getenv("TERMINAL_UI_PORT", "5173"))
     if not 1 <= ui_port <= 65535:
         raise ValueError("Invalid local frontend port")
@@ -260,6 +286,7 @@ def create_app(
             or aegis_factory is not None,
             reference_source=reference_source,
             terminal_tool=terminal_tool,
+            monitor=not testing,
         )
         app.state.aegis = aegis
         await aegis.start()
@@ -388,6 +415,11 @@ def create_app(
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
         return response
 
+    @app.exception_handler(DiscoveryError)
+    async def chain_data_error(request, exc):
+        # Chain data was unavailable or failed verification; never a generic server fault.
+        return error(request, "CHAIN_DATA_UNAVAILABLE", str(exc)[:300], 503)
+
     @app.exception_handler(ValueError)
     async def value_error(request, exc):
         return error(request, "VALIDATION_OR_CONFLICT", str(exc)[:500], 409)
@@ -451,8 +483,8 @@ def create_app(
         return await asyncio.to_thread(receipt, body.network, body.tx_hash, body.expected)
 
     @app.post("/api/aegis/verify")
-    async def aegis_verify(body: DecisionProof):
-        from aegis.connectors.rpc import ReadOnlyRpc
+    async def aegis_verify(body: DecisionProof, request: Request):
+        from aegis.connectors.rpc import DiscoveryError, ReadOnlyRpc, RpcResponseError, RpcViewLag
         from aegis.owner import registered
         from aegis.verify_decision import verify_reveal
 
@@ -468,7 +500,24 @@ def create_app(
             finally:
                 rpc.close()
 
-        return await asyncio.to_thread(verify)
+        try:
+            return await asyncio.to_thread(verify)
+        except RpcViewLag as exc:
+            return error(request, "CHAIN_VIEW_LAGGING", f"{exc}. Retry shortly.", 503)
+        except RpcResponseError:
+            return error(
+                request,
+                "VERIFICATION_FAILED",
+                "The chain refused this lookup. Check the decision ID and reveal transaction.",
+                422,
+            )
+        except DiscoveryError as exc:
+            message = str(exc)
+            if message.startswith("No verified RPC response"):
+                return error(
+                    request, "CHAIN_UNAVAILABLE", "No RPC endpoint answered. Retry shortly.", 503
+                )
+            return error(request, "VERIFICATION_FAILED", message[:300], 422)
 
     @app.post("/api/aegis/check")
     async def aegis_check(request: Request):
@@ -534,7 +583,9 @@ def create_app(
 
     @app.post("/api/aegis/chat")
     async def aegis_chat(body: ChatRequest, request: Request):
-        return await request.app.state.aegis.call("chat", body.message)
+        return await request.app.state.aegis.call(
+            "chat", body.message, [turn.model_dump() for turn in body.history]
+        )
 
     @app.post("/api/session")
     async def session(request: Request):
@@ -863,7 +914,9 @@ def create_app(
             rationale="User-requested owned-inventory exit preview",
             exit_policy=position["exit_policy"],
             stop_price=position["stop_price"],
-            notional=position["value"].quantize(Decimal("0.00000001")),
+            # Rounded up so even a tiny remainder has a positive notional and can be closed.
+            notional=position["value"].quantize(Decimal("0.00000001"), rounding=ROUND_UP),
+            exit_quantity=position["quantity"],
             reference_price=market.price,
             expected_costs=e.execution.adapter.estimate_costs(position["value"], "SELL"),
             market_source=market.source,
@@ -1024,9 +1077,38 @@ def create_app(
             raise ValueError("HSKChain RPC unavailable; wallet balance remains unknown")
 
     @app.post("/api/chat")
-    async def chat(body: ChatRequest, e: Engine = Depends(engine)):
+    async def chat(body: ChatRequest, request: Request, e: Engine = Depends(engine)):
         message = body.message.lower().strip()
         tool, data, response = "read_status", {}, ""
+        # New users land here: guidance, sessions and "how do I trade" come from the one assistant
+        # that knows the agent. Its trade confirmations live in the AEGIS workspace.
+        from aegis.nl.tools import _guide_call
+
+        credentials = re.search(r"private.?key|seed phrase|recovery phrase|withdraw", message)
+        order = re.match(r"(?:please )?(?:buy|sell)\b", message)
+        aegis = request.app.state.aegis
+        if not credentials and aegis.runtime is not None and (order or _guide_call(message)):
+            if order:
+                return {
+                    "id": uid(),
+                    "response": "Trades happen in the HSKSwap · AEGIS workspace. Choose it in the workspace selector at the top and ask me there; you will review every trade before it runs.",
+                    "tool": "open_aegis_workspace",
+                    "data": {},
+                    "engine": "validated command router; not an LLM chat model",
+                    "storage_policy": "Raw messages are not stored; typed tool audit events persist.",
+                }
+            answer = await aegis.call(
+                "chat", body.message, [turn.model_dump() for turn in body.history]
+            )
+            e.store.audit("assistant.tool", {"tool": answer.get("tool"), "read_only": True})
+            return {
+                "id": uid(),
+                "response": answer["response"],
+                "tool": answer.get("tool"),
+                "data": answer.get("data", {}),
+                "engine": answer.get("engine"),
+                "storage_policy": "Raw messages are not stored; typed tool audit events persist.",
+            }
         explain = re.search(
             r"^(?:why|explain|show).*?\b(?:last|latest)\b.*?\b(?:decision|trade|swap)\b", message
         )
@@ -1244,6 +1326,13 @@ def create_app(
                 {"error": {"code": "NOT_FOUND", "message": "Unknown API route"}}, 404
             )
         dist = ROOT / "frontend/dist"
+        if bundle_is_stale():
+            return JSONResponse(
+                {
+                    "message": "The built frontend is older than its source, so it would show outdated behavior. Run npm run build, or use make demo."
+                },
+                503,
+            )
         candidate = (dist / path).resolve()
         if candidate.is_relative_to(dist.resolve()) and candidate.is_file():
             return FileResponse(candidate)

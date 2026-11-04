@@ -7,6 +7,8 @@ import json
 import secrets
 import threading
 import time
+from collections import deque
+from contextlib import contextmanager, nullcontext
 from decimal import ROUND_DOWN, Decimal
 from pathlib import Path
 
@@ -86,9 +88,14 @@ class PaperRuntime:
         self.library_snapshot_revision = 0
         self.library_selection = self.ledger.metadata("library_selection", {})
         self.pool_activity: dict[str, dict] = {}
+        # True only while a trade the person confirmed is executing.
+        self.manual_intent = False
         # Chain-read prices from just before this process started (never persisted): they let
         # rolling statistics and the pool activity gate continue instead of warming up again.
         self.backfill: list[dict] = []
+        # Prices read while the agent is stopped: held in memory, persisted only when they move.
+        self.monitored: deque[dict] = deque(maxlen=240)
+        self._monitor_persisted_at = 0
         self._backfill_attempted_at = 0
         self.latest = self.ledger.observations(1)
         self.latest = self.latest[-1] if self.latest else None
@@ -140,6 +147,7 @@ class PaperRuntime:
             if self.library_intent
             else None,
             "emergency": self.emergency.is_set(),
+            "manual": self.manual_intent,
         }
 
     def trade_history(self, filters: dict) -> dict:
@@ -242,7 +250,11 @@ class PaperRuntime:
             and quote.route.tokens[0] != self.ledger.stable
         ):
             return  # Risk-reducing exits keep per-trade/liquidity/slippage gates, even while paused.
-        if self.halted.is_set() or self.emergency.is_set() or not self.running:
+        # A pause stops the agent's own entries. A trade the person reviews and confirms may still
+        # run, under every other limit below; only the emergency stop blocks it too.
+        if self.emergency.is_set() or (
+            not self.manual_intent and (self.halted.is_set() or not self.running)
+        ):
             raise RiskRejected("Entries are paused or emergency stop is latched")
         if (
             quote.route.tokens[0] == self.ledger.stable
@@ -281,8 +293,9 @@ class PaperRuntime:
             if any(p["asset"] == quote.route.tokens[-1].asset_id for p in positions):
                 raise RiskRejected("A position in this asset is already open")
         # Last, after target/strategy filters: every pool the entry trades through must be live.
+        # A confirmed manual trade already showed the person this warning in its preview.
         for token in quote.route.tokens:
-            if token != self.ledger.stable:
+            if token != self.ledger.stable and not self.manual_intent:
                 self._require_active_pool(token.asset_id)
         if quote.route.tokens[-1] == self.ledger.stable:
             return
@@ -361,7 +374,68 @@ class PaperRuntime:
             default=float("inf"),
         )
         extra = [o for o in self.backfill if o["observed_at"] < first_live]
+        extra.extend(self.monitored)
         return sorted([*extra, *history], key=lambda o: o["observed_at"]) if extra else history
+
+    def observe(self) -> dict:
+        """Keep market data fresh while the agent is stopped. Read-only: no signals, no quotes,
+        no fills and no decision rows. Only `tick` can ever trade."""
+        with self._operation():
+            return self._observe()
+
+    def _observe(self) -> dict:
+        try:
+            market, marks = self._snapshot()
+        except (DiscoveryError, RiskRejected, LedgerError, ValueError) as exc:
+            if str(exc) != self.last_error:  # One audit row per outage, not one per poll.
+                self.ledger.record(
+                    "data_unavailable", {"reason": str(exc), "action": "no new fill"}
+                )
+            self.last_error = str(exc)
+            return self.view()
+        now = int(time.time())
+        self.last_tick_at, self.last_error = now, None
+        self._ensure_backfill(market)
+        previous = (self.latest or {}).get("markets", {})
+        moved = any(
+            previous.get(a, {}).get("price") != m["price"] for a, m in market["markets"].items()
+        )
+        self.pool_activity = pool_activity(
+            self._signal_history(), market["markets"], now, POOL_ACTIVITY_WINDOW_SECONDS
+        )
+        point = {
+            **market,
+            "observed_at": now,
+            "pnl": self.ledger.pnl(marks),
+            "positions": self._positions(marks),
+            "source": "monitor",
+        }
+        self.monitored.append(
+            {
+                "observed_at": now,
+                "block_hash": market["block_hash"],
+                "source": "monitor",
+                "markets": {a: {"price": m["price"]} for a, m in market["markets"].items()},
+            }
+        )
+        if moved or now - self._monitor_persisted_at >= POOL_ACTIVITY_WINDOW_SECONDS:
+            # Price history and restarts need real changes; an unmoved pool costs no storage.
+            self.ledger.observe(point)
+            self._monitor_persisted_at = now
+        last = self.latest or {}
+        self.pipeline = build_pipeline(
+            market,
+            [*last.get("signals", []), *last.get("library_signals", [])],
+            last.get("spreads", []),
+            [],
+            [],
+            self.params.model_dump(mode="json"),
+            paused=self.halted.is_set(),
+            emergency=self.emergency.is_set(),
+            mode=self.mode,
+        )
+        self.latest = {**last, **point, "pool_activity": self.pool_activity}
+        return self.view()
 
     def _require_active_pool(self, asset: str) -> None:
         activity = self.pool_activity.get(asset)
@@ -685,7 +759,27 @@ class PaperRuntime:
             },
         )
 
+    # Paper reads stop here and retry next check. The signed runtime has no budget: stopping reads
+    # between a commit and its reveal would strand a public decision.
+    read_budget_seconds: float | None = 30
+
+    @contextmanager
+    def _operation(self):
+        """One block and a bounded read time for one market check."""
+        rpc = getattr(getattr(self.live, "reader", None), "rpc", None)
+        budget = (
+            rpc.time_budget(self.read_budget_seconds)
+            if self.read_budget_seconds and hasattr(rpc, "time_budget")
+            else nullcontext()
+        )
+        with budget, getattr(self.live, "hold", nullcontext)():
+            yield
+
     def tick(self, *, evaluate_entries=True, library: LibrarySnapshot | None = None) -> dict:
+        with self._operation():
+            return self._tick(evaluate_entries=evaluate_entries, library=library)
+
+    def _tick(self, *, evaluate_entries=True, library: LibrarySnapshot | None = None) -> dict:
         self.tick_count += 1
         self.last_tick_at = int(time.time())
         self.tick_entry = None  # Fill id of this tick's entry; the Guard cooldown allows one.
@@ -773,7 +867,9 @@ class PaperRuntime:
             self.pool_activity = pool_activity(
                 history, market["markets"], self.last_tick_at, POOL_ACTIVITY_WINDOW_SECONDS
             )
-            same_block = bool(history and history[-1].get("block_hash") == market["block_hash"])
+            # A monitor read evaluates nothing, so it never counts as this block's evaluation.
+            evaluated = [o for o in history if o.get("source") != "monitor"]
+            same_block = bool(evaluated and evaluated[-1].get("block_hash") == market["block_hash"])
             signals = []
             spreads = []
             if not same_block and library is not None and not library.error:
@@ -1400,6 +1496,8 @@ class PaperRuntime:
             self.emergency.clear()
             self.halted.set()
             self.ledger.set_metadata("emergency", False)
+        elif action == "trade_confirm":
+            self._trade_confirm(confirmation)
         elif action == "close_all_preview":
             token = secrets.token_urlsafe(24)
             pending = {
@@ -1446,6 +1544,213 @@ class PaperRuntime:
         )
         return self.view()
 
+    def trade_preview(
+        self,
+        side: str,
+        asset: str,
+        *,
+        amount_usdt: Decimal | None = None,
+        fraction: Decimal | None = None,
+    ) -> dict:
+        """Price one trade for a person to review. Nothing executes until `trade_confirm`, which
+        only the human confirmation path can call; the model never receives the token."""
+        if side not in {"buy", "sell"} or asset not in SUPPORTED_ASSETS:
+            raise ValueError("Choose buy or sell and one of: " + ", ".join(SUPPORTED_ASSETS))
+        with self._operation():
+            return self._trade_preview(side, asset, amount_usdt, fraction)
+
+    def _trade_preview(self, side, asset, amount_usdt, fraction) -> dict:
+        try:
+            market, marks = self._snapshot()
+        except DiscoveryError as exc:
+            raise ValueError(f"Live prices are unavailable right now: {exc}") from None
+        if asset not in market["markets"]:
+            raise ValueError(f"{asset} has no verified USDT pool on this network")
+        now = int(time.time())
+        self._ensure_backfill(market)
+        self.pool_activity = pool_activity(
+            self._signal_history(), market["markets"], now, POOL_ACTIVITY_WINDOW_SECONDS
+        )
+        stable, token = self.ledger.stable, self.live.tokens[asset]
+        nav = Decimal(self.ledger.pnl(marks)["nav_usdt"])
+        terms = self.gateway.connector.terms
+        warnings = []
+        activity = self.pool_activity.get(asset, {})
+        if activity.get("status") != "active":
+            warnings.append(
+                activity.get("reason") or f"{asset} pool activity could not be confirmed."
+            )
+        if self.mode == "testnet":
+            warnings.append("This signs a real Guard Vault swap on chain 133, using test tokens.")
+        if side == "buy":
+            if self.emergency.is_set():
+                raise RiskRejected("The emergency stop is on; review and clear it before buying")
+            largest = self._entry_size(nav)
+            size = largest if amount_usdt is None else Decimal(amount_usdt)
+            if not size.is_finite() or size <= 0:
+                raise ValueError("Enter a positive USDT amount")
+            amount = int(size * 10**stable.decimals)
+            if amount <= 0:
+                raise ValueError("That amount is too small to trade")
+            quote = self.live.get_quote(stable, token, amount)
+            self.manual_intent = True
+            try:
+                self.gateway.risk.check(quote, marks)
+                self._before_fill(quote, marks)
+            except RiskRejected as exc:
+                hint = (
+                    f" The most you can buy right now is {largest:.4f} USDT"
+                    f" ({self.params.position_size_pct}% of your {nav:.4f} USDT portfolio)."
+                    if size > largest
+                    else ""
+                )
+                raise RiskRejected(f"{exc}.{hint} Nothing was traded.") from None
+            finally:
+                self.manual_intent = False
+            filled = self.gateway.connector.fill_amount(quote)
+            received = Decimal(filled) / 10**token.decimals
+            price = size / received
+            detail = {
+                "spend_usdt": dec(size),
+                "receive_estimate": dec(received),
+                "receive_asset": asset,
+                "percent_of_portfolio": dec(size / nav * 100) if nav else None,
+                "stop_loss_price": dec(price * (1 - self.params.stop_loss_pct / 100)),
+                "take_profit_price": dec(price * (1 + self.params.take_profit_pct / 100)),
+            }
+            summary = (
+                f"Buy about {received:.8g} {asset} for {size:.4f} USDT at about {price:.6g} USDT "
+                f"each. It would use {size / nav * 100:.2f}% of your portfolio. Stop-loss is "
+                f"{self.params.stop_loss_pct}% and take-profit {self.params.take_profit_pct}%."
+            )
+        else:
+            held = next((p for p in self._positions(marks) if p["asset"] == asset), None)
+            if not held:
+                raise ValueError(f"You do not hold {asset}, so there is nothing to sell")
+            share = Decimal(1) if fraction is None else Decimal(fraction)
+            if not share.is_finite() or not 0 < share <= 1:
+                raise ValueError("Choose how much to sell, between 0% and 100%")
+            owned = int(held["amount_raw"])
+            # The same bounded exit as the agent's own: large holdings unwind in chunks.
+            limit = int(nav * Decimal("0.099") / marks[token.address.lower()] * 10**token.decimals)
+            amount = min(int(owned * share), limit)
+            if amount <= 0:
+                raise ValueError("That amount is too small to sell")
+            quote = self.live.get_quote(token, stable, amount)
+            self.gateway.risk.check(quote, marks)
+            filled = self.gateway.connector.fill_amount(quote)
+            received = Decimal(filled) / 10**stable.decimals
+            sold = Decimal(amount) / 10**token.decimals
+            cost = Decimal(held["cost_usdt"]) * amount / owned
+            result = received - cost
+            detail = {
+                "sell_quantity": dec(sold),
+                "sell_asset": asset,
+                "receive_estimate": dec(received),
+                "receive_asset": "USDT",
+                "estimated_result_usdt": dec(result),
+                "remaining_after": dec(Decimal(owned - amount) / 10**token.decimals),
+            }
+            summary = (
+                f"Sell {sold:.8g} {asset} for about {received:.4f} USDT, an estimated "
+                f"{'profit' if result >= 0 else 'loss'} of {abs(result):.4f} USDT."
+            )
+            if amount < int(owned * share):
+                warnings.append("This is limited to a bounded exit; repeat it to sell the rest.")
+        confirmation = secrets.token_urlsafe(24)
+        expires_at = now + 90
+        self.ledger.set_metadata(
+            "trade_confirmation",
+            {
+                "token": confirmation,
+                "expires_at": expires_at,
+                "side": side,
+                "asset": asset,
+                "amount_raw": str(amount),
+                # A price worse than previewed by more than 0.5% needs a fresh preview.
+                "min_out_raw": str(filled * 995 // 1000),
+                "balances_hash": self._balances_hash(),
+            },
+        )
+        return {
+            "kind": "trade_preview",
+            "mode": self.mode,
+            "requires_confirmation": True,
+            "confirmation": confirmation,
+            "expires_at": expires_at,
+            "side": side,
+            "asset": asset,
+            "summary": summary,
+            "warnings": warnings,
+            "lp_fee_pct": dec(Decimal(market["markets"][asset]["fee_pips"]) / 10000),
+            "price_impact_bps": dec(quote.price_impact_bps),
+            "modeled_slippage_bps": dec(terms.extra_slippage_bps),
+            **detail,
+        }
+
+    def _trade_confirm(self, confirmation: str | None) -> dict:
+        pending = self.ledger.metadata("trade_confirmation", {})
+        if (
+            not confirmation
+            or not secrets.compare_digest(confirmation, pending.get("token", ""))
+            or int(time.time()) > pending.get("expires_at", 0)
+        ):
+            raise ValueError("This trade preview is invalid or expired; ask for a new one")
+        if pending["balances_hash"] != self._balances_hash():
+            raise ValueError("Your holdings changed after the preview; ask for a new one")
+        self.ledger.set_metadata("trade_confirmation", {})
+        stable, token = self.ledger.stable, self.live.tokens[pending["asset"]]
+        buying = pending["side"] == "buy"
+        pnl = (self.latest or {}).get("pnl") or {}
+        start_id = self.ledger.record(
+            "manual_trade",
+            {
+                "side": pending["side"].upper(),
+                "asset": pending["asset"],
+                "mode": self.mode,
+                "params": self.params.model_dump(mode="json"),
+                **({"nav_usdt": pnl["nav_usdt"]} if pnl.get("nav_usdt") else {}),
+            },
+        )
+        self.manual_intent = True
+        try:
+            fill = self.gateway.execute(
+                "manual:" + confirmation[:32],
+                stable if buying else token,
+                token if buying else stable,
+                int(pending["amount_raw"]),
+                min_out=int(pending["min_out_raw"]),
+            )
+        except Exception as exc:
+            self.ledger.record(
+                "manual_trade_failed", {"start_id": start_id, "reason": str(exc)[:300]}
+            )
+            raise
+        finally:
+            self.manual_intent = False
+        self.ledger.record(
+            "manual_filled",
+            {
+                "fill_id": fill["id"],
+                "side": pending["side"].upper(),
+                "asset": pending["asset"],
+                "reason": f"You confirmed this {pending['side']} in the assistant.",
+            },
+        )
+        # Keep checking the market so the stop-loss and take-profit protect this position.
+        self.running = True
+        if not buying and self.halted.is_set() and not self._holdings():
+            self.ledger.record("manual_trade_closed", {"fill_id": fill["id"]})
+        self.observe()  # Positions and P&L reflect this trade at once, not at the next check.
+        return fill
+
+    def _holdings(self) -> list[str]:
+        return [
+            row["token"].asset_id
+            for row in self.ledger.balances().values()
+            if row["amount_raw"] and row["token"] != self.ledger.stable
+        ]
+
     def sessions(self) -> dict:
         from aegis.sessions import list_sessions
 
@@ -1457,6 +1762,11 @@ class PaperRuntime:
         return session_detail(
             self.ledger, session_id, int(time.time()), self.params.model_dump(mode="json")
         )
+
+    def analyze_sessions(self) -> dict:
+        from aegis.sessions import analyze_history
+
+        return analyze_history(self.ledger, int(time.time()), self.params.model_dump(mode="json"))
 
     def _balances_hash(self):
         return hashlib.sha256(

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from contextlib import nullcontext
 from decimal import ROUND_UP, Decimal
 
 from aegis.connectors.base import Quote, Token
@@ -51,6 +52,13 @@ class ExecutionGateway:
         return values
 
     def execute(
+        self, key: str, token_in: Token, token_out: Token, amount_in: int, **kwargs
+    ) -> dict:
+        # One trade uses one block, however long its reads take.
+        with getattr(self.connector.live, "hold", nullcontext)():
+            return self._execute(key, token_in, token_out, amount_in, **kwargs)
+
+    def _execute(
         self,
         key: str,
         token_in: Token,

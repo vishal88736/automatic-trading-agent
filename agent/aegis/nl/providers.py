@@ -127,31 +127,28 @@ class OpenAICompatible:
         self.http.close()
 
     def create(self, *, model, system, tools, messages, max_tokens):
-        # A refused request executed nothing, so another model may take the same turn.
-        limited = None
-        for candidate in [model, *self.fallback_models]:
-            try:
-                result = self._create_once(candidate, system, tools, messages, max_tokens)
-                self.last_model = candidate
-                return result
-            except ProviderRateLimited as exc:
-                limited = exc
-        raise limited
-
-    def _create_once(self, model, system, tools, messages, max_tokens):
+        # A refused request executed nothing, so another model may take the same turn. Each model
+        # has its own budget, so trying the next one beats making the person wait.
+        candidates = [model, *self.fallback_models]
+        wait = None
         for attempt in range(self.MAX_RATE_LIMIT_RETRIES + 1):
-            result = self._post(model, system, tools, messages, max_tokens)
-            if result.status_code not in (429, 503):
-                break
-            wait = retry_after_seconds(result)
+            waits = []
+            for candidate in candidates:
+                result = self._post(candidate, system, tools, messages, max_tokens)
+                if result.status_code not in (429, 503):
+                    self.last_model = candidate
+                    return self._parse(result)
+                waits.append(retry_after_seconds(result))
+            known = [w for w in waits if w is not None]
+            wait = min(known) if known else None
             if (
                 attempt == self.MAX_RATE_LIMIT_RETRIES
                 or wait is None
                 or wait > self.MAX_RATE_LIMIT_WAIT_SECONDS
             ):
-                raise ProviderRateLimited(self.name, wait)
+                break
             self.sleep(wait + 0.25)
-        return self._parse(result)
+        raise ProviderRateLimited(self.name, wait)
 
     def _post(self, model, system, tools, messages, max_tokens):
         return self.http.post(
@@ -160,18 +157,24 @@ class OpenAICompatible:
                 "model": model,
                 "messages": openai_messages(system, messages),
                 "max_completion_tokens": max_tokens,
-                "tools": [
+                **(
                     {
-                        "type": "function",
-                        "function": {
-                            "name": t["name"],
-                            "description": t["description"],
-                            "parameters": t["input_schema"],
-                        },
+                        "tools": [
+                            {
+                                "type": "function",
+                                "function": {
+                                    "name": t["name"],
+                                    "description": t["description"],
+                                    "parameters": t["input_schema"],
+                                },
+                            }
+                            for t in tools
+                        ],
+                        "parallel_tool_calls": False,
                     }
-                    for t in tools
-                ],
-                "parallel_tool_calls": False,
+                    if tools
+                    else {}
+                ),
             },
         )
 
@@ -250,18 +253,24 @@ class BedrockConverse:
             system=[{"text": system}],
             messages=converted,
             inferenceConfig={"maxTokens": max_tokens},
-            toolConfig={
-                "tools": [
-                    {
-                        "toolSpec": {
-                            "name": t["name"],
-                            "description": t["description"],
-                            "inputSchema": {"json": t["input_schema"]},
-                        }
+            **(
+                {
+                    "toolConfig": {
+                        "tools": [
+                            {
+                                "toolSpec": {
+                                    "name": t["name"],
+                                    "description": t["description"],
+                                    "inputSchema": {"json": t["input_schema"]},
+                                }
+                            }
+                            for t in tools
+                        ]
                     }
-                    for t in tools
-                ]
-            },
+                }
+                if tools
+                else {}
+            ),
         )
         blocks = []
         for b in result["output"]["message"]["content"]:

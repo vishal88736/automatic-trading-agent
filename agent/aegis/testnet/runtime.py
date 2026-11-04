@@ -49,7 +49,7 @@ class SignedGateway(ExecutionGateway):
         tokens = tuple(t for p in quote.route.pools for t in (p.token0, p.token1))
         self.before_fill(quote, self.marks(tokens))
 
-    def execute(self, key, token_in, token_out, amount_in, *, min_out=None, origin=None) -> dict:
+    def _execute(self, key, token_in, token_out, amount_in, *, min_out=None, origin=None) -> dict:
         if not key or len(key) > 128:
             raise ValueError("Provide a nonempty idempotency key of at most 128 characters")
         stable = self.ledger.stable
@@ -108,6 +108,7 @@ class SignedGateway(ExecutionGateway):
                 rationale=rationale,
                 expected_edge_bps=self.edge(quote, origin, marks),
                 slippage_bps=slippage,
+                **({"minimum_out_raw": min_out} if min_out is not None else {}),
             )
             if result.get("status") != "reconciled":
                 public = {
@@ -178,6 +179,7 @@ class TestnetRuntime(PaperRuntime):
 
     __test__ = False  # Not a pytest class despite the name.
     mode = "testnet"
+    read_budget_seconds = None
 
     def __init__(
         self,
@@ -329,6 +331,13 @@ class TestnetRuntime(PaperRuntime):
             self._refresh_vault_balances()
             result = self.view()
         return result
+
+    def observe(self) -> dict:
+        state = super().observe()
+        if int(time.time()) - self.vault_balances.get("at", 0) >= 300:
+            self._refresh_vault_balances()
+            state = self.view()
+        return state
 
     def view(self) -> dict:
         state = super().view()

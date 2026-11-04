@@ -62,7 +62,7 @@ Use the **Execution workspace** selector to switch to **HSKSwap · AEGIS paper**
 
 ### Start automatic HSKSwap trading
 
-1. Open `/#/aegis` and click **Refresh HSKSwap data**.
+1. Open `/#/aegis`. The app reads live pool data on its own, even while the agent is stopped (read-only: it cannot trade until you start it); **Refresh HSKSwap data** runs a full strategy check immediately.
 2. Inspect the observed block, pool data, mode and **Closed-Loop Pipeline & Risk Status**.
 3. Open **Strategies**, choose targets and entry strategies, and save preferences.
 4. Click **Start paper agent**. The loop then monitors and evaluates at the configured interval without further clicks.
@@ -257,7 +257,15 @@ Mainnet deployment and signing require separate owner authorization and **`--bro
 
 Copy `.env.example` to ignored `.env`, configure the selected provider and restart:
 
-**Research Ask Krono** is a key-free command interface for recorded analysis, portfolio/P&L, risk and supported controls. Unknown requests explain its limits. **AEGIS chat** can additionally use a configured tool-calling model for free-form phrasing. Setting a model key alone does not change Research chat into a general assistant.
+**A newcomer can use the platform through the assistant alone.** Ask in your own words, including Hinglish:
+
+- **What should I do next?** Guidance from your real state (no data yet, ready, holding, running or stopped).
+- **How does this work? / What is a stop-loss?** Plain explanations of the workflow, strategies, risk, pools, costs and modes.
+- **Why is it not trading?** Every recorded blocker, plus what each strategy decided.
+- **How is my current session going? / Show session 2 / Analyze my past sessions.** Results, decisions with prices and reasons, totals by strategy, asset and exit reason, and how much of a result was market movement versus trading cost.
+- **Buy 2 USDT of WHSK / Sell half of WETH.** The assistant prepares a preview with amounts, costs, stops and warnings. **Only a person can confirm it in the dialog**: the model never receives the confirmation token. Size, exposure, cooldown and trade-rate limits still apply. A pause does not block a confirmed trade; the emergency stop does. A quiet pool blocks the agent's automatic entries but only warns on a trade you review. A result more than 0.5% worse than previewed is refused.
+
+Recognized questions read recorded data directly and the model only phrases the answer, so they stay correct and still answer when the provider is unavailable. The browser sends the last few turns so follow-ups make sense; the server does not store them. Research **Ask Krono** keeps its key-free commands and shares this guidance and session knowledge; trades happen in the AEGIS workspace.
 
 | Provider               | Configuration                                                                                                                                                                                 |
 | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

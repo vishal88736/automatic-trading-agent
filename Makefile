@@ -7,6 +7,7 @@ DEPLOY_NETWORK ?= testnet
 setup:
 	UV_CACHE_DIR="$(CURDIR)/.cache/uv" UV_PYTHON_INSTALL_DIR="$(CURDIR)/.python" uv sync --frozen --python 3.12
 	npm ci --ignore-scripts
+	npm run build
 
 demo:
 	npm run dev

@@ -95,3 +95,48 @@ test("a signed testnet runtime is never labelled paper, and shortcuts fit the ac
   );
   expect(errors).toEqual([]);
 });
+
+test("a monitored feed that is catching up says connecting, and an outage says reconnecting", async ({
+  page,
+}) => {
+  let error: string | null = null;
+  await page.route(
+    (url) => url.pathname === "/api/aegis/state",
+    async (route) => {
+      const response = await route.fetch();
+      const state = await response.json();
+      await route.fulfill({
+        response,
+        json: {
+          ...state,
+          monitoring: true,
+          data_status: "STALE",
+          last_error: error,
+        },
+      });
+    },
+  );
+  await page.goto("/#/aegis");
+  const status = page.getByRole("region", { name: "Agent status" });
+  await expect(status).toContainText("CONNECTING");
+  await expect(status).not.toContainText("STALE");
+  error = "All RPC endpoints unavailable";
+  await expect(status).toContainText("RECONNECTING");
+  await expect(page.getByRole("alert")).toContainText(
+    "All RPC endpoints unavailable",
+  );
+});
+
+test("a backend that never answers stops the opening spinner with a clear message", async ({
+  page,
+}) => {
+  await page.route("**/api/session", () => {
+    /* Never answered: this is what a hung backend looks like. */
+  });
+  await page.goto("/#/aegis");
+  await expect(
+    page.getByText("The backend did not respond", { exact: false }),
+  ).toBeVisible({
+    timeout: 20000,
+  });
+});

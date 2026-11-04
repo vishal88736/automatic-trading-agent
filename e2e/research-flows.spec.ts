@@ -206,7 +206,9 @@ test("research chat displays a failed command and accepts the next command", asy
     .getByRole("button", { name: "Open trading assistant", exact: true })
     .click();
   await expect(
-    page.getByText("Command mode · no API key required", { exact: true }),
+    page.getByText("Commands, guidance and your session history", {
+      exact: true,
+    }),
   ).toBeVisible();
   await page.route("**/api/chat", (route) =>
     route.fulfill({
@@ -282,4 +284,27 @@ test("a configuration save waits for a fresh snapshot after an in-flight dashboa
   } finally {
     release();
   }
+});
+
+test("audit history failure explains itself and retries", async ({ page }) => {
+  let fail = true;
+  await page.route("**/api/history/audit*", (route) =>
+    fail
+      ? route.fulfill({
+          status: 503,
+          json: { error: { message: "Audit store unavailable" } },
+        })
+      : route.fallback(),
+  );
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.goto("/#/settings");
+  const alert = page
+    .getByRole("alert")
+    .filter({ hasText: "Audit history could not load" });
+  await expect(alert).toContainText("Audit store unavailable");
+  fail = false;
+  await alert.getByRole("button", { name: "Retry" }).click();
+  await expect(alert).toHaveCount(0);
+  expect(errors).toEqual([]);
 });
