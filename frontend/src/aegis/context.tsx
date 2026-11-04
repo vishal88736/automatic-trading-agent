@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { api } from "../api";
+import { applyAssistantAction } from "../assistantActions";
 import type { AegisState, Preview } from "./types";
 
 type Message = {
@@ -169,7 +170,7 @@ export function AegisProvider({
             response: string;
             tool: string;
             engine?: string;
-            data: Preview;
+            data: Preview & { ui_action?: unknown };
           }>("/aegis/chat", "POST", {
             message,
             // This tab's recent turns, so "and why was that?" makes sense. Not stored.
@@ -188,6 +189,7 @@ export function AegisProvider({
               engine: result.engine,
             },
           ]);
+          if (applyAssistantAction(result.data?.ui_action)) setChatOpen(false);
           if (result.data?.requires_confirmation) {
             setChatOpen(false);
             setPreview(result.data);

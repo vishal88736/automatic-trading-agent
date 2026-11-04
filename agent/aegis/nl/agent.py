@@ -207,9 +207,14 @@ def tool_schemas():
             },
         ),
     }
+    from aegis.nl.website import definitions as website_definitions
+
     return [
         {"name": name, "description": description, "input_schema": compact_schema(schema)}
         for name, (description, schema) in definitions.items()
+    ] + [
+        {**item, "input_schema": compact_schema(item["input_schema"])}
+        for item in website_definitions()
     ]
 
 
@@ -436,12 +441,16 @@ class ControlAgent:
         )
         result = {"mode": mode, "tool": call.name, "data": data}
         summary = relabel(runtime, "PAPER: ") + data["summary"]
-        if data.get("requires_confirmation"):
+        if data.get("requires_confirmation") or data.get("ui_action"):
             return {
                 **result,
                 "response": summary
-                + " Review it in the dialog; nothing happens until you confirm.",
-                "engine": "Validated router; a person must confirm",
+                + (
+                    " Review it in the dialog; nothing happens until you confirm."
+                    if data.get("requires_confirmation")
+                    else ""
+                ),
+                "engine": "Validated website control; human review required for protected actions",
             }
         facts = json.dumps(
             {k: v for k, v in data.items() if k != "confirmation"}, ensure_ascii=False, default=str
@@ -571,17 +580,19 @@ class ControlAgent:
                             "mode": getattr(runtime, "mode", "paper"),
                         },
                     )
-                    if data.get("requires_confirmation"):
+                    if data.get("requires_confirmation") or data.get("ui_action"):
                         return {
                             "mode": getattr(runtime, "mode", "paper"),
-                            "response": relabel(
+                            "response": relabel(runtime, "PAPER: " + data["summary"])
+                            if data.get("ui_action")
+                            else relabel(
                                 runtime,
                                 "PAPER: review and explicitly confirm the settings change; nothing changed yet.",
                             )
                             if data.get("kind") == "params_change"
                             else relabel(runtime, "PAPER: " + data["summary"])
                             + " Review it in the dialog; nothing happens until you confirm."
-                            if data.get("kind") == "trade_preview"
+                            if data.get("kind") in {"trade_preview", "emergency_clear"}
                             else relabel(
                                 runtime, "PAPER: review and explicitly confirm the position unwind."
                             ),

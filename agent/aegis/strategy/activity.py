@@ -1,8 +1,8 @@
-"""Is a pool actually trading? Decided from recorded mid prices, never assumed.
+"""Separate observed price movement from pool usability.
 
-An HSKSwap pool whose mid price has not moved over the window has had no swaps: an entry there
-only pays the round-trip LP fee and price impact, and its mark (and so every stop-loss and
-take-profit) cannot change. Such pools are blocked for new entries; exits are never blocked.
+Unchanged sampled prices do not prove that no swaps occurred, nor that a fresh QuoterV2 call
+cannot execute. Quiet prices and short history are informational. Locked pools and missing
+active liquidity block entries; executable quotes and the normal risk checks remain mandatory.
 """
 
 from __future__ import annotations
@@ -44,19 +44,30 @@ def pool_activity(history: list[dict], markets: dict, now: int, window: int) -> 
             for i in range(1, len(seq))
             if _moved(seq[i][1], seq[i - 1][1]) and now - seq[i - 1][0] <= window
         ]
-        if changes:
+        blocked = None
+        if market.get("unlocked") is False:
+            blocked = f"{asset} pool is locked; new entries wait for an unlocked pool"
+        if "liquidity_raw" in market:
+            try:
+                if int(market["liquidity_raw"]) <= 0:
+                    blocked = f"{asset} pool has no active liquidity"
+            except (ValueError, TypeError):
+                blocked = f"{asset} pool liquidity could not be verified"
+        if blocked:
+            status, reason = "unavailable", blocked
+        elif changes:
             status, reason = "active", None
         elif steady >= window:
-            status = "inactive"
+            status = "quiet"
             reason = (
-                f"{asset} pool price has not moved for at least {steady // 60} min (no swaps); "
-                "entries there only pay fees and its stops cannot trigger"
+                f"{asset} sampled price has not moved for at least {steady // 60} min. "
+                "This does not prove zero swaps; fresh executable quotes and risk checks decide entries."
             )
         else:
             status = "warming"
             reason = (
-                f"{asset} pool activity not confirmed yet: no price change in "
-                f"{steady // 60} of {window // 60} min observed"
+                f"{asset} price history is collecting: {steady // 60} of {window // 60} min "
+                "observed. Fresh executable quotes and risk checks still decide entries."
             )
         result[asset] = {
             "status": status,
@@ -64,5 +75,7 @@ def pool_activity(history: list[dict], markets: dict, now: int, window: int) -> 
             "steady_seconds": steady,
             "last_change_at": changes[-1] if changes else (seq[j][0] if j > 0 else None),
             "price_changes": len(changes),
+            "entry_blocked": blocked is not None,
+            "evidence": "sampled_pool_prices",
         }
     return result

@@ -34,9 +34,10 @@ TOPICS = {
         "trades automatically, and PANIC stops entries and sells open positions into USDT."
     ),
     "pools": (
-        "A pool is the token pair people swap against. If its price has not moved for 15 minutes "
-        "nobody is swapping there, so AEGIS blocks automatic entries: a buy would only pay fees and "
-        "a stop-loss could not trigger. The market cards show each pool's status."
+        "A pool is the token pair people swap against. Quiet means its sampled price has not "
+        "moved recently; swaps can still occur between observations. Quiet prices do not block "
+        "entries. Locked pools or missing active liquidity do. Every trade still needs a fresh "
+        "executable quote, a strategy or confirmed manual request, and all risk checks."
     ),
     "costs": (
         "Every trade pays a 0.3% pool fee plus price impact, which is larger on thin pools, plus a "
@@ -65,7 +66,7 @@ def explain(topic: str = "overview") -> dict:
 def _pools(state: dict) -> tuple[list[str], list[str]]:
     activity = state.get("pool_activity") or {}
     targets = state["params"]["target_assets"]
-    active = [a for a in targets if activity.get(a, {}).get("status") == "active"]
+    active = [a for a in targets if a in activity and not activity[a].get("entry_blocked")]
     return active, [a for a in targets if a not in active]
 
 
@@ -115,10 +116,9 @@ def next_step(state: dict, sessions: list[dict]) -> dict:
                 )
             )
         market = (
-            f"{', '.join(active)} is actively trading right now. "
+            f"{', '.join(active)} has verified pool state; fresh quotes decide executable trades. "
             if active
-            else "No target pool has moved in the last 15 minutes, so the agent would wait rather "
-            "than trade. "
+            else "Target pool usability has not been verified yet. Refresh the market data. "
         )
         stage, summary, say = (
             "ready",
@@ -158,7 +158,7 @@ def why_not_trading(state: dict) -> dict:
     activity = state.get("pool_activity") or {}
     for asset in params["target_assets"]:
         row = activity.get(asset)
-        if row and row["status"] != "active":
+        if row and row.get("entry_blocked"):
             blockers.append(row["reason"])
     caps = state["caps"]
     if state.get("trades_this_hour", 0) >= params["max_trades_per_hour"]:
@@ -178,21 +178,31 @@ def why_not_trading(state: dict) -> dict:
         if s.get("strategy_id") in params["active_strategies"]
     ]
     waiting = sum(s["status"] == "HOLD" for s in signals)
+    refused = [s for s in signals if s["status"] == "BLOCKED"]
     buys = [s for s in signals if s["status"] == "ENTRY_EXECUTED"]
-    if blockers:
-        summary = "No new trades because: " + " ".join(blockers)
-    elif buys:
+    notes = [
+        row["reason"]
+        for asset, row in activity.items()
+        if asset in params["target_assets"] and not row.get("entry_blocked") and row.get("reason")
+    ]
+    if buys:
         summary = "The agent just traded: " + ", ".join(f"{b['asset']}" for b in buys) + "."
+    elif blockers:
+        summary = "No new trades because: " + " ".join(blockers)
     elif signals:
         summary = (
-            f"Nothing is blocking the agent. {waiting} of {len(signals)} strategy checks currently "
-            "say HOLD because their entry conditions are not met. Waiting is normal."
+            f"Waiting for a valid entry: {waiting} of {len(signals)} strategy checks say HOLD, "
+            f"and {len(refused)} are blocked by their recorded entry checks. "
+            + " ".join(dict.fromkeys(s["reason"] for s in refused if s.get("reason")))
         )
     else:
         summary = "No strategy check is recorded yet; the next market check will add them."
+    if notes:
+        summary += " " + " ".join(notes)
     return {
         "mode": state["mode"],
         "blockers": blockers,
         "strategy_checks": signals[:10],
+        "pool_notes": notes,
         "summary": summary,
     }

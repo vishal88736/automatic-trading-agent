@@ -39,7 +39,8 @@ import {
   type Route,
   type Workspace,
 } from "./aegis/navigation";
-import { dataStatusLabel, type AegisView } from "./aegis/types";
+import { dataStatusLabel, type AegisView, type Preview } from "./aegis/types";
+import { applyAssistantAction } from "./assistantActions";
 import { KronoBrand, KronoMark } from "./brand";
 import { WorkspaceHighlights, WorkspaceSearch } from "./discovery";
 import { PlatformWorkspace } from "./platform/Platform";
@@ -224,12 +225,13 @@ function Chat({
   close: () => void;
   act: WorkspaceProps["act"];
 }) {
+  const aegis = useAegis();
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 0,
       role: "assistant",
       content:
-        "I can inspect recorded signals, summarize available news, show exposure, lower the equity-per-trade limit, and pause entries. Trade requests always go through the execution preview.",
+        "I can inspect recorded signals, news and exposure; manage alerts; run backtests; export history; open website pages; lower allocation limits and pause entries. Ask 'What can you control?' for the available commands. Trades and wallet operations use their review screens.",
     },
   ]);
   const [input, setInput] = useState(""),
@@ -246,20 +248,25 @@ function Chat({
     try {
       await act(async () => {
         try {
-          const response = await api<{ response: string; tool: string }>(
-            "/chat",
-            "POST",
-            {
-              message: text,
-              history: messages
-                .filter((m) => m.id !== 0 && !m.error)
-                .slice(-6)
-                .map((m) => ({
-                  role: m.role,
-                  text: m.content.slice(0, 500),
-                })),
-            },
-          );
+          const response = await api<{
+            response: string;
+            tool: string;
+            data?: Preview & { ui_action?: unknown };
+          }>("/chat", "POST", {
+            message: text,
+            history: messages
+              .filter((m) => m.id !== 0 && !m.error)
+              .slice(-6)
+              .map((m) => ({
+                role: m.role,
+                text: m.content.slice(0, 500),
+              })),
+          });
+          applyAssistantAction(response.data?.ui_action);
+          if (response.data?.requires_confirmation) {
+            aegis.setPreview(response.data);
+            window.location.hash = "/aegis";
+          }
           setMessages((v) => [
             ...v,
             {

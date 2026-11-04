@@ -152,7 +152,9 @@ export type AegisState = {
   pool_activity?: Record<
     string,
     {
-      status: "active" | "inactive" | "warming";
+      status: "active" | "quiet" | "warming" | "unavailable" | "inactive";
+      entry_blocked?: boolean;
+      evidence?: string;
       reason: string | null;
       steady_seconds: number;
       last_change_at: number | null;
@@ -262,6 +264,12 @@ export type TradePreview = {
 };
 export type Preview =
   | TradePreview
+  | {
+      kind: "emergency_clear";
+      requires_confirmation: true;
+      mode: "paper" | "testnet";
+      summary: string;
+    }
   | {
       kind?: "close_all";
       confirmation: string;

@@ -28,6 +28,20 @@ test("a newcomer gets guided in chat and a trade runs only after reviewing it", 
     .getByRole("button", { name: "How does this work?", exact: true })
     .click();
   await expect(replies.last()).toContainText("HashKey Chain");
+  // Other specs share this fixture ledger. Honour their real entry cooldown rather than
+  // assuming this workflow starts with a fresh account or bypassing the risk check.
+  const initial = await (await page.request.get("/api/aegis/state")).json();
+  const lastEntry = initial.fills.find(
+    (fill: { quote: { route: { tokens: { asset_id: string }[] } } }) =>
+      fill.quote.route.tokens[0].asset_id === "USDT",
+  );
+  if (lastEntry)
+    await expect
+      .poll(() => Date.now() / 1000 - lastEntry.created_at, {
+        timeout: 35000,
+        message: "Wait for the preserved entry cooldown",
+      })
+      .toBeGreaterThanOrEqual(31);
   const fillsBefore = (
     await (await page.request.get("/api/aegis/state")).json()
   ).fills.length;

@@ -99,6 +99,7 @@ export function AegisChat() {
       <div className="aegis-chips">
         {[
           "What should I do next?",
+          "What can you control?",
           "How does this work?",
           "Why is it not trading?",
           "Analyze my past sessions",
@@ -157,6 +158,45 @@ export function AegisConfirmations() {
   if (!preview) return null;
   const signed = state?.mode === "testnet";
   const mode = signed ? "testnet" : "paper";
+  if (preview.kind === "emergency_clear")
+    return (
+      <Modal
+        title="Review emergency-stop clearance"
+        close={() => setPreview(null)}
+      >
+        <p>{preview.summary}</p>
+        <p>
+          Review the latest decisions and balances. Clearing the stop leaves
+          entries paused.
+        </p>
+        <div className="inline gap">
+          <button
+            className="button secondary"
+            disabled={busy}
+            onClick={() => setPreview(null)}
+          >
+            Cancel
+          </button>
+          <button
+            className="button primary"
+            disabled={
+              busy || !state?.valuation_fresh || !!state.positions.length
+            }
+            onClick={() =>
+              void act(async () => {
+                await api("/aegis/control", "POST", {
+                  action: "clear_emergency",
+                  acknowledgement: "REVIEW_AND_CLEAR_PAPER_STOP",
+                });
+                setPreview(null);
+              }, "Emergency stop cleared after review. Entries remain paused.")
+            }
+          >
+            Confirm emergency-stop clearance
+          </button>
+        </div>
+      </Modal>
+    );
   if (preview.kind === "trade_preview") {
     const trade = preview;
     const facts: [string, string | null | undefined][] =

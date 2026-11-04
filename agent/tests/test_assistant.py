@@ -162,7 +162,7 @@ def test_manual_trades_keep_every_other_limit(runtime):
 def test_quiet_pool_warns_the_person_instead_of_hiding(runtime):
     runtime.tick(evaluate_entries=False)
     data = chat(runtime, "Buy 1 USDT of WHSK")["data"]
-    assert any("pool activity" in w for w in data["warnings"])
+    assert any("price history" in w for w in data["warnings"])
     runtime.control("trade_confirm", confirmation=data["confirmation"])
     assert len(runtime.ledger.fills()) == 1
     # The agent's own automatic entries stay blocked by the same condition.

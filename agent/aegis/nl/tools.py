@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from decimal import Decimal, InvalidOperation
 from typing import Literal
@@ -8,12 +9,16 @@ from pydantic import Field
 
 from aegis.data import StrictModel
 from aegis.nl.guide import explain, next_step, why_not_trading
+from aegis.nl.website import SCHEMAS as WEBSITE_TOOLS
+from aegis.nl.website import command as website_command
+from aegis.nl.website import execute as website_execute
 from aegis.risk.policy import (
     CAPS,
     RISK_PRESETS,
     SUPPORTED_ASSETS,
     TICK_SECONDS_RANGE,
     ActiveStrategy,
+    AgentParams,
     SupportedAsset,
 )
 from aegis.sessions import compact_session
@@ -75,6 +80,22 @@ class ToolCall(StrictModel):
         "get_session",
         "analyze_sessions",
         "request_trade",
+        "get_website_capabilities",
+        "refresh_market_data",
+        "inspect_routes",
+        "get_library_strategies",
+        "set_library_strategy_enabled",
+        "run_backtest",
+        "get_alerts",
+        "create_alert",
+        "delete_alert",
+        "get_trade_history",
+        "export_trade_history",
+        "open_workspace",
+        "prepare_wallet_action",
+        "request_emergency_clear",
+        "get_news",
+        "analyze_market",
     ]
     arguments: dict = Field(default_factory=dict)
 
@@ -191,6 +212,8 @@ def _guide_tool(runtime, call: ToolCall) -> dict:
 
 def execute_tool(runtime, call: ToolCall) -> dict:
     args = call.arguments
+    if call.name in WEBSITE_TOOLS:
+        return {"mode": runtime.mode, **website_execute(runtime, call.name, args)}
     if call.name in GUIDE_TOOLS:
         return _guide_tool(runtime, call)
     if call.name == "get_portfolio_and_pnl":
@@ -393,6 +416,8 @@ def _trade_call(side: str, rest: str) -> ToolCall:
 
 
 def _guide_call(t: str) -> ToolCall | None:
+    if re.search(r"why.*\bpools?\b|\bpools?\b.*\b(?:inactive|quiet|not moving)\b", t):
+        return ToolCall(name="why_not_trading")
     if re.search(
         r"what (?:should|do|can) i do|what(?:'s| is)? next|next step|get(?:ting)? started|"
         r"how (?:do|can|to) (?:i )?(?:start|begin|trade)|i(?:'m| am) new|beginner|^help\b|guide me|"
@@ -448,6 +473,9 @@ def guided_call(text: str) -> ToolCall | None:
     """A question or order that needs no model to understand. Reading the data directly keeps it
     correct and saves the provider's token budget; a model only phrases the answer."""
     t = text.lower().strip()
+    website = website_command(t)
+    if website:
+        return ToolCall(name=website[0], arguments=website[1])
     trade = re.match(r"(?:please )?(buy|sell)\b(.*)", t)
     # "buy only ETH" is a target preference, handled by `interpret`; it is not an order.
     if trade and not re.search(r"\bonly\b", trade[2]) and not re.search(r"sell everything", t):
@@ -457,6 +485,9 @@ def guided_call(text: str) -> ToolCall | None:
 
 def interpret(text: str, *, target_assets: tuple[str, ...] | None = None) -> ToolCall:
     t = text.lower().strip()
+    website = website_command(t)
+    if website:
+        return ToolCall(name=website[0], arguments=website[1])
     if re.search(
         r"withdraw|private.?key|seed phrase|recovery phrase|ignore.*rules|disable.*(risk|guard)|raw.*transaction|steal",
         t,
@@ -464,6 +495,16 @@ def interpret(text: str, *, target_assets: tuple[str, ...] | None = None) -> Too
         raise ValueError(
             "PAPER: withdrawal, keys, raw transactions and bypassing safeguards are unavailable"
         )
+    explicit = re.fullmatch(r"(?:set|change) ([a-z_ ]+?) to (.+)", text.strip(), re.I)
+    if explicit:
+        field = explicit[1].lower().strip().replace(" ", "_")
+        if field in AgentParams.model_fields:
+            value = explicit[2].strip().removesuffix("%")
+            try:
+                value = json.loads(value, parse_float=Decimal)
+            except json.JSONDecodeError:
+                pass  # Enum names may be supplied as plain words.
+            return ToolCall(name="set_params", arguments={field: value})
     if re.fullmatch(r"(?:please )?(?:pause|stop)(?:(?: the| my)? (?:agent|bot|trading))?[.!]?", t):
         return ToolCall(name="pause")
     if t in {"resume", "start", "resume trading"} or re.fullmatch(
@@ -705,7 +746,7 @@ def _chat(runtime, text: str) -> dict:
     else:
         call = interpret(text, target_assets=runtime.params.target_assets)
     data = execute_tool(runtime, call)
-    if call.name in GUIDE_TOOLS:
+    if call.name in GUIDE_TOOLS or call.name in WEBSITE_TOOLS:
         reply = "PAPER: " + data["summary"]
     elif data.get("kind") == "params_change":
         reply = (

@@ -162,27 +162,29 @@ export function AegisDesk({
   // First visit: no observation yet, so the data panels would all be empty placeholders.
   const firstRun =
     view === "overview" && !state.block_number && !state.last_error;
-  const pools = Object.values(state.pool_activity ?? {});
-  const blockedPools = pools.filter((p) => p.status !== "active");
+  const pools = state.params.target_assets.flatMap((asset) =>
+    state.pool_activity?.[asset] ? [state.pool_activity[asset]] : [],
+  );
+  const blockedPools = pools.filter((p) => p.entry_blocked);
+  const quietPools = pools.filter(
+    (p) => p.status !== "active" && !p.entry_blocked,
+  );
   const poolSummary = !pools.length
     ? null
     : blockedPools.length === 0
       ? {
-          label: "Pools trading",
-          tone: "positive",
-          detail: "Every target pool moved recently.",
+          label: quietPools.length
+            ? "Pools available · quiet prices"
+            : "Pool prices moving",
+          tone: quietPools.length ? "neutral" : "positive",
+          detail:
+            "Price movement is informational. Fresh executable quotes and risk checks decide trades.",
         }
-      : blockedPools.some((p) => p.status === "inactive")
-        ? {
-            label: `${blockedPools.filter((p) => p.status === "inactive").length} of ${pools.length} pools inactive · entries blocked there`,
-            tone: "negative",
-            detail: blockedPools.map((p) => p.reason).join(" "),
-          }
-        : {
-            label: "Checking pool activity",
-            tone: "neutral",
-            detail: blockedPools.map((p) => p.reason).join(" "),
-          };
+      : {
+          label: `${blockedPools.length} of ${pools.length} pools unavailable · entries blocked there`,
+          tone: "negative",
+          detail: blockedPools.map((p) => p.reason).join(" "),
+        };
   const statusTone =
     connectionError || state.emergency
       ? "negative"
@@ -506,16 +508,18 @@ export function AegisDesk({
                       tone={
                         state.pool_activity[asset].status === "active"
                           ? "positive"
-                          : state.pool_activity[asset].status === "inactive"
+                          : state.pool_activity[asset].entry_blocked
                             ? "negative"
                             : "neutral"
                       }
                     >
                       {state.pool_activity[asset].status === "active"
                         ? "Pool trading"
-                        : state.pool_activity[asset].status === "inactive"
-                          ? "Inactive pool · entries blocked"
-                          : "Checking pool activity"}
+                        : state.pool_activity[asset].entry_blocked
+                          ? "Pool unavailable · entries blocked"
+                          : state.pool_activity[asset].status === "quiet"
+                            ? "Quiet price · quotes checked before trades"
+                            : "Collecting price history · quotes checked before trades"}
                     </Badge>
                   </span>
                 )}

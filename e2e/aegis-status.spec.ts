@@ -19,7 +19,7 @@ test("AEGIS shows one status card, a first-run guide, and a compact assistant bu
   );
   await expect(status).toContainText("block ");
   await expect(status).toContainText(
-    /Checking pool activity|Pools trading|pools inactive/,
+    /Pools available · quiet prices|Pool prices moving|pools unavailable/,
   );
   await expect(
     page.getByRole("heading", { name: "Paper performance" }),

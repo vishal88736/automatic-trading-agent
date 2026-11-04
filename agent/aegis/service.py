@@ -87,7 +87,7 @@ class AegisService:
         except FutureTimeout:
             future.cancel()
             raise ValueError(
-                "Strategy library update timed out; check Strategies before retrying"
+                "Website control timed out; inspect its latest recorded state before retrying"
             ) from None
 
     async def call(self, operation: str, *args, **kwargs):

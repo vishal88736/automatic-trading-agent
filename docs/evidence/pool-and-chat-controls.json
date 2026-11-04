@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "checked_at": "2026-11-04T05:29:00.597991+00:00",
+  "source_parent": "a032426edb46b95f74044c8d5ee3e16594d3fcff",
+  "change": "Separate quiet sampled prices from pool usability and expose validated website controls in chat.",
+  "validation": {
+    "python": {
+      "passed": 554,
+      "skipped": 1,
+      "subtests_passed": 10
+    },
+    "browser": {
+      "passed": 63,
+      "scope": "Isolated fixture services and wallets"
+    },
+    "platform_tests_passed": 20,
+    "contracts": {
+      "passed": 57,
+      "skipped": 1
+    },
+    "frontend_build": "passed",
+    "platform_types": "passed",
+    "production_restart_smoke": "passed",
+    "publication_check": "passed"
+  },
+  "mainnet_read_only": {
+    "scope": "Real mainnet pool reads and QuoterV2 eth_call in isolated paper ledger; no signing or broadcast",
+    "elapsed_seconds": 2.651,
+    "data_status": "LIVE",
+    "block": 29711392,
+    "last_error": null,
+    "pool_activity": {
+      "WHSK": {
+        "status": "quiet",
+        "reason": "WHSK sampled price has not moved for at least 15 min. This does not prove zero swaps; fresh executable quotes and risk checks decide entries.",
+        "steady_seconds": 936,
+        "last_change_at": null,
+        "price_changes": 0,
+        "entry_blocked": false,
+        "evidence": "sampled_pool_prices"
+      },
+      "WETH": {
+        "status": "quiet",
+        "reason": "WETH sampled price has not moved for at least 15 min. This does not prove zero swaps; fresh executable quotes and risk checks decide entries.",
+        "steady_seconds": 936,
+        "last_change_at": null,
+        "price_changes": 0,
+        "entry_blocked": false,
+        "evidence": "sampled_pool_prices"
+      },
+      "WBTC": {
+        "status": "quiet",
+        "reason": "WBTC sampled price has not moved for at least 15 min. This does not prove zero swaps; fresh executable quotes and risk checks decide entries.",
+        "steady_seconds": 936,
+        "last_change_at": null,
+        "price_changes": 0,
+        "entry_blocked": false,
+        "evidence": "sampled_pool_prices"
+      }
+    },
+    "route_quotes": [
+      {
+        "path": [
+          "USDT",
+          "WHSK"
+        ],
+        "quote_risk": "PASS",
+        "risk_reason": "Quote preflight passed; entry and execution gates still apply."
+      }
+    ],
+    "chat_tool": "why_not_trading",
+    "fills": 0,
+    "paused": true
+  },
+  "assistant": {
+    "registered_tools": 40,
+    "added_controls": [
+      "refresh market data",
+      "inspect routes",
+      "list and toggle library strategies",
+      "backtest",
+      "list/create/delete price alerts",
+      "read and export workspace trade history",
+      "navigate named pages",
+      "prefill owner wallet review",
+      "request human emergency-stop clearance",
+      "read news",
+      "research analysis"
+    ],
+    "advanced_preferences": "Named AgentParams fields are validated through the existing caps and open-position review logic.",
+    "model_live_validation": false
+  },
+  "boundaries": {
+    "wallet_signing": "Human wallet approval required",
+    "manual_trades": "Human confirmation required",
+    "emergency_clearance": "Human review required; entries remain paused",
+    "execution_mode": "Unchanged",
+    "model_and_env_setup": "Unchanged",
+    "public_transactions_sent": 0
+  }
+}

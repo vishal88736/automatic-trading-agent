@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "./api";
+import { consumeWalletReview, walletReviewEvent } from "./assistantActions";
 import { Badge, Panel } from "./ui";
 
 type Network = "testnet" | "mainnet";
@@ -110,6 +111,28 @@ export function AegisWallet({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [recoveryHash, setRecoveryHash] = useState("");
+  useEffect(() => {
+    const review = () => {
+      const request = consumeWalletReview();
+      if (!request) return;
+      if (operation) {
+        setNotice(
+          "Finish or recover the pending wallet operation before reviewing another request.",
+        );
+        return;
+      }
+      setNetwork(request.network);
+      setAction(request.action);
+      if (request.amount != null) setAmount(request.amount);
+      setAck(false);
+      setNotice(
+        "Assistant request prefilled. Review it here; nothing has been signed or submitted.",
+      );
+    };
+    review();
+    window.addEventListener(walletReviewEvent, review);
+    return () => window.removeEventListener(walletReviewEvent, review);
+  }, [operation]);
   const save = (value: Operation | null) => {
     setOperation(value);
     if (value?.hash || value?.uncertain)

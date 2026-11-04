@@ -4,6 +4,19 @@ from aegis.nl.tools import chat
 from agent.tests.test_runtime import runtime as runtime
 
 
+def test_named_preferences_cover_advanced_controls_and_keep_schema_caps(runtime):
+    chat(runtime, "Set trailing stop pct to 2%")
+    chat(runtime, "Set max holding seconds to 1200")
+    chat(runtime, 'Set target assets to ["WHSK", "WBTC"]')
+    assert runtime.params.trailing_stop_pct == 2
+    assert runtime.params.max_holding_seconds == 1200
+    assert runtime.params.target_assets == ("WHSK", "WBTC")
+    version = runtime.version
+    with pytest.raises(ValueError):
+        chat(runtime, "Set position size pct to 99%")
+    assert runtime.version == version and runtime.params.position_size_pct <= 10
+
+
 def test_conversational_pause_and_swap_explanation_use_validated_tools(runtime):
     runtime.control("resume", acknowledgement="AUTHORIZE_PAPER_AUTOMATION")
     assert not runtime.halted.is_set()

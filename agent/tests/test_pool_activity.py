@@ -1,4 +1,4 @@
-"""Entries need a pool that trades, and one strategy signal holds at most one position."""
+"""Pool health blocks entries; sampled price quietness does not prove a pool is unusable."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ def obs(at, price):
     return {"observed_at": at, "markets": {"WBTC": {"price": price}}}
 
 
-def test_activity_classifies_active_inactive_and_warming_pools():
+def test_activity_separates_price_movement_from_pool_usability():
     window = 900
     active = pool_activity(
         [obs(NOW - 600, "1"), obs(NOW - 300, "2")], {"WBTC": {"price": "2"}}, NOW, window
@@ -31,31 +31,52 @@ def test_activity_classifies_active_inactive_and_warming_pools():
     inactive = pool_activity(
         [obs(NOW - 900, "1"), obs(NOW - 450, "1")], {"WBTC": {"price": "1"}}, NOW, window
     )
-    assert inactive["WBTC"]["status"] == "inactive"
+    assert inactive["WBTC"]["status"] == "quiet"
     assert "has not moved for at least" in inactive["WBTC"]["reason"]
+    assert inactive["WBTC"]["entry_blocked"] is False
+    assert "does not prove zero swaps" in inactive["WBTC"]["reason"]
     warming = pool_activity([obs(NOW - 120, "1")], {"WBTC": {"price": "1"}}, NOW, window)
-    assert warming["WBTC"]["status"] == "warming" and "not confirmed" in warming["WBTC"]["reason"]
+    assert warming["WBTC"]["status"] == "warming" and not warming["WBTC"]["entry_blocked"]
     # Observations older than the window are not evidence of current activity.
     stale = pool_activity(
         [obs(NOW - 5000, "9"), obs(NOW - 900, "1")], {"WBTC": {"price": "1"}}, NOW, window
     )
-    assert stale["WBTC"]["status"] == "inactive"
+    assert stale["WBTC"]["status"] == "quiet"
 
 
-def test_static_pool_blocks_entries_but_never_exits(runtime):
+@pytest.mark.parametrize(
+    "health",
+    [
+        {"unlocked": False, "liquidity_raw": "100"},
+        {"unlocked": True, "liquidity_raw": "0"},
+        {"liquidity_raw": "invalid"},
+    ],
+)
+def test_moving_prices_do_not_override_bad_pool_health(health):
+    state = pool_activity([obs(NOW - 60, "1")], {"WBTC": {"price": "2", **health}}, NOW, 900)[
+        "WBTC"
+    ]
+    assert state["status"] == "unavailable" and state["entry_blocked"]
+
+
+def test_static_healthy_pool_can_quote_fill_and_exit_under_normal_risk_limits(runtime):
     runtime.set_params({"target_assets": ["WHSK"]}, runtime.version)
     runtime.tick()
-    # The same mid recorded 20 minutes ago: nobody has swapped in this pool since.
+    # Same sampled mid 20 minutes apart does not establish that execution is unavailable.
     runtime.ledger.observe(
         {**runtime.latest, "block_hash": "old", "observed_at": int(time.time()) - 1200}
     )
     runtime.control("resume", acknowledgement="AUTHORIZE_PAPER_AUTOMATION")
     state = runtime.tick()
-    assert state["pool_activity"]["WHSK"]["status"] == "inactive"
+    assert state["pool_activity"]["WHSK"]["status"] == "quiet"
     stable, whsk = runtime.ledger.stable, runtime.live.tokens["WHSK"]
-    with pytest.raises(RiskRejected, match="has not moved"):
-        runtime.gateway.execute("manual-entry", stable, whsk, 10**stable.decimals)
-    assert runtime.ledger.fills() == []
+    with pytest.raises(RiskRejected, match="size|cap"):
+        runtime.gateway.execute("oversized-entry", stable, whsk, 20 * 10**stable.decimals)
+    runtime.gateway.execute("quiet-entry", stable, whsk, 10**stable.decimals)
+    amount = runtime.ledger.balances()[whsk.address.lower()]["amount_raw"]
+    runtime.gateway.execute("quiet-exit", whsk, stable, amount)
+    assert len(runtime.ledger.fills()) == 2
+    assert not runtime._positions(runtime.gateway.marks())
     skipped = [d for d in state["decisions"] if d["status"] == "signal_skipped"]
     assert skipped, "mean reversion records why it did not enter"
 

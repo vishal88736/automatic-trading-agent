@@ -292,11 +292,11 @@ class PaperRuntime:
                 raise RiskRejected("Target asset is disabled")
             if any(p["asset"] == quote.route.tokens[-1].asset_id for p in positions):
                 raise RiskRejected("A position in this asset is already open")
-        # Last, after target/strategy filters: every pool the entry trades through must be live.
-        # A confirmed manual trade already showed the person this warning in its preview.
+        # Pool health applies to manual and automatic entries. Quiet prices alone are not a
+        # liquidity or execution failure; every order also passed the fresh quote/risk checks.
         for token in quote.route.tokens:
-            if token != self.ledger.stable and not self.manual_intent:
-                self._require_active_pool(token.asset_id)
+            if token != self.ledger.stable:
+                self._require_usable_pool(token.asset_id)
         if quote.route.tokens[-1] == self.ledger.stable:
             return
         if self.library_intent is not None:
@@ -437,11 +437,9 @@ class PaperRuntime:
         self.latest = {**last, **point, "pool_activity": self.pool_activity}
         return self.view()
 
-    def _require_active_pool(self, asset: str) -> None:
+    def _require_usable_pool(self, asset: str) -> None:
         activity = self.pool_activity.get(asset)
-        if not activity:
-            raise RiskRejected(f"{asset} pool activity has not been observed this session")
-        if activity["status"] != "active":
+        if activity and activity.get("entry_blocked"):
             raise RiskRejected(activity["reason"])
 
     def _library(
@@ -507,7 +505,7 @@ class PaperRuntime:
                         raise RiskRejected("Entries paused or an exit takes precedence")
                     if asset not in self.params.target_assets:
                         raise RiskRejected("Mapped asset is excluded by the HSKSwap preferences")
-                    self._require_active_pool(asset)
+                    self._require_usable_pool(asset)
                     sibling = next(
                         (
                             p
@@ -640,6 +638,7 @@ class PaperRuntime:
                 "price": dec(price),
                 "pool": pool.address,
                 "liquidity_raw": pool.active_liquidity_raw,
+                "unlocked": pool.unlocked,
                 "fee_pips": pool.fee_pips,
                 "sqrt_price_x96": pool.sqrt_price_x96,
                 "tick": pool.tick,
@@ -943,7 +942,7 @@ class PaperRuntime:
                         else "A position in this asset is already open"
                         if asset in open_assets
                         else self.pool_activity.get(asset, {}).get("reason")
-                        if self.pool_activity.get(asset, {}).get("status") != "active"
+                        if self.pool_activity.get(asset, {}).get("entry_blocked")
                         else "Entry cooldown: another entry already executed this tick"
                         if self.tick_entry
                         else None

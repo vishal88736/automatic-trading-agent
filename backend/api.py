@@ -27,7 +27,8 @@ from aegis.history import TradeDetail, TradeFilters, TradePage
 from aegis.market_details import MarketDetails
 from aegis.service import AegisService
 from backend.analytics import aggregate, chart_indicators, correlations
-from backend.backtesting import backtest
+from backend.assistant_tools import execute as execute_website_tool
+from backend.assistant_tools import run_backtest
 from backend.data import ASSETS, Providers
 from backend.desk import AlertRequest, sizing_preview
 from backend.engine import Engine
@@ -251,6 +252,11 @@ def create_app(
         async def terminal_tool(name: str, args: dict) -> dict:
             # Chat tools that change the research store; validated by its own models, versioned,
             # audited by the store, and invalidating any in-flight library snapshot.
+            from aegis.nl.website import ARCHIVES, BRIDGED
+
+            if name in BRIDGED | ARCHIVES:
+                result = await execute_website_tool(engine, name, args, save_strategy=save_strategy)
+                return result
             if name == "set_strategy_selector":
                 if not args or set(args) - {"enabled", "mode"}:
                     raise ValueError("Provide enabled and/or mode for the strategy selector")
@@ -988,39 +994,7 @@ def create_app(
 
     @app.post("/api/backtests")
     async def backtests(body: BacktestRequest, e: Engine = Depends(engine)):
-        market, feed = await asyncio.gather(e.providers.market(body.symbol), e.providers.news())
-        config, version = e.store.config("strategy:" + body.strategy_id)
-        result = await asyncio.to_thread(
-            backtest,
-            market,
-            feed,
-            body,
-            StrategyConfig.model_validate(config),
-            e.execution.risk()[0],
-        )
-        result["config_version"] = version
-        prior = e.store.get("cache", "strategy_performance:" + body.symbol) or {}
-        prior[body.strategy_id] = {
-            "out_of_sample": True,
-            "asset": body.symbol,
-            "source": market.source,
-            "trade_count": result["out_of_sample"]["trade_count"],
-            "net_return": result["out_of_sample"]["total_return"],
-            "max_drawdown": result["out_of_sample"]["maximum_drawdown"],
-            "evaluated_at": now().isoformat(),
-            "config_version": version,
-        }
-        e.store.put("cache", "strategy_performance:" + body.symbol, prior)
-        e.store.audit(
-            "backtest.completed",
-            {
-                "strategy_id": body.strategy_id,
-                "symbol": body.symbol,
-                "source": market.source,
-                "out_of_sample": result["out_of_sample"]["total_return"],
-            },
-        )
-        return result
+        return await run_backtest(e, body)
 
     @app.put("/api/settings/providers")
     async def provider_settings(body: ProviderSettings, e: Engine = Depends(engine)):
@@ -1083,11 +1057,44 @@ def create_app(
         # New users land here: guidance, sessions and "how do I trade" come from the one assistant
         # that knows the agent. Its trade confirmations live in the AEGIS workspace.
         from aegis.nl.tools import _guide_call
+        from aegis.nl.website import ARCHIVES, BRIDGED
+        from aegis.nl.website import command as website_command
+        from aegis.nl.website import execute as execute_website_ui
 
         credentials = re.search(r"private.?key|seed phrase|recovery phrase|withdraw", message)
         order = re.match(r"(?:please )?(?:buy|sell)\b", message)
+        website = website_command(message)
+        # Keep the established research analysis/news/strategy commands in their own store.
+        website_control = website and website[0] not in {
+            "get_news",
+            "analyze_market",
+            "set_library_strategy_enabled",
+        }
         aegis = request.app.state.aegis
-        if not credentials and aegis.runtime is not None and (order or _guide_call(message)):
+        if website_control and website[0] in (
+            BRIDGED
+            | ARCHIVES
+            | {"open_workspace", "prepare_wallet_action", "get_website_capabilities"}
+        ):
+            name, arguments = website
+            if name in ARCHIVES:
+                arguments = {**arguments, "workspace": "research"}
+            data = (
+                execute_website_ui(None, name, arguments)
+                if name in {"open_workspace", "prepare_wallet_action", "get_website_capabilities"}
+                else await execute_website_tool(e, name, arguments, save_strategy=save_strategy)
+            )
+            return {
+                "id": uid(),
+                "response": data["summary"],
+                "tool": name,
+                "data": data,
+                "engine": "Validated website controls; no LLM provider was invoked",
+                "storage_policy": "Raw messages are not stored; typed tool audit events persist.",
+            }
+        if aegis.runtime is not None and (
+            website_control or (not credentials and (order or _guide_call(message)))
+        ):
             if order:
                 return {
                     "id": uid(),
@@ -1100,7 +1107,25 @@ def create_app(
             answer = await aegis.call(
                 "chat", body.message, [turn.model_dump() for turn in body.history]
             )
-            e.store.audit("assistant.tool", {"tool": answer.get("tool"), "read_only": True})
+            e.store.audit(
+                "assistant.tool",
+                {
+                    "tool": answer.get("tool"),
+                    "read_only": answer.get("tool")
+                    in {
+                        "get_next_step",
+                        "explain_platform",
+                        "why_not_trading",
+                        "get_sessions",
+                        "get_session",
+                        "analyze_sessions",
+                        "get_website_capabilities",
+                        "get_alerts",
+                        "get_library_strategies",
+                        "get_trade_history",
+                    },
+                },
+            )
             return {
                 "id": uid(),
                 "response": answer["response"],
