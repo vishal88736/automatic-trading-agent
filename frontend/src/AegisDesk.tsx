@@ -348,6 +348,15 @@ export function AegisDesk({
           </button>
         </div>
       </section>
+      {state.entry_readiness && (
+        <section
+          className="panel aegis-entry-readiness"
+          aria-label="Entry readiness"
+        >
+          <strong>{state.entry_readiness.label}</strong>
+          <p className="muted">{state.entry_readiness.summary}</p>
+        </section>
+      )}
       {firstRun && (
         <Panel
           title="Get started"

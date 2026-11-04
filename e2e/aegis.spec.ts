@@ -121,7 +121,12 @@ test("AEGIS uses shared backend state across strategy, chat, risk, wallet and mo
     page.getByRole("button", { name: "Start paper agent" }),
   ).toBeDisabled();
   await page.getByRole("button", { name: "Review and clear stop" }).click();
-  await expect(page.getByText("Entries paused", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Agent status", exact: true }),
+  ).toContainText("Entries paused");
+  await expect(
+    page.getByRole("region", { name: "Entry readiness", exact: true }),
+  ).toContainText("The agent is stopped");
   await openWorkspace(page, "Agent Observatory");
   await expect(
     page.getByRole("heading", { name: "Decision feed", exact: true }),

@@ -6,6 +6,7 @@ person with no trading background can ask what is happening and what to do next.
 
 from __future__ import annotations
 
+import time
 from decimal import Decimal
 
 TOPICS = {
@@ -145,7 +146,7 @@ def next_step(state: dict, sessions: list[dict]) -> dict:
     }
 
 
-def why_not_trading(state: dict) -> dict:
+def why_not_trading(state: dict, *, include_pool_notes: bool = True) -> dict:
     """Every recorded reason there is no new trade, most decisive first."""
     params = state["params"]
     blockers = []
@@ -153,6 +154,8 @@ def why_not_trading(state: dict) -> dict:
         blockers.append("The emergency stop is on; only a person can review and clear it.")
     elif state.get("paused"):
         blockers.append("The agent is stopped. New entries start only after you start it.")
+    if not params["active_strategies"]:
+        blockers.append("No entry strategy is selected. Choose strategies before enabling entries.")
     if not state.get("valuation_fresh"):
         blockers.append(state.get("last_error") or "Live market data is not fresh yet.")
     activity = state.get("pool_activity") or {}
@@ -161,6 +164,10 @@ def why_not_trading(state: dict) -> dict:
         if row and row.get("entry_blocked"):
             blockers.append(row["reason"])
     caps = state["caps"]
+    last_fill = max((fill.get("created_at", 0) for fill in state.get("fills", [])), default=0)
+    cooldown = caps.get("cooldown_seconds", 0) - (int(time.time()) - last_fill)
+    if cooldown > 0:
+        blockers.append(f"Entry cooldown: {cooldown} seconds remain after the last fill.")
     if state.get("trades_this_hour", 0) >= params["max_trades_per_hour"]:
         blockers.append(f"This hour's limit of {params['max_trades_per_hour']} trades is used.")
     if state.get("trades_today", 0) >= caps["max_trades_per_day"]:
@@ -177,9 +184,37 @@ def why_not_trading(state: dict) -> dict:
         for s in state.get("library_signals") or []
         if s.get("strategy_id") in params["active_strategies"]
     ]
+    if "mean_reversion" in params["active_strategies"]:
+        signals.extend(
+            {
+                "strategy": "Pool mean reversion",
+                "asset": s.get("asset"),
+                "status": "BUY_SIGNAL" if s.get("action") == "buy" else "HOLD",
+                "reason": s.get("reason"),
+            }
+            for s in state.get("signals", [])
+            if s.get("type") == "mean_reversion"
+        )
     waiting = sum(s["status"] == "HOLD" for s in signals)
     refused = [s for s in signals if s["status"] == "BLOCKED"]
     buys = [s for s in signals if s["status"] == "ENTRY_EXECUTED"]
+    recorded_ids = {
+        f["id"]
+        for step in state.get("pipeline", [])
+        for f in step.get("evidence", {}).get("fills", [])
+        if f.get("id")
+    }
+    for fill in state.get("fills", []):
+        tokens = fill.get("quote", {}).get("route", {}).get("tokens", [])
+        if (
+            fill.get("id") in recorded_ids
+            and tokens
+            and tokens[0]["asset_id"] == "USDT"
+            and tokens[-1]["asset_id"] != "USDT"
+        ):
+            asset = tokens[-1]["asset_id"]
+            if not any(s["asset"] == asset for s in buys):
+                buys.append({"asset": asset})
     notes = [
         row["reason"]
         for asset, row in activity.items()
@@ -195,14 +230,47 @@ def why_not_trading(state: dict) -> dict:
             f"and {len(refused)} are blocked by their recorded entry checks. "
             + " ".join(dict.fromkeys(s["reason"] for s in refused if s.get("reason")))
         )
+        if waiting:
+            reasons = list(
+                dict.fromkeys(
+                    s["reason"] for s in signals if s["status"] == "HOLD" and s.get("reason")
+                )
+            )[:3]
+            summary += " Waiting conditions: " + " ".join(reasons)
     else:
         summary = "No strategy check is recorded yet; the next market check will add them."
-    if notes:
+    if notes and include_pool_notes:
         summary += " " + " ".join(notes)
     return {
         "mode": state["mode"],
         "blockers": blockers,
-        "strategy_checks": signals[:10],
+        "strategy_checks": signals[:20],
+        "entry_recorded": bool(buys),
         "pool_notes": notes,
         "summary": summary,
     }
+
+
+def entry_readiness(state: dict) -> dict:
+    """Explain entry eligibility from recorded state without running a strategy or a trade."""
+    explanation = why_not_trading(state, include_pool_notes=False)
+    if state.get("emergency"):
+        status, label = "blocked", "Emergency stop blocks entries"
+    elif state.get("paused"):
+        status, label = "paused", "Entries paused"
+    elif not state.get("valuation_fresh"):
+        status, label = "waiting_for_data", "Waiting for verified market data"
+    elif explanation["blockers"]:
+        status, label = "blocked", "Entry checks blocked"
+    elif not state.get("last_tick_at") or not state.get("tick_count"):
+        status, label = "checking", "Waiting for the next strategy check"
+    elif explanation["entry_recorded"]:
+        status, label = "entry_recorded", "Entry recorded in the latest strategy check"
+    else:
+        status, label = "waiting_for_signal", "Monitoring · waiting for an eligible entry"
+    summary = explanation["summary"]
+    if status in {"paused", "blocked", "waiting_for_data"} and explanation["blockers"]:
+        summary = "New entries are waiting: " + " ".join(explanation["blockers"])
+    if status in {"checking", "waiting_for_signal"}:
+        summary += " Starting the agent enables monitoring; each trade still needs a valid signal, an executable quote and passing risk checks."
+    return {"status": status, "label": label, "summary": summary}

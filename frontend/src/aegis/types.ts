@@ -135,6 +135,17 @@ export type AegisState = {
   block_timestamp: number | null;
   tick_count: number;
   last_tick_at: number | null;
+  entry_readiness?: {
+    status:
+      | "paused"
+      | "blocked"
+      | "waiting_for_data"
+      | "checking"
+      | "waiting_for_signal"
+      | "entry_recorded";
+    label: string;
+    summary: string;
+  };
   ai_engine?: {
     status: string;
     provider: string | null;
@@ -244,6 +255,7 @@ export type TradePreview = {
   kind: "trade_preview";
   confirmation: string;
   expires_at: number;
+  params_version: number;
   requires_confirmation: true;
   mode: "paper" | "testnet";
   side: "buy" | "sell";
@@ -252,7 +264,12 @@ export type TradePreview = {
   warnings: string[];
   lp_fee_pct: string;
   price_impact_bps: string;
+  modeled_slippage_bps: string;
+  network_fee_usdt: string;
+  network_fee_note: string;
+  trade_input_usdt?: string;
   spend_usdt?: string;
+  gross_receive_estimate?: string;
   sell_quantity?: string;
   receive_estimate: string;
   receive_asset: string;

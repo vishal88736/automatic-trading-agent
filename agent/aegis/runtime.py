@@ -9,7 +9,7 @@ import threading
 import time
 from collections import deque
 from contextlib import contextmanager, nullcontext
-from decimal import ROUND_DOWN, Decimal
+from decimal import ROUND_DOWN, ROUND_UP, Decimal, localcontext
 from pathlib import Path
 
 from pydantic import ValidationError
@@ -1573,6 +1573,14 @@ class PaperRuntime:
         stable, token = self.ledger.stable, self.live.tokens[asset]
         nav = Decimal(self.ledger.pnl(marks)["nav_usdt"])
         terms = self.gateway.connector.terms
+        # Match the paper gateway's rounding and the ledger's cost basis exactly. Signed
+        # testnet gas is paid by the agent in HSK, outside vault NAV, not as this USDT model.
+        network_fee_raw = (
+            int((terms.network_fee_usdt * 10**stable.decimals).to_integral_value(rounding=ROUND_UP))
+            if self.mode == "paper"
+            else 0
+        )
+        network_fee = Decimal(network_fee_raw) / 10**stable.decimals
         warnings = []
         activity = self.pool_activity.get(asset, {})
         if activity.get("status") != "active":
@@ -1608,18 +1616,32 @@ class PaperRuntime:
                 self.manual_intent = False
             filled = self.gateway.connector.fill_amount(quote)
             received = Decimal(filled) / 10**token.decimals
-            price = size / received
+            trade_input = Decimal(amount) / 10**stable.decimals
+            total_debit = trade_input + network_fee
+            cash = self.ledger.balances()[stable.address.lower()]["amount_raw"]
+            if amount + network_fee_raw > cash:
+                raise RiskRejected("Insufficient USDT for the trade and its network expense")
+            price = trade_input / received
+            entry_cost = total_debit / received
             detail = {
-                "spend_usdt": dec(size),
+                "trade_input_usdt": dec(trade_input),
+                "spend_usdt": dec(total_debit),
                 "receive_estimate": dec(received),
                 "receive_asset": asset,
-                "percent_of_portfolio": dec(size / nav * 100) if nav else None,
-                "stop_loss_price": dec(price * (1 - self.params.stop_loss_pct / 100)),
-                "take_profit_price": dec(price * (1 + self.params.take_profit_pct / 100)),
+                "percent_of_portfolio": dec(trade_input / nav * 100) if nav else None,
+                "entry_cost_price": dec(entry_cost),
+                "stop_loss_price": dec(entry_cost * (1 - self.params.stop_loss_pct / 100)),
+                "take_profit_price": dec(entry_cost * (1 + self.params.take_profit_pct / 100)),
             }
             summary = (
-                f"Buy about {received:.8g} {asset} for {size:.4f} USDT at about {price:.6g} USDT "
-                f"each. It would use {size / nav * 100:.2f}% of your portfolio. Stop-loss is "
+                f"Buy about {received:.8g} {asset} with {trade_input:.6f} USDT at about "
+                f"{price:.6g} USDT each. Total USDT debit is {total_debit:.6f}. "
+                + (
+                    f"This includes {network_fee:.6f} USDT in modeled network expense. "
+                    if self.mode == "paper"
+                    else "Signer gas is paid separately in HSK. "
+                )
+                + f"Trade allocation is {trade_input / nav * 100:.2f}% of your portfolio. Stop-loss is "
                 f"{self.params.stop_loss_pct}% and take-profit {self.params.take_profit_pct}%."
             )
         else:
@@ -1640,18 +1662,34 @@ class PaperRuntime:
             filled = self.gateway.connector.fill_amount(quote)
             received = Decimal(filled) / 10**stable.decimals
             sold = Decimal(amount) / 10**token.decimals
-            cost = Decimal(held["cost_usdt"]) * amount / owned
-            result = received - cost
+            net_received = received - network_fee
+            # Partial exits use the same EVM-sized decimal context and operation order
+            # as the atomic ledger, including its proportional retained cost basis.
+            with localcontext() as context:
+                context.prec = 78
+                cost = (
+                    Decimal(held["cost_usdt"])
+                    if amount == owned
+                    else Decimal(held["cost_usdt"]) * amount / owned
+                )
+                result = received - cost - network_fee
             detail = {
                 "sell_quantity": dec(sold),
                 "sell_asset": asset,
-                "receive_estimate": dec(received),
+                "gross_receive_estimate": dec(received),
+                "receive_estimate": dec(net_received),
                 "receive_asset": "USDT",
                 "estimated_result_usdt": dec(result),
                 "remaining_after": dec(Decimal(owned - amount) / 10**token.decimals),
             }
             summary = (
-                f"Sell {sold:.8g} {asset} for about {received:.4f} USDT, an estimated "
+                f"Sell {sold:.8g} {asset} for about {received:.6f} USDT. "
+                + (
+                    f"Modeled network expense is {network_fee:.6f} USDT. "
+                    if self.mode == "paper"
+                    else "Signer gas is paid separately in HSK. "
+                )
+                + f"Net USDT cash change is {net_received:.6f}, an estimated "
                 f"{'profit' if result >= 0 else 'loss'} of {abs(result):.4f} USDT."
             )
             if amount < int(owned * share):
@@ -1669,6 +1707,7 @@ class PaperRuntime:
                 # A price worse than previewed by more than 0.5% needs a fresh preview.
                 "min_out_raw": str(filled * 995 // 1000),
                 "balances_hash": self._balances_hash(),
+                "params_version": self.version,
             },
         )
         return {
@@ -1677,6 +1716,7 @@ class PaperRuntime:
             "requires_confirmation": True,
             "confirmation": confirmation,
             "expires_at": expires_at,
+            "params_version": self.version,
             "side": side,
             "asset": asset,
             "summary": summary,
@@ -1684,6 +1724,12 @@ class PaperRuntime:
             "lp_fee_pct": dec(Decimal(market["markets"][asset]["fee_pips"]) / 10000),
             "price_impact_bps": dec(quote.price_impact_bps),
             "modeled_slippage_bps": dec(terms.extra_slippage_bps),
+            "network_fee_usdt": dec(network_fee),
+            "network_fee_note": (
+                "Modeled paper expense, deducted in USDT; included in the displayed cash change and result."
+                if self.mode == "paper"
+                else "Actual testnet gas is paid by the agent in HSK, outside vault NAV; it is not estimated here."
+            ),
             **detail,
         }
 
@@ -1697,6 +1743,8 @@ class PaperRuntime:
             raise ValueError("This trade preview is invalid or expired; ask for a new one")
         if pending["balances_hash"] != self._balances_hash():
             raise ValueError("Your holdings changed after the preview; ask for a new one")
+        if pending.get("params_version") != self.version:
+            raise ValueError("Trading settings changed after the preview; ask for a new one")
         self.ledger.set_metadata("trade_confirmation", {})
         stable, token = self.ledger.stable, self.live.tokens[pending["asset"]]
         buying = pending["side"] == "buy"

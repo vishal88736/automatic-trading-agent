@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "checked_at": "2026-11-04T07:14:27.380417+00:00",
+  "source_parent": "ded790d3f1b80c4a2253a6ca5f91302c216db37e",
+  "source_scope": "Working tree changes included in the commit containing this report.",
+  "change": "Reconcile manual-trade previews with ledger fees and cost basis, reject stale settings confirmations, and show recorded entry readiness.",
+  "sizing": {
+    "ten_usdt_minimum_added": false,
+    "default_or_user_sizing_changed": false,
+    "sub_one_usdt_preview_tested": true
+  },
+  "validation": {
+    "python": {
+      "passed": 568,
+      "skipped": 1,
+      "subtests_passed": 10
+    },
+    "browser": {
+      "passed": 64,
+      "scope": "Isolated fixture services and wallet providers; complete website workflow suite."
+    },
+    "platform_tests_passed": 20,
+    "frontend_build": "passed",
+    "platform_types": "passed",
+    "production_restart_smoke": "passed; simulated fill and cash/equity persisted, scheduler paused, no blockchain submission",
+    "accounting_coverage": "All three assets; full and half exits; base-unit rounding; preview stop, take-profit, net cash and realized result match the fill ledger.",
+    "confirmation_coverage": "Saved risk or size changes invalidate existing previews; fresh previews can execute.",
+    "signed_testnet_coverage": "Fake-signer fixture only: no paper USDT network expense deducted; actual signer gas remains outside vault NAV.",
+    "post_layout_browser_checks_passed": 3,
+    "visual_review": "Updated local paper site inspected at 1440px desktop and 390px mobile; no horizontal overflow."
+  },
+  "mainnet_read_only": {
+    "scope": "Real mainnet pool and QuoterV2 eth_call reads, with buy/sell fills in isolated virtual ledgers. No signing or public transactions.",
+    "checks": [
+      {
+        "asset": "WHSK",
+        "status": "PASS",
+        "seconds": 8.053,
+        "data_status": "LIVE",
+        "fills": 2,
+        "positions_remaining": 0,
+        "duplicate_confirmation_refused": true,
+        "preview_buy_spend": "1.01",
+        "ledger_buy_input": 1000000,
+        "actual_network_fee": "0.01",
+        "preview_stop": "0.08398772623585230627455387953",
+        "actual_position_stop": "0.08398772623585230627455387953",
+        "preview_take_profit": "0.09724894616782898621264133419",
+        "actual_position_take_profit": "0.09724894616782898621264133419",
+        "preview_sell_result": "-0.027984",
+        "actual_sell_result": "-0.027984",
+        "sell_preview_error_usdt": "0.000000",
+        "final_nav": "99.972016",
+        "restart_fills_preserved": true,
+        "restart_entries_paused": true
+      },
+      {
+        "asset": "WETH",
+        "status": "PASS",
+        "seconds": 22.236,
+        "data_status": "LIVE",
+        "fills": 2,
+        "positions_remaining": 0,
+        "duplicate_confirmation_refused": true,
+        "preview_buy_spend": "1.01",
+        "ledger_buy_input": 1000000,
+        "actual_network_fee": "0.01",
+        "preview_stop": "2181.716126143979090476837295",
+        "actual_position_stop": "2181.716126143979090476837295",
+        "preview_take_profit": "2526.197619745659999499495815",
+        "actual_position_take_profit": "2526.197619745659999499495815",
+        "preview_sell_result": "-0.02802",
+        "actual_sell_result": "-0.02802",
+        "sell_preview_error_usdt": "0.00000",
+        "final_nav": "99.97198",
+        "restart_fills_preserved": true,
+        "restart_entries_paused": true
+      },
+      {
+        "asset": "WBTC",
+        "status": "PASS",
+        "seconds": 74.909,
+        "data_status": "LIVE",
+        "fills": 2,
+        "positions_remaining": 0,
+        "duplicate_confirmation_refused": true,
+        "preview_buy_spend": "1.01",
+        "ledger_buy_input": 1000000,
+        "actual_network_fee": "0.01",
+        "preview_stop": "74092.66409266409266409266409",
+        "actual_position_stop": "74092.66409266409266409266409",
+        "preview_take_profit": "85791.50579150579150579150579",
+        "actual_position_take_profit": "85791.50579150579150579150579",
+        "preview_sell_result": "-0.028903",
+        "actual_sell_result": "-0.028903",
+        "sell_preview_error_usdt": "0.000000",
+        "final_nav": "99.971097",
+        "restart_fills_preserved": true,
+        "restart_entries_paused": true
+      }
+    ]
+  },
+  "local_runtime": {
+    "mode": "paper",
+    "updated_backend_started": true,
+    "previously_enabled_paper_entries_restored": true,
+    "saved_preferences_preserved": true,
+    "pool_entry_blocks": 0,
+    "observed_entry_state": "waiting_for_signal",
+    "observed_reasons": "9 HOLD checks and 4 recorded strategy exclusions or range filters; no eligible entry. Quiet sampled prices alone do not block entries.",
+    "scope": "A point-in-time observation; future eligible signals still require executable quotes and passing risk checks."
+  }
+}

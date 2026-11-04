@@ -3,6 +3,14 @@
   gap: 22px;
   min-width: 0;
 }
+.aegis-entry-readiness {
+  display: grid;
+  gap: 8px;
+  padding: 18px 22px;
+}
+.aegis-entry-readiness p {
+  line-height: 1.7;
+}
 .aegis-loop-summary {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));

@@ -8,6 +8,24 @@ test("a newcomer gets guided in chat and a trade runs only after reviewing it", 
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/#/aegis");
   await page.getByRole("button", { name: "Refresh HSKSwap data" }).click();
+  const opening = await (await page.request.get("/api/aegis/state")).json();
+  if (opening.positions.length) {
+    // The archive spec can leave a seeded position. Use the real bounded unwind, never a
+    // ledger reset or a bypass of the one-position-per-asset policy.
+    await page
+      .getByRole("button", { name: "Emergency stop", exact: true })
+      .click();
+    for (let attempts = 0; attempts < 6; attempts++) {
+      await page
+        .getByRole("button", { name: "Refresh HSKSwap data", exact: true })
+        .click();
+      if (
+        !(await (await page.request.get("/api/aegis/state")).json()).positions
+          .length
+      )
+        break;
+    }
+  }
   // The suite shares one ledger: an earlier spec may have left its emergency stop latched.
   const clear = page.getByRole("button", { name: "Review and clear stop" });
   await page.waitForTimeout(500);
@@ -31,13 +49,10 @@ test("a newcomer gets guided in chat and a trade runs only after reviewing it", 
   // Other specs share this fixture ledger. Honour their real entry cooldown rather than
   // assuming this workflow starts with a fresh account or bypassing the risk check.
   const initial = await (await page.request.get("/api/aegis/state")).json();
-  const lastEntry = initial.fills.find(
-    (fill: { quote: { route: { tokens: { asset_id: string }[] } } }) =>
-      fill.quote.route.tokens[0].asset_id === "USDT",
-  );
-  if (lastEntry)
+  const lastFill = initial.fills[0];
+  if (lastFill)
     await expect
-      .poll(() => Date.now() / 1000 - lastEntry.created_at, {
+      .poll(() => Date.now() / 1000 - lastFill.created_at, {
         timeout: 35000,
         message: "Wait for the preserved entry cooldown",
       })

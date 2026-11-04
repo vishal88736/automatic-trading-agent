@@ -448,14 +448,18 @@ def create_app(
 
     @app.get("/api/aegis/state")
     async def aegis_state(request: Request):
+        from aegis.nl.guide import entry_readiness
         from backend.aegis_bridge import strategy_catalog
 
         # Engine switches are local configuration, not the last market snapshot.
         # Reading this screen must not trigger a quote or an autonomous tick.
-        return {
+        state = {
             **request.app.state.aegis.view(),
             "library_catalog": strategy_catalog(request.app.state.engine.store),
         }
+        if state.get("available"):
+            state["entry_readiness"] = entry_readiness(state)
+        return state
 
     @app.get("/api/aegis/market-details", response_model=MarketDetails)
     async def aegis_market_details(

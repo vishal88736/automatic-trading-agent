@@ -154,7 +154,7 @@ export function AegisChat() {
 }
 
 export function AegisConfirmations() {
-  const { preview, setPreview, busy, act, state } = useAegis();
+  const { preview, setPreview, busy, act, state, error } = useAegis();
   if (!preview) return null;
   const signed = state?.mode === "testnet";
   const mode = signed ? "testnet" : "paper";
@@ -199,24 +199,39 @@ export function AegisConfirmations() {
     );
   if (preview.kind === "trade_preview") {
     const trade = preview;
+    const settingsChanged =
+      state?.params_version !== undefined &&
+      trade.params_version !== state.params_version;
+    const expired = Date.now() / 1000 > trade.expires_at;
     const facts: [string, string | null | undefined][] =
       trade.side === "buy"
         ? [
+            ["Trade input", `${number(trade.trade_input_usdt, 6)} USDT`],
             ["You spend", `${number(trade.spend_usdt, 6)} USDT`],
             [
               "You receive about",
               `${number(trade.receive_estimate, 8)} ${trade.asset}`,
             ],
-            ["Share of portfolio", `${number(trade.percent_of_portfolio, 2)}%`],
-            ["Stop-loss sells at", `${number(trade.stop_loss_price, 6)} USDT`],
+            ["Trade allocation", `${number(trade.percent_of_portfolio, 2)}%`],
             [
-              "Take-profit sells at",
+              "Estimated stop-loss trigger",
+              `${number(trade.stop_loss_price, 6)} USDT`,
+            ],
+            [
+              "Estimated take-profit trigger",
               `${number(trade.take_profit_price, 6)} USDT`,
             ],
           ]
         : [
             ["You sell", `${number(trade.sell_quantity, 8)} ${trade.asset}`],
-            ["You receive about", `${number(trade.receive_estimate, 6)} USDT`],
+            [
+              "Gross USDT proceeds",
+              `${number(trade.gross_receive_estimate, 6)} USDT`,
+            ],
+            [
+              "Net USDT cash change",
+              `${number(trade.receive_estimate, 6)} USDT`,
+            ],
             [
               "Estimated result",
               `${number(trade.estimated_result_usdt, 6)} USDT`,
@@ -229,6 +244,15 @@ export function AegisConfirmations() {
         close={() => setPreview(null)}
       >
         <p>{trade.summary}</p>
+        {(settingsChanged || expired) && (
+          <p role="alert">
+            {settingsChanged
+              ? "Trading settings changed after this preview."
+              : "This trade preview expired."}{" "}
+            Cancel and ask for a new preview.
+          </p>
+        )}
+        {error && <p role="alert">{error}</p>}
         <dl className="trade-facts">
           {facts.map(([label, value]) => (
             <div key={label}>
@@ -241,9 +265,16 @@ export function AegisConfirmations() {
             <dd>
               {number(trade.lp_fee_pct, 3)}% pool fee ·{" "}
               {number(trade.price_impact_bps, 2)} bps price impact
+              {" · "}
+              {number(trade.modeled_slippage_bps, 2)} bps slippage allowance
             </dd>
           </div>
+          <div>
+            <dt>USDT network expense</dt>
+            <dd>{number(trade.network_fee_usdt, 6)} USDT</dd>
+          </div>
         </dl>
+        <p className="muted">{trade.network_fee_note}</p>
         {trade.warnings.map((warning) => (
           <p key={warning} role="alert" className="trade-warning">
             {warning}
@@ -266,7 +297,7 @@ export function AegisConfirmations() {
           </button>
           <button
             className="button primary"
-            disabled={busy}
+            disabled={busy || settingsChanged || expired}
             onClick={() =>
               void act(
                 async () => {
