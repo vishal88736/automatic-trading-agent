@@ -1,0 +1,223 @@
+"""Private product API. Fastify verifies Cognito and signs each forwarded request."""
+
+import hashlib
+import hmac
+import os
+import time
+from decimal import Decimal
+from typing import Annotated
+from uuid import UUID
+
+from fastapi import Depends, FastAPI, Query, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from psycopg import Connection
+from psycopg import Error as DatabaseError
+from pydantic import Field, TypeAdapter
+
+from backend.models import Model
+from backend.paper_accounts import DEFAULT_INITIAL_USDT, PaperAccount, ensure_account, get_account
+from backend.platform_db import DSN_ENV, open_database
+from backend.strategy_repository import (
+    archive_strategy,
+    create_strategy,
+    get_strategy,
+    list_strategies,
+    strategy_history,
+    update_strategy,
+)
+from backend.strategy_rules import StrategyDraft
+
+KEY_ENV = "KRONO_PRODUCT_API_KEY"
+BODY_LIMIT = 65536
+OpeningCredit = Annotated[Decimal, Field(gt=0, le=100000000, decimal_places=6)]
+Version = Annotated[int, Field(ge=1, le=2**31 - 1)]
+
+
+class StrategyEdit(Model):
+    expected_version: Version
+    document: StrategyDraft
+
+
+class StrategyArchive(Model):
+    expected_version: Version
+
+
+class ProductError(Exception):
+    def __init__(self, status: int, code: str, message: str):
+        self.status = status
+        self.code = code
+        self.message = message
+
+
+def create_product_api(dsn: str, key: str, initial_usdt: Decimal = DEFAULT_INITIAL_USDT) -> FastAPI:
+    if not dsn or len(key.encode()) < 32:
+        raise ValueError(
+            "Configure the platform database and a product API key of at least 32 bytes"
+        )
+    initial_usdt = TypeAdapter(OpeningCredit).validate_python(initial_usdt)
+    app = FastAPI(title="Krono Product API", docs_url=None, redoc_url=None, openapi_url=None)
+
+    @app.exception_handler(ProductError)
+    async def product_error(_request, exc):
+        return JSONResponse(
+            {"error": {"code": exc.code, "message": exc.message}}, status_code=exc.status
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_error(_request, exc):
+        return JSONResponse(
+            {
+                "error": {
+                    "code": "VALIDATION",
+                    "message": "Invalid request",
+                    "fields": [
+                        {"path": ".".join(map(str, error["loc"])), "message": error["msg"]}
+                        for error in exc.errors()
+                    ],
+                }
+            },
+            status_code=422,
+        )
+
+    @app.exception_handler(DatabaseError)
+    async def database_error(_request, _exc):
+        return JSONResponse(
+            {"error": {"code": "DATABASE_UNAVAILABLE", "message": "Product database unavailable"}},
+            status_code=503,
+        )
+
+    @app.exception_handler(LookupError)
+    async def missing_strategy(_request, _exc):
+        return JSONResponse(
+            {"error": {"code": "NOT_FOUND", "message": "Strategy is unavailable"}},
+            status_code=404,
+        )
+
+    @app.exception_handler(ValueError)
+    async def conflict(_request, _exc):
+        return JSONResponse(
+            {"error": {"code": "CONFLICT", "message": "Reload the record and review the request"}},
+            status_code=409,
+        )
+
+    async def owner(request: Request) -> UUID:
+        denied = ProductError(401, "UNAUTHENTICATED", "Invalid platform identity")
+        subject = request.headers.get("x-krono-product-sub", "")
+        expires = request.headers.get("x-krono-product-expires", "")
+        signature = request.headers.get("x-krono-product-signature", "")
+        try:
+            identity = UUID(subject)
+            if not expires.isascii() or not expires.isdecimal() or len(expires) > 12:
+                raise denied
+            if not 0 < int(expires) - time.time() <= 30:
+                raise denied
+        except ValueError:
+            raise denied from None
+        if len(signature) != 64 or not signature.isascii():
+            raise denied
+        body_hash = hashlib.sha256()
+        size = 0
+        async for part in request.stream():
+            size += len(part)
+            if size > BODY_LIMIT:
+                raise ProductError(
+                    413, "REQUEST_TOO_LARGE", "Request body exceeds the allowed size"
+                )
+            body_hash.update(part)
+        path = request.scope["raw_path"]
+        if query := request.scope["query_string"]:
+            path += b"?" + query
+        message = b"\n".join(
+            (
+                expires.encode(),
+                subject.encode(),
+                request.method.encode(),
+                path,
+                body_hash.hexdigest().encode(),
+            )
+        )
+        expected = hmac.new(key.encode(), message, hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(expected, signature):
+            raise denied
+        return identity
+
+    def database():
+        with open_database(dsn) as db:
+            db.execute("SET statement_timeout = '5s'")
+            yield db
+
+    Principal = Annotated[UUID, Depends(owner)]
+    Database = Annotated[Connection, Depends(database)]
+
+    @app.get("/platform/paper-account")
+    def paper_account(subject: Principal, db: Database) -> dict[str, PaperAccount | None]:
+        return {"account": get_account(db, subject)}
+
+    @app.post("/platform/paper-account")
+    def provision_paper_account(subject: Principal, db: Database) -> dict[str, PaperAccount]:
+        return {"account": ensure_account(db, subject, initial_usdt)}
+
+    @app.get("/platform/custom-strategies")
+    def strategies(
+        subject: Principal,
+        db: Database,
+        after: UUID | None = None,
+        limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    ):
+        return {"items": list_strategies(db, subject, after=after, limit=limit)}
+
+    @app.post("/platform/custom-strategies", status_code=201)
+    def new_strategy(document: StrategyDraft, subject: Principal, db: Database):
+        ensure_account(db, subject, initial_usdt)
+        return create_strategy(db, subject, document)
+
+    @app.get("/platform/custom-strategies/{strategy_id}")
+    def strategy(
+        strategy_id: UUID,
+        subject: Principal,
+        db: Database,
+        version: Annotated[int | None, Query(ge=1, le=2**31 - 1)] = None,
+    ):
+        stored = get_strategy(db, subject, strategy_id, version)
+        if stored is None:
+            raise LookupError
+        return stored
+
+    @app.put("/platform/custom-strategies/{strategy_id}")
+    def edit_strategy(strategy_id: UUID, edit: StrategyEdit, subject: Principal, db: Database):
+        return update_strategy(
+            db, subject, strategy_id, edit.document, expected_version=edit.expected_version
+        )
+
+    @app.post("/platform/custom-strategies/{strategy_id}/archive", status_code=204)
+    def remove_strategy(
+        strategy_id: UUID, archive: StrategyArchive, subject: Principal, db: Database
+    ):
+        archive_strategy(db, subject, strategy_id, expected_version=archive.expected_version)
+
+    @app.get("/platform/custom-strategies/{strategy_id}/versions")
+    def versions(
+        strategy_id: UUID,
+        subject: Principal,
+        db: Database,
+        before: Annotated[int, Query(ge=2, le=2**31)] = 2**31,
+        limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    ):
+        if get_strategy(db, subject, strategy_id, 1) is None:
+            raise LookupError
+        return {
+            "items": strategy_history(db, subject, strategy_id, before_version=before, limit=limit)
+        }
+
+    return app
+
+
+def app_from_environment():
+    return create_product_api(
+        os.environ.get(DSN_ENV, ""),
+        os.environ.get(KEY_ENV, ""),
+        TypeAdapter(OpeningCredit).validate_python(
+            os.environ.get("KRONO_PAPER_INITIAL_USDT", str(DEFAULT_INITIAL_USDT))
+        ),
+    )

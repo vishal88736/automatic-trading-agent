@@ -36,6 +36,8 @@ const envSchema = z.object({
   KRONO_AGENT_LOG_GROUP: z.string().min(3),
   KRONO_COORDINATION_QUEUE_URL: z.string().url(),
   KRONO_ANALYSIS_QUEUE_URL: z.string().url().optional(),
+  KRONO_PRODUCT_API_URL: z.string().url().optional(),
+  KRONO_PRODUCT_API_KEY: z.string().min(32).optional(),
   // Model backend for platform conversations: Bedrock (MiniMax) or Groq's OpenAI-compatible API.
   KRONO_LLM_PROVIDER: z.enum(["bedrock", "groq"]).default("bedrock"),
   GROQ_API_KEY: z.string().optional(),
@@ -124,5 +126,23 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     !c.KRONO_PRICING_SOURCE
   )
     throw Error("Cost estimates require a documented pricing source");
+  if (Boolean(c.KRONO_PRODUCT_API_URL) !== Boolean(c.KRONO_PRODUCT_API_KEY))
+    throw Error("Configure the product API URL and key together");
+  if (c.KRONO_PRODUCT_API_URL) {
+    const url = new URL(c.KRONO_PRODUCT_API_URL);
+    const local = ["127.0.0.1", "[::1]", "localhost"].includes(url.hostname);
+    if (
+      (url.protocol !== "https:" &&
+        !(url.protocol === "http:" && local && c.NODE_ENV !== "production")) ||
+      url.pathname !== "/" ||
+      url.search ||
+      url.hash ||
+      url.username ||
+      url.password
+    )
+      throw Error(
+        "Use an HTTPS product API origin or loopback HTTP in development",
+      );
+  }
   return c;
 }

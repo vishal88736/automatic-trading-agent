@@ -29,6 +29,7 @@ import {
 import { PlatformError, missing, denied } from "./domain/errors.js";
 import { AgentAnalysisService } from "./integrations/llm/agent-analysis.service.js";
 import { consumeAnalysis } from "./integrations/llm/analysis-consumer.js";
+import { registerProductRoutes } from "./product/routes.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -522,6 +523,7 @@ export function createPlatform(
       },
     ],
   }));
+  registerProductRoutes(app, c);
   return { app, agents, profiles, store, conversations, tools };
 }
 if (

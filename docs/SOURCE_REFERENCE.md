@@ -70,36 +70,36 @@ Use the local session/CSRF client or configured bearer authentication. Health/re
 
 Cognito access-token identity and tenant-aware repositories protect application resources. Authentication endpoints establish or clear sessions; `/platform/health` is public and does not attest AWS account availability.
 
-- `GET /platform/health` → [server.ts:252](../backend/src/server.ts#L252)
-- `GET /platform/ready` → [server.ts:261](../backend/src/server.ts#L261)
-- `GET /platform/emergency` → [server.ts:265](../backend/src/server.ts#L265)
-- `POST /platform/emergency-stop` → [server.ts:273](../backend/src/server.ts#L273)
-- `POST /platform/emergency-clear` → [server.ts:276](../backend/src/server.ts#L276)
-- `GET /platform/profile` → [server.ts:316](../backend/src/server.ts#L316)
-- `POST /platform/profile/preview` → [server.ts:318](../backend/src/server.ts#L318)
-- `GET /platform/agents` → [server.ts:335](../backend/src/server.ts#L335)
-- `GET /platform/portfolio` → [server.ts:339](../backend/src/server.ts#L339)
-- `POST /platform/agents` → [server.ts:340](../backend/src/server.ts#L340)
-- `GET /platform/agent-templates` → [server.ts:341](../backend/src/server.ts#L341)
-- `POST /platform/agent-templates/:id/instantiate` → [server.ts:344](../backend/src/server.ts#L344)
-- `GET /platform/agents/:id` → [server.ts:352](../backend/src/server.ts#L352)
-- `GET /platform/agents/:id/preview` → [server.ts:355](../backend/src/server.ts#L355)
-- `POST /platform/agents/:id/deploy` → [server.ts:358](../backend/src/server.ts#L358)
-- `POST /platform/agents/:id/configuration/preview` → [server.ts:361](../backend/src/server.ts#L361)
-- `POST /platform/agents/:id/rollback/preview` → [server.ts:383](../backend/src/server.ts#L383)
-- `POST /platform/agents/:id/control` → [server.ts:405](../backend/src/server.ts#L405)
-- `GET /platform/agents/:id/events` → [server.ts:429](../backend/src/server.ts#L429)
-- `GET /platform/agents/:id/logs` → [server.ts:434](../backend/src/server.ts#L434)
-- `GET /platform/agents/:id/metrics` → [server.ts:439](../backend/src/server.ts#L439)
-- `GET /platform/agents/:id/versions` → [server.ts:448](../backend/src/server.ts#L448)
-- `POST /platform/conversations` → [server.ts:454](../backend/src/server.ts#L454)
-- `GET /platform/conversations` → [server.ts:457](../backend/src/server.ts#L457)
-- `GET /platform/conversations/:id/messages` → [server.ts:461](../backend/src/server.ts#L461)
-- `POST /platform/conversations/:id/messages` → [server.ts:467](../backend/src/server.ts#L467)
-- `GET /platform/conversations/:id/requests/:requestId` → [server.ts:476](../backend/src/server.ts#L476)
-- `POST /platform/actions/:id/approve` → [server.ts:486](../backend/src/server.ts#L486)
-- `GET /platform/history/:kind` → [server.ts:496](../backend/src/server.ts#L496)
-- `GET /platform/strategies` → [server.ts:511](../backend/src/server.ts#L511)
+- `GET /platform/health` → [server.ts:253](../backend/src/server.ts#L253)
+- `GET /platform/ready` → [server.ts:262](../backend/src/server.ts#L262)
+- `GET /platform/emergency` → [server.ts:266](../backend/src/server.ts#L266)
+- `POST /platform/emergency-stop` → [server.ts:274](../backend/src/server.ts#L274)
+- `POST /platform/emergency-clear` → [server.ts:277](../backend/src/server.ts#L277)
+- `GET /platform/profile` → [server.ts:317](../backend/src/server.ts#L317)
+- `POST /platform/profile/preview` → [server.ts:319](../backend/src/server.ts#L319)
+- `GET /platform/agents` → [server.ts:336](../backend/src/server.ts#L336)
+- `GET /platform/portfolio` → [server.ts:340](../backend/src/server.ts#L340)
+- `POST /platform/agents` → [server.ts:341](../backend/src/server.ts#L341)
+- `GET /platform/agent-templates` → [server.ts:342](../backend/src/server.ts#L342)
+- `POST /platform/agent-templates/:id/instantiate` → [server.ts:345](../backend/src/server.ts#L345)
+- `GET /platform/agents/:id` → [server.ts:353](../backend/src/server.ts#L353)
+- `GET /platform/agents/:id/preview` → [server.ts:356](../backend/src/server.ts#L356)
+- `POST /platform/agents/:id/deploy` → [server.ts:359](../backend/src/server.ts#L359)
+- `POST /platform/agents/:id/configuration/preview` → [server.ts:362](../backend/src/server.ts#L362)
+- `POST /platform/agents/:id/rollback/preview` → [server.ts:384](../backend/src/server.ts#L384)
+- `POST /platform/agents/:id/control` → [server.ts:406](../backend/src/server.ts#L406)
+- `GET /platform/agents/:id/events` → [server.ts:430](../backend/src/server.ts#L430)
+- `GET /platform/agents/:id/logs` → [server.ts:435](../backend/src/server.ts#L435)
+- `GET /platform/agents/:id/metrics` → [server.ts:440](../backend/src/server.ts#L440)
+- `GET /platform/agents/:id/versions` → [server.ts:449](../backend/src/server.ts#L449)
+- `POST /platform/conversations` → [server.ts:455](../backend/src/server.ts#L455)
+- `GET /platform/conversations` → [server.ts:458](../backend/src/server.ts#L458)
+- `GET /platform/conversations/:id/messages` → [server.ts:462](../backend/src/server.ts#L462)
+- `POST /platform/conversations/:id/messages` → [server.ts:468](../backend/src/server.ts#L468)
+- `GET /platform/conversations/:id/requests/:requestId` → [server.ts:477](../backend/src/server.ts#L477)
+- `POST /platform/actions/:id/approve` → [server.ts:487](../backend/src/server.ts#L487)
+- `GET /platform/history/:kind` → [server.ts:497](../backend/src/server.ts#L497)
+- `GET /platform/strategies` → [server.ts:512](../backend/src/server.ts#L512)
 - `POST /platform/auth/register` → [cognito.ts:112](../backend/src/auth/cognito.ts#L112)
 - `POST /platform/auth/verify` → [cognito.ts:133](../backend/src/auth/cognito.ts#L133)
 - `POST /platform/auth/login` → [cognito.ts:144](../backend/src/auth/cognito.ts#L144)
@@ -380,6 +380,41 @@ Cognito access-token identity and tenant-aware repositories protect application 
 - [ChatRequest](../backend/models.py#L432) — class
 - [BacktestRequest](../backend/models.py#L438) — class
 
+### backend/paper_accounts.py
+
+- [PaperAccount](../backend/paper_accounts.py#L15) — class
+- [get_account](../backend/paper_accounts.py#L22) — `get_account(db: Connection, owner_id: UUID)`
+- [ensure_account](../backend/paper_accounts.py#L40) — `ensure_account(db: Connection, owner_id: UUID, initial_usdt: Decimal=DEFAULT_INITIAL_USDT)`
+
+### backend/platform_db.py
+
+- [open_database](../backend/platform_db.py#L15) — `open_database(dsn: str)`
+- [migrate](../backend/platform_db.py#L19) — `migrate(db: Connection, directory: Path=MIGRATIONS)`
+
+### backend/platform_product_api.py
+
+- [StrategyEdit](../backend/platform_product_api.py#L37) — class
+- [StrategyArchive](../backend/platform_product_api.py#L42) — class
+- [ProductError](../backend/platform_product_api.py#L46) — class
+- [ProductError.__init__](../backend/platform_product_api.py#L47) — `__init__(self, status: int, code: str, message: str)`
+- [create_product_api](../backend/platform_product_api.py#L53) — `create_product_api(dsn: str, key: str, initial_usdt: Decimal=DEFAULT_INITIAL_USDT)`
+- [create_product_api.product_error](../backend/platform_product_api.py#L62) — `async product_error(_request, exc)`
+- [create_product_api.validation_error](../backend/platform_product_api.py#L68) — `async validation_error(_request, exc)`
+- [create_product_api.database_error](../backend/platform_product_api.py#L84) — `async database_error(_request, _exc)`
+- [create_product_api.missing_strategy](../backend/platform_product_api.py#L91) — `async missing_strategy(_request, _exc)`
+- [create_product_api.conflict](../backend/platform_product_api.py#L98) — `async conflict(_request, _exc)`
+- [create_product_api.owner](../backend/platform_product_api.py#L104) — `async owner(request: Request)`
+- [create_product_api.database](../backend/platform_product_api.py#L145) — `database()`
+- [create_product_api.paper_account](../backend/platform_product_api.py#L154) — `paper_account(subject: Principal, db: Database)`
+- [create_product_api.provision_paper_account](../backend/platform_product_api.py#L158) — `provision_paper_account(subject: Principal, db: Database)`
+- [create_product_api.strategies](../backend/platform_product_api.py#L162) — `strategies(subject: Principal, db: Database, after: UUID | None=None, limit: Annotated[int, Query(ge=1, le=100)]=50)`
+- [create_product_api.new_strategy](../backend/platform_product_api.py#L171) — `new_strategy(document: StrategyDraft, subject: Principal, db: Database)`
+- [create_product_api.strategy](../backend/platform_product_api.py#L176) — `strategy(strategy_id: UUID, subject: Principal, db: Database, version: Annotated[int | None, Query(ge=1, le=2 ** 31 - 1)]=None)`
+- [create_product_api.edit_strategy](../backend/platform_product_api.py#L188) — `edit_strategy(strategy_id: UUID, edit: StrategyEdit, subject: Principal, db: Database)`
+- [create_product_api.remove_strategy](../backend/platform_product_api.py#L194) — `remove_strategy(strategy_id: UUID, archive: StrategyArchive, subject: Principal, db: Database)`
+- [create_product_api.versions](../backend/platform_product_api.py#L200) — `versions(strategy_id: UUID, subject: Principal, db: Database, before: Annotated[int, Query(ge=2, le=2 ** 31)]=2 ** 31, limit: Annotated[int, Query(ge=1, le=100)]=50)`
+- [app_from_environment](../backend/platform_product_api.py#L216) — `app_from_environment()`
+
 ### backend/portfolio.py
 
 - [Portfolio](../backend/portfolio.py#L13) — class
@@ -482,6 +517,29 @@ Cognito access-token identity and tenant-aware repositories protect application 
 - [RuleStrategy.evaluate](../backend/strategy_registry.py#L56) — `evaluate(self, market, news, holding=False, clock=None)`
 - [builtins](../backend/strategy_registry.py#L78) — `builtins(configurations: dict[str, StrategyConfig])`
 
+### backend/strategy_repository.py
+
+- [StoredStrategy](../backend/strategy_repository.py#L15) — class
+- [_stored](../backend/strategy_repository.py#L22) — `_stored(row)`
+- [_insert_version](../backend/strategy_repository.py#L26) — `_insert_version(db: Connection, owner_id: UUID, strategy_id: UUID, version: int, draft: StrategyDraft)`
+- [create_strategy](../backend/strategy_repository.py#L40) — `create_strategy(db: Connection, owner_id: UUID, draft: StrategyDraft)`
+- [get_strategy](../backend/strategy_repository.py#L50) — `get_strategy(db: Connection, owner_id: UUID, strategy_id: UUID, version: int | None=None)`
+- [list_strategies](../backend/strategy_repository.py#L69) — `list_strategies(db: Connection, owner_id: UUID, *, after: UUID | None=None, limit: int=50)`
+- [strategy_history](../backend/strategy_repository.py#L95) — `strategy_history(db: Connection, owner_id: UUID, strategy_id: UUID, *, before_version: int=2 ** 31, limit: int=50)`
+- [_lock_current](../backend/strategy_repository.py#L118) — `_lock_current(db: Connection, owner_id: UUID, strategy_id: UUID, expected_version: int)`
+- [update_strategy](../backend/strategy_repository.py#L137) — `update_strategy(db: Connection, owner_id: UUID, strategy_id: UUID, draft: StrategyDraft, *, expected_version: int)`
+- [archive_strategy](../backend/strategy_repository.py#L152) — `archive_strategy(db: Connection, owner_id: UUID, strategy_id: UUID, *, expected_version: int)`
+
+### backend/strategy_rules.py
+
+- [Condition](../backend/strategy_rules.py#L32) — class
+- [RuleGroup](../backend/strategy_rules.py#L38) — class
+- [StrategyDefinition](../backend/strategy_rules.py#L43) — class
+- [StrategyDraft](../backend/strategy_rules.py#L55) — class
+- [_threshold](../backend/strategy_rules.py#L61) — `_threshold(condition: Condition, values: dict)`
+- [_matches](../backend/strategy_rules.py#L67) — `_matches(condition: Condition, current: dict, previous: dict)`
+- [rule_signal](../backend/strategy_rules.py#L90) — `rule_signal(definition: StrategyDefinition, market: Market, *, holding: bool)`
+
 ### backend/trade_history.py
 
 - [realized_deltas](../backend/trade_history.py#L19) — `realized_deltas(records: list[dict])`
@@ -502,8 +560,8 @@ Cognito access-token identity and tenant-aware repositories protect application 
 
 ### backend/src/config.ts
 
-- [Config](../backend/src/config.ts#L94)
-- [loadConfig](../backend/src/config.ts#L109)
+- [Config](../backend/src/config.ts#L96)
+- [loadConfig](../backend/src/config.ts#L111)
 
 ### backend/src/domain/errors.ts
 
@@ -570,6 +628,10 @@ Cognito access-token identity and tenant-aware repositories protect application 
 
 - [ToolRegistry](../backend/src/integrations/llm/tool-registry.ts#L18)
 
+### backend/src/product/routes.ts
+
+- [registerProductRoutes](../backend/src/product/routes.ts#L6)
+
 ### backend/src/profiles/profile.service.ts
 
 - [ProfileService](../backend/src/profiles/profile.service.ts#L9)
@@ -597,7 +659,7 @@ Cognito access-token identity and tenant-aware repositories protect application 
 
 ### backend/src/server.ts
 
-- [createPlatform](../backend/src/server.ts#L38)
+- [createPlatform](../backend/src/server.ts#L39)
 
 ### backend/src/storage/tenant-store.ts
 

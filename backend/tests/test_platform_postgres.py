@@ -1,6 +1,10 @@
 """Integration tests for product state on a disposable PostgreSQL database."""
 
+import hashlib
+import hmac
+import json
 import os
+import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from decimal import Decimal
@@ -16,11 +20,14 @@ if not TEST_DSN:
         "KRONO_TEST_DATABASE_DSN is required for PostgreSQL integration", allow_module_level=True
     )
 
+from fastapi.testclient import TestClient  # noqa: E402
 from psycopg import sql  # noqa: E402
+from psycopg.conninfo import make_conninfo  # noqa: E402
 from psycopg.errors import CheckViolation, ForeignKeyViolation, SyntaxError  # noqa: E402
 
 from backend.paper_accounts import ensure_account, get_account  # noqa: E402
 from backend.platform_db import MIGRATIONS, migrate, open_database  # noqa: E402
+from backend.platform_product_api import create_product_api  # noqa: E402
 from backend.strategy_repository import (  # noqa: E402
     archive_strategy,
     create_strategy,
@@ -33,22 +40,25 @@ from backend.strategy_rules import StrategyDraft  # noqa: E402
 
 
 @pytest.fixture
-def database():
+def database_dsn():
     schema = "test_" + uuid4().hex
     identifier = sql.Identifier(schema)
     with open_database(TEST_DSN) as admin:
         admin.execute(sql.SQL("CREATE SCHEMA {}").format(identifier))
-
-        @contextmanager
-        def connect():
-            with open_database(TEST_DSN) as db:
-                db.execute(sql.SQL("SET search_path TO {}").format(identifier))
-                yield db
-
         try:
-            yield connect
+            yield make_conninfo(TEST_DSN, options=f"-c search_path={schema}")
         finally:
             admin.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(identifier))
+
+
+@pytest.fixture
+def database(database_dsn):
+    @contextmanager
+    def connect():
+        with open_database(database_dsn) as db:
+            yield db
+
+    return connect
 
 
 def test_migrations_are_repeatable_and_rollback_failed_upgrade(database, tmp_path):
@@ -119,9 +129,9 @@ def test_account_ownership_and_credit_precision_are_enforced(database):
             )
 
 
-def test_strategy_versions_preserve_history_and_are_tenant_scoped(database):
-    owner, other = uuid4(), uuid4()
-    draft = StrategyDraft.model_validate(
+@pytest.fixture
+def strategy_draft():
+    return StrategyDraft.model_validate(
         {
             "name": "RSI",
             "definition": {
@@ -139,6 +149,11 @@ def test_strategy_versions_preserve_history_and_are_tenant_scoped(database):
             },
         }
     )
+
+
+def test_strategy_versions_preserve_history_and_are_tenant_scoped(database, strategy_draft):
+    owner, other = uuid4(), uuid4()
+    draft = strategy_draft
     with database() as db:
         migrate(db)
         ensure_account(db, owner)
@@ -165,3 +180,71 @@ def test_strategy_versions_preserve_history_and_are_tenant_scoped(database):
         assert get_strategy(db, owner, original.id) is None
         assert get_strategy(db, owner, original.id, 1) == original
         assert get_strategy(db, other, original.id, 1) is None
+
+
+def test_authenticated_product_http_checks_identity_payload_and_ownership(
+    database_dsn, database, strategy_draft
+):
+    with database() as db:
+        migrate(db)
+    owner, other = uuid4(), uuid4()
+    key = "signed-product-test-material" * 2
+    app = create_product_api(database_dsn, key, Decimal("1250.000001"))
+
+    def headers(method, path, subject, body="", ttl=20):
+        expires = str(int(time.time()) + ttl)
+        checksum = hashlib.sha256(body.encode()).hexdigest()
+        message = "\n".join([expires, str(subject), method, path, checksum])
+        return {
+            "x-krono-product-sub": str(subject),
+            "x-krono-product-expires": expires,
+            "x-krono-product-signature": hmac.new(
+                key.encode(), message.encode(), hashlib.sha256
+            ).hexdigest(),
+            "content-type": "application/json",
+        }
+
+    with TestClient(app) as client:
+
+        def call(method, path, subject=owner, payload=None):
+            data = "" if payload is None else json.dumps(payload)
+            return client.request(
+                method, path, headers=headers(method, path, subject, data), content=data
+            )
+
+        account = "/platform/paper-account"
+        assert client.get(account).status_code == 401
+        assert (
+            client.get(account, headers=headers("GET", account, owner, ttl=-1)).status_code == 401
+        )
+        assert call("GET", account).json() == {"account": None}
+        funded = call("POST", account)
+        assert funded.status_code == 200, funded.text
+        assert funded.json()["account"]["cash"] == "1250.000001"
+        assert call("POST", account).json() == funded.json()
+        assert call("GET", account, other).json() == {"account": None}
+
+        strategies = "/platform/custom-strategies"
+        draft = strategy_draft.model_dump(mode="json")
+        signed = headers("POST", strategies, owner, json.dumps(draft))
+        tampered = json.dumps({**draft, "name": "changed"})
+        assert client.post(strategies, headers=signed, content=tampered).status_code == 401
+        first = call("POST", strategies, payload=draft)
+        assert first.status_code == 201, first.text
+        record = f"{strategies}/{first.json()['id']}"
+        assert call("GET", record, other).status_code == 404
+        assert call("GET", strategies, other).json()["items"] == []
+        assert call("GET", strategies + "?limit=1").json()["items"] == [first.json()]
+        invalid = call("POST", strategies, payload={**draft, "owner_id": str(other)})
+        assert invalid.status_code == 422
+        assert str(other) not in invalid.text
+
+        update = {"expected_version": 1, "document": {**draft, "name": "Revision"}}
+        assert call("PUT", record, other, update).status_code == 404
+        second = call("PUT", record, payload=update)
+        assert second.json()["version"] == 2
+        assert call("PUT", record, payload=update).status_code == 409
+        assert call("GET", record + "/versions").json()["items"] == [second.json(), first.json()]
+        assert call("POST", record + "/archive", payload={"expected_version": 2}).status_code == 204
+        assert call("GET", record).status_code == 404
+        assert call("GET", record + "?version=1").json() == first.json()

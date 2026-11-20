@@ -93,3 +93,23 @@ Set `KRONO_TEST_DATABASE_DSN` to a disposable PostgreSQL database with permissio
 ```bash
 .venv/bin/python -m pytest -q backend/tests/test_platform_postgres.py
 ```
+
+### Authenticated product API
+
+After applying the migrations, run the private FastAPI process with the database connection and a random `KRONO_PRODUCT_API_KEY` of at least 32 bytes in its server environment:
+
+```bash
+.venv/bin/python -m uvicorn backend.platform_product_api:app_from_environment --factory --host 127.0.0.1 --port 8794
+```
+
+Set the same key and `KRONO_PRODUCT_API_URL=http://127.0.0.1:8794` in the Fastify process environment, then start the existing `npm run dev:platform` with its Cognito and AWS settings. For a hosted environment use a private HTTPS origin. The gateway verifies Cognito and CSRF, then signs the subject, expiration, HTTP method, raw path and payload digest. Keep both the key and database DSN server-side. The product API remains separately configured from the local operator API and AEGIS.
+
+| Authenticated route                             | Behavior                                                                                                                                                |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET or POST `/platform/paper-account`           | Read the current virtual account or provision it once. Optional server setting `KRONO_PAPER_INITIAL_USDT` controls the opening credit for new accounts. |
+| GET or POST `/platform/custom-strategies`       | List with an `after` UUID cursor or create a validated strategy draft.                                                                                  |
+| GET or PUT `/platform/custom-strategies/{id}`   | Read current or explicit `?version=` and append a revision with `expected_version` and `document`.                                                      |
+| GET `/platform/custom-strategies/{id}/versions` | Read immutable versions with an optional `before` version cursor.                                                                                       |
+| POST `/platform/custom-strategies/{id}/archive` | Archive with `expected_version`; existing version history remains available.                                                                            |
+
+The APIs provide the account opening credit and strategy storage. Custom-strategy backtesting and paper order execution are later integration steps.
