@@ -111,7 +111,7 @@
 
 .rail-shell.unified-workspace .home-hero {
   --orbit-width: min(96vw, 1880px);
-  --orbit-height: clamp(195px, 55svh, 660px);
+  --orbit-height: clamp(225px, 69svh, 730px);
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
@@ -123,14 +123,25 @@
   background:
     radial-gradient(
       ellipse at 50% 100%,
-      light-dark(#e3ead9, #1b2318),
+      light-dark(#e5e8e3, #1a1e1b),
       transparent 68%
     ),
-    light-dark(#f3f4f7, #0b0d10);
+    light-dark(#f5f6f4, #090a0c);
 }
 
 .rail-shell.unified-workspace .home-hero h1 {
-  font-size: clamp(43px, min(8.3vw, 14svh), 124px);
+  font-size: clamp(43px, min(7.4vw, 12svh), 112px);
+}
+
+.rail-shell.unified-workspace .home-hero .button.primary {
+  background: light-dark(#874a31, #f4ad86);
+  border-color: light-dark(#874a31, #f4ad86);
+  color: light-dark(#fff9f4, #2c180f);
+}
+
+.rail-shell.unified-workspace .home-hero .button.primary:hover {
+  background: light-dark(#693725, #ffbf9b);
+  border-color: light-dark(#693725, #ffbf9b);
 }
 
 .unified-workspace .home-hero .page-heading {
@@ -143,9 +154,6 @@
 }
 
 .unified-workspace .home-orbit {
-  --orbit-ink: light-dark(#5f775782, #9bc18585);
-  --orbit-mark: var(--accent);
-  --orbit-halo: light-dark(#7a713594, #c9985a9e);
   inset: auto 0 7px;
   height: var(--orbit-height);
   mask-image: none;
@@ -153,133 +161,39 @@
 }
 
 .unified-workspace .home-orbit::before {
-  content: "";
   position: absolute;
-  inset: -30% 0 0;
-  mask-image: radial-gradient(ellipse at 50% 75%, #000 35%, transparent 77%);
+  inset: -25% 0 0;
+  mask-image: radial-gradient(ellipse at 50% 71%, #000, transparent 74%);
   background:
-    radial-gradient(
-      ellipse at 50% 70%,
-      light-dark(#b9d19b66, #73945450),
-      transparent 68%
-    ),
-    linear-gradient(to right, var(--border) 1px, transparent 1px) 50% 50% / 64px
-      64px,
-    linear-gradient(to bottom, var(--border) 1px, transparent 1px) 50% 50% /
-      64px 64px;
+    linear-gradient(to right, var(--border) 1px, transparent 1px) 50% / 90px
+      90px,
+    linear-gradient(to bottom, var(--border) 1px, transparent 1px) 50% / 90px
+      90px;
+  opacity: 0.34;
+  content: "";
 }
 
 .unified-workspace .orbit-plane {
-  top: 59%;
+  top: 51%;
   width: var(--orbit-width);
-  height: 78%;
+  height: 94%;
   aspect-ratio: auto;
   transform: translate(-50%, -50%);
-  border: 1px solid var(--orbit-ink);
-  border-radius: 50%;
-  background: radial-gradient(
-    ellipse,
-    transparent 30%,
-    light-dark(#e0e9d741, #111a1233) 71%
-  );
-}
-
-.unified-workspace .orbit-plane::before,
-.unified-workspace .orbit-plane::after {
-  position: absolute;
-  left: 50%;
-  width: 75%;
-  height: 84%;
-  translate: -50% 0;
-  border: 1px solid var(--orbit-halo);
-  border-radius: 50%;
-  content: "";
-}
-
-.unified-workspace .orbit-plane::before {
-  bottom: 14%;
-  box-shadow: 0 0 20px color-mix(in srgb, var(--orbit-halo) 24%, transparent);
-}
-
-.unified-workspace .orbit-plane::after {
-  bottom: 31%;
-  opacity: 0.65;
-}
-
-.unified-workspace .orbit-rotor {
-  inset: 2%;
-  background:
-    repeating-conic-gradient(
-      from 8deg,
-      transparent 0deg 21deg,
-      var(--orbit-ink) 21.2deg 21.45deg
-    ),
-    repeating-radial-gradient(
-      ellipse,
-      transparent 0 12%,
-      var(--orbit-ink) 12.2% 12.5%,
-      transparent 12.7% 14%
-    );
-  animation: orbit-depth 6s ease-in-out infinite alternate;
-}
-
-.unified-workspace .orbit-track {
-  rotate: none;
-}
-
-.unified-workspace .orbit-crosshair,
-.unified-workspace .orbit-track::before,
-.unified-workspace .orbit-track::after {
-  display: none;
-}
-
-@keyframes orbit-depth {
-  from {
-    opacity: 0.54;
-  }
-  to {
-    opacity: 0.88;
-  }
-}
-
-.unified-workspace .orbit-coins,
-.unified-workspace .orbit-core {
-  position: absolute;
-  top: 59%;
-  left: 50%;
-  translate: -50% -50%;
 }
 
 .unified-workspace .orbit-coins {
+  position: absolute;
+  top: 63%;
+  left: 50%;
   width: var(--orbit-width);
-  height: 78%;
+  height: 65%;
+  translate: -50% -50%;
 }
 
 @property --orbit-angle {
   syntax: "<angle>";
   inherits: false;
   initial-value: 0deg;
-}
-
-.unified-workspace .orbit-core {
-  display: grid;
-  place-items: center;
-  width: clamp(60px, 12vw, 143px);
-  aspect-ratio: 1;
-  border: 1px solid var(--accent-border);
-  border-radius: 50%;
-  background: radial-gradient(
-    circle at 36% 28%,
-    var(--accent-bg),
-    var(--bg) 77%
-  );
-  box-shadow: 0 0 45px color-mix(in srgb, var(--accent) 22%, transparent);
-}
-
-.unified-workspace .orbit-core .krono-mark {
-  width: 48%;
-  height: 48%;
-  color: var(--accent);
 }
 
 .unified-workspace .orbit-satellite {
@@ -290,26 +204,26 @@
   translate: -50% -50%;
   display: grid;
   place-items: center;
-  width: clamp(27px, 4.5vw, 60px);
+  width: clamp(23px, 3.5vw, 46px);
   aspect-ratio: 1;
   animation: orbit-coin-travel var(--orbit-time, 24s) linear infinite;
 }
 
 .unified-workspace .orbit-satellite[data-coin="BTC"] {
   --coin-rim: #ad661f;
-  --coin-light: #fff1bf;
-  --coin-mid: #f6b647;
-  --coin-shadow: #c47d2b;
+  --coin-light: #ead2a0;
+  --coin-mid: #c09654;
+  --coin-shadow: #8c602f;
   --coin-text: #512900;
   --orbit-start: 20deg;
 }
 
 .unified-workspace .orbit-satellite[data-coin="ETH"] {
-  --coin-rim: #7b86bb;
-  --coin-light: #f4f4ff;
-  --coin-mid: #abb4e6;
-  --coin-shadow: #838fc6;
-  --coin-text: #30396d;
+  --coin-rim: #7c848f;
+  --coin-light: #e7e9eb;
+  --coin-mid: #adb3bd;
+  --coin-shadow: #757e8e;
+  --coin-text: #343b49;
   --orbit-start: 190deg;
   --orbit-x: 37%;
   --orbit-y: 36%;
@@ -317,10 +231,10 @@
 }
 
 .unified-workspace .orbit-satellite[data-coin="SOL"] {
-  --coin-rim: #387c76;
-  --coin-light: #c7fff1;
-  --coin-mid: #72d9bf;
-  --coin-shadow: #9d75d5;
+  --coin-rim: #51816e;
+  --coin-light: #cdeada;
+  --coin-mid: #8dbfa9;
+  --coin-shadow: #79768c;
   --coin-text: #214338;
   --orbit-start: 310deg;
   --orbit-x: 30%;
@@ -333,7 +247,7 @@
   height: 100%;
   border: 1px solid var(--coin-rim);
   border-radius: 50%;
-  font-size: clamp(16px, 2.3vw, 29px);
+  font-size: clamp(14px, 1.8vw, 23px);
   font-weight: 700;
   color: var(--coin-text);
   background: linear-gradient(
