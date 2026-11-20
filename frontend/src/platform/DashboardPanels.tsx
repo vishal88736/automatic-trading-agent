@@ -4,6 +4,7 @@ import { Sparkline } from "../charts";
 import { Coin, money, timestamp } from "../ui";
 import type { Candle } from "../types";
 import { platform } from "./client";
+import { marketAssets, type MarketAsset } from "./market-assets";
 import { workspaceHref } from "./navigation";
 
 type EquityMark = { at: string; equity: string };
@@ -125,8 +126,6 @@ export function PortfolioBars({ rows }: { rows: EquityMark[] }) {
   );
 }
 
-const marketAssets = ["BTC", "ETH", "SOL"] as const;
-type MarketAsset = (typeof marketAssets)[number];
 type MarketQuote = {
   source: string;
   status: string;

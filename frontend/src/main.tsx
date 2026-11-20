@@ -8,6 +8,7 @@ import "./theme.css";
 import "./palette.css";
 import "./workspace.css";
 import "./platform/product-design.css";
+import "./platform/landing.css";
 
 function mount(App: typeof Workspace) {
   ReactDOM.createRoot(document.getElementById("root")!).render(

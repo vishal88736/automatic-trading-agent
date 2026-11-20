@@ -1,21 +1,45 @@
 /* Shared color roles for the terminal, desks, and authenticated workspaces. */
 :root {
   color-scheme: light dark;
-  --bg: light-dark(#f5f3ef, #100f0d);
-  --sidebar: light-dark(#efebe5, #131210);
-  --panel: light-dark(#fffdfa, #1a1815);
-  --raised: light-dark(#f1ece5, #25211d);
-  --border: light-dark(#d9d0c5, #3d342d);
-  --border-strong: light-dark(#b9ab9c, #726254);
-  --text: light-dark(#211b17, #fff4eb);
-  --muted: light-dark(#50453b, #d5c7ba);
-  --subtle: light-dark(#66574b, #baaa9d);
-  --accent: light-dark(#a53611, #ffac83);
-  --accent-strong: light-dark(#b64017, #ffac83);
-  --accent-hover: light-dark(#94300f, #ffc29f);
-  --accent-bg: light-dark(#f9e8da, #38231a);
-  --accent-border: light-dark(#d49b7d, #8b5941);
-  --on-accent: light-dark(#fffaf5, #25140e);
+  --sapphire-ink: #08121c;
+  --sapphire-navy: #163148;
+  --sapphire-blue: #2e5878;
+  --sapphire-steel: #5e86a8;
+  --sapphire-mist: #adc5d8;
+  --sapphire-ice: #eef4f8;
+  --bg: light-dark(var(--sapphire-ice), var(--sapphire-ink));
+  --sidebar: light-dark(var(--sapphire-ice), var(--sapphire-navy));
+  --panel: light-dark(
+    white,
+    color-mix(in srgb, var(--sapphire-navy) 52%, var(--sapphire-ink))
+  );
+  --raised: light-dark(
+    color-mix(in srgb, var(--sapphire-mist) 25%, var(--sapphire-ice)),
+    var(--sapphire-navy)
+  );
+  --border: light-dark(
+    color-mix(in srgb, var(--sapphire-mist) 64%, var(--sapphire-ice)),
+    color-mix(in srgb, var(--sapphire-blue) 57%, var(--sapphire-navy))
+  );
+  --border-strong: light-dark(
+    var(--sapphire-steel),
+    color-mix(in srgb, var(--sapphire-steel) 70%, var(--sapphire-blue))
+  );
+  --text: light-dark(var(--sapphire-ink), var(--sapphire-ice));
+  --muted: light-dark(var(--sapphire-blue), var(--sapphire-mist));
+  --subtle: light-dark(var(--sapphire-blue), var(--sapphire-mist));
+  --accent: light-dark(var(--sapphire-blue), var(--sapphire-mist));
+  --accent-strong: light-dark(
+    var(--sapphire-blue),
+    color-mix(in srgb, var(--sapphire-steel) 65%, var(--sapphire-mist))
+  );
+  --accent-hover: light-dark(var(--sapphire-navy), var(--sapphire-ice));
+  --accent-bg: light-dark(
+    color-mix(in srgb, var(--sapphire-mist) 44%, var(--sapphire-ice)),
+    var(--sapphire-navy)
+  );
+  --accent-border: var(--sapphire-steel);
+  --on-accent: light-dark(var(--sapphire-ice), var(--sapphire-ink));
   --positive: light-dark(#116348, #9fe0be);
   --positive-bg: light-dark(#e7f2e9, #1f382d);
   --positive-border: light-dark(#92b6a1, #486754);
@@ -25,13 +49,16 @@
   --warning: light-dark(#845014, #f6cb8b);
   --warning-bg: light-dark(#f9efde, #382d1f);
   --warning-border: light-dark(#c4a877, #866641);
-  --info: light-dark(#215f76, #a1d8e7);
-  --info-bg: light-dark(#e5eff2, #24353b);
-  --info-border: light-dark(#8ca9b6, #557481);
-  --surface-inset: light-dark(#ebe5dd, #151310);
-  --surface-hover: light-dark(#eae2d9, #312a24);
-  --solid-light: #fff8ef;
-  --scrim: light-dark(#271f1866, #080604b8);
+  --info: var(--accent);
+  --info-bg: var(--accent-bg);
+  --info-border: var(--accent-border);
+  --surface-inset: light-dark(var(--sapphire-ice), var(--sapphire-ink));
+  --surface-hover: light-dark(
+    color-mix(in srgb, var(--sapphire-mist) 32%, var(--sapphire-ice)),
+    color-mix(in srgb, var(--sapphire-blue) 30%, var(--sapphire-navy))
+  );
+  --solid-light: var(--sapphire-ice);
+  --scrim: color-mix(in srgb, var(--sapphire-ink) 66%, transparent);
 }
 :root[data-theme="light"] {
   color-scheme: light;
@@ -67,12 +94,12 @@
   background:
     radial-gradient(
       ellipse at 82% 20%,
-      light-dark(#d16b2826, #e37c393b),
+      color-mix(in srgb, var(--sapphire-steel) 28%, transparent),
       transparent 67%
     ),
     radial-gradient(
         circle,
-        light-dark(#aa7a5b45, #d499743b) 0.7px,
+        color-mix(in srgb, var(--sapphire-steel) 27%, transparent) 0.7px,
         transparent 1px
       )
       0 0 / 15px 15px;

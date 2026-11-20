@@ -86,7 +86,7 @@ test("the home orbit rotates, respects reduced motion, and leaves the desk actio
   ).toBeVisible();
 });
 
-test("the unified landing fills the viewport and opens a separate sign-in screen without WebGL", async ({
+test("the sapphire landing fits the viewport and opens a separate sign-in screen without WebGL", async ({
   page,
 }) => {
   await stubSignedOutSession(page);
@@ -106,43 +106,53 @@ test("the unified landing fills the viewport and opens a separate sign-in screen
   const darkPoster = page.waitForResponse("**/art/krono-studio-dark.webp");
   await page.goto("/workspace#/dashboard");
   const hero = page.getByRole("heading", {
-    name: "Trade with Krono.",
+    name: "Build and test crypto strategies.",
     exact: true,
   });
   await expect(hero).toBeVisible();
   expect((await darkPoster).ok()).toBe(true);
 
+  const landing = page.locator(".krono-landing");
   const scene = page.locator(".landing-scene");
   const start = page.getByRole("link", { name: "Get started" });
+  await expect(landing).toHaveCSS("background-color", "rgb(8, 18, 28)");
   await expect(scene.locator("canvas")).toHaveAttribute("data-ready", "false");
   await expect(page.locator(".landing-motion")).toHaveCount(0);
 
   for (const [width, height] of [
     [1502, 726],
     [1366, 600],
+    [850, 780],
     [390, 844],
     [365, 720],
     [320, 568],
   ]) {
     await page.setViewportSize({ width, height });
-    expect(await scene.boundingBox()).toEqual({ x: 0, y: 0, width, height });
+    const heroBounds = (await page.locator(".landing-hero").boundingBox())!;
+    const artBounds = (await scene.boundingBox())!;
+    expect(heroBounds.width).toBe(width);
+    expect(heroBounds.height).toBeGreaterThanOrEqual(height);
+    expect(artBounds.x).toBeGreaterThanOrEqual(0);
+    expect(artBounds.x + artBounds.width).toBeLessThanOrEqual(width);
+    expect(artBounds.y + artBounds.height).toBeLessThanOrEqual(
+      heroBounds.height,
+    );
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBe(width);
     await expect(start).toBeInViewport({ ratio: 1 });
   }
-  const lightPoster = page.waitForResponse(
-    "**/art/krono-studio-light-portrait.webp",
-  );
+  const lightPoster = page.waitForResponse("**/art/krono-studio-light.webp");
   await page.getByRole("button", { name: "Switch to light theme" }).click();
   expect((await lightPoster).ok()).toBe(true);
+  await expect(landing).toHaveCSS("background-color", "rgb(238, 244, 248)");
   await expect
     .poll(() =>
       scene.evaluate(
         (node) => getComputedStyle(node, "::before").backgroundImage,
       ),
     )
-    .toContain("krono-studio-light-portrait.webp");
+    .toContain("krono-studio-light.webp");
   await expect(page.getByLabel("Email", { exact: true })).toHaveCount(0);
   await start.click();
   await expect(page).toHaveURL(/#\/sign-in$/);
@@ -154,6 +164,41 @@ test("the unified landing fills the viewport and opens a separate sign-in screen
   await expect(scene).toHaveCount(0);
   await page.goBack();
   await expect(hero).toBeVisible();
+});
+
+test("landing section links focus the selected content and preserve protected destinations", async ({
+  page,
+}) => {
+  await stubSignedOutSession(page);
+  await page.goto("/workspace#/dashboard");
+  await page.getByRole("link", { name: "See how it works" }).click();
+  await expect(page).toHaveURL(/#\/dashboard\?section=workflow$/);
+  const workflow = page.getByRole("region", {
+    name: "From strategy to paper trading",
+  });
+  await expect(workflow).toBeFocused();
+  await expect(
+    workflow.getByRole("link", { name: /Build your rules/ }),
+  ).toHaveAttribute("href", "#/builder");
+  await workflow.getByRole("link", { name: /Backtest a strategy/ }).click();
+  await expect(page).toHaveURL(/#\/backtests$/);
+  await expect(
+    page.getByRole("heading", { name: "Welcome to your workspace" }),
+  ).toBeVisible();
+  await expect.poll(() => page.evaluate(() => scrollY)).toBe(0);
+
+  await page.goBack();
+  await expect(workflow).toBeFocused();
+  await page
+    .getByRole("navigation", { name: "Krono links" })
+    .getByRole("link", { name: "Workspace tools" })
+    .click();
+  await expect(page).toHaveURL(/#\/dashboard\?section=tools$/);
+  await page.reload();
+  await expect(page.locator("#landing-tools")).toBeFocused();
+  await expect(
+    page.getByRole("link", { name: "Ethereum (ETH)" }),
+  ).toHaveAttribute("href", "#/markets?asset=ETH");
 });
 
 test("the landing coin pauses, resumes, and respects reduced motion", async ({
@@ -183,8 +228,16 @@ test("the landing coin pauses, resumes, and respects reduced motion", async ({
       "data-ready",
       "true",
     );
+    const box = (await page.locator(".landing-scene").boundingBox())!;
     const capture = () =>
-      page.screenshot({ clip: { x: 275, y: 100, width: 470, height: 350 } });
+      page.screenshot({
+        clip: {
+          x: box.x + 12,
+          y: box.y + 12,
+          width: box.width - 24,
+          height: box.height - 68,
+        },
+      });
     const nextPaint = () =>
       page.evaluate(
         () =>

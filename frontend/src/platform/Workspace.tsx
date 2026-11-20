@@ -18,11 +18,12 @@ import {
   WandSparkles,
 } from "lucide-react";
 import { KronoMark } from "../brand";
-import { Landing } from "./Landing";
+import { Landing, LandingSectionLink } from "./Landing";
 import { ThemeToggle } from "../ThemeToggle";
 import { Auth } from "./Auth";
 import { platform, PlatformRequestError } from "./client";
 import {
+  landingSections,
   modules,
   readRoute,
   signInHref,
@@ -134,12 +135,14 @@ export function Workspace() {
   const [replaying, setReplaying] = useState(false);
 
   useEffect(() => {
+    let previousPage = readRoute().page;
     function sync() {
       const next = readRoute();
       if (location.hash !== next.href)
         history.replaceState(null, "", next.href);
       setRoute(next);
-      if (next.signIn) window.scrollTo(0, 0);
+      if (next.signIn || next.page !== previousPage) window.scrollTo(0, 0);
+      previousPage = next.page;
       setMenuOpen(false);
       setReplaying(false);
     }
@@ -242,14 +245,25 @@ export function Workspace() {
             <KronoMark />
             <span>Krono.</span>
           </a>
+          {showLanding && (
+            <nav className="landing-nav" aria-label="About Krono">
+              {landingSections.map(([id, label]) => (
+                <LandingSectionLink key={id} section={id}>
+                  {label}
+                </LandingSectionLink>
+              ))}
+            </nav>
+          )}
           <div className="header-controls">
-            <span className="mode-label">
-              <ShieldCheck size={14} /> Paper trading
-            </span>
+            {!showLanding && (
+              <span className="mode-label">
+                <ShieldCheck size={14} /> Paper trading
+              </span>
+            )}
             <ThemeToggle />
             {showLanding && (
-              <a className="button primary landing-start" href={signInHref}>
-                Get started <ArrowRight size={15} aria-hidden />
+              <a className="button secondary landing-sign-in" href={signInHref}>
+                Sign in <ArrowRight size={15} aria-hidden />
               </a>
             )}
             {session && (
@@ -288,7 +302,7 @@ export function Workspace() {
           </nav>
         )}
         <main className="platform-workspace">
-          {showLanding && <Landing />}
+          {showLanding && <Landing section={route.landingSection} />}
           {auth.state === "signed-out" && !showLanding && (
             <section className="product-auth-page">
               <h1 className="visually-hidden">Sign in to Krono</h1>

@@ -13,6 +13,13 @@ export const modules = [
 
 export type Module = (typeof modules)[number][0];
 
+export const landingSections = [
+  ["workflow", "How it works"],
+  ["tools", "Workspace tools"],
+] as const;
+
+export type LandingSection = (typeof landingSections)[number][0];
+
 export const legacyFixture =
   import.meta.env.DEV &&
   import.meta.env.VITE_KRONO_LEGACY_FIXTURES === "true" &&
@@ -49,6 +56,10 @@ export function workspaceHref(page: Module, suffix = "") {
 
 export const signInHref = "#/sign-in";
 
+export function landingSectionHref(section: LandingSection) {
+  return workspaceHref("dashboard", `?section=${section}`);
+}
+
 export function readRoute() {
   const [path = "", query] = location.hash.replace(/^#\/?/, "").split("?", 2);
   const signIn = path === "sign-in";
@@ -61,10 +72,12 @@ export function readRoute() {
       ? historicalRoutes[candidate]
       : "dashboard");
   const suffix = (report ? `/${report[1]}` : "") + (query ? `?${query}` : "");
+  const section = new URLSearchParams(query).get("section");
   return {
     page,
     reportId: report?.[1],
     signIn,
+    landingSection: landingSections.find(([id]) => id === section)?.[0],
     href: signIn ? signInHref : workspaceHref(page, suffix),
   };
 }

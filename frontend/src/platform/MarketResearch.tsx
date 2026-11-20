@@ -3,9 +3,11 @@ import { CandleChart, type ChartViewport } from "../charts";
 import type { Candle } from "../types";
 import { money, timestamp } from "../ui";
 import { platform } from "./client";
-
-const assets = { BTC: "Bitcoin", ETH: "Ethereum", SOL: "Solana" } as const;
-type Asset = keyof typeof assets;
+import {
+  marketAssets,
+  marketNames as assets,
+  type MarketAsset as Asset,
+} from "./market-assets";
 interface Market {
   status: string;
   source: string;
@@ -100,7 +102,7 @@ function News() {
             }}
           >
             <option value="">All assets</option>
-            {Object.keys(assets).map((symbol) => (
+            {marketAssets.map((symbol) => (
               <option key={symbol}>{symbol}</option>
             ))}
           </select>
@@ -285,7 +287,7 @@ function Markets() {
       setSaving(false);
     }
   }
-  const visible = (Object.keys(assets) as Asset[]).filter((symbol) =>
+  const visible = marketAssets.filter((symbol) =>
     `${symbol} ${assets[symbol]}`
       .toLowerCase()
       .includes(search.trim().toLowerCase()),

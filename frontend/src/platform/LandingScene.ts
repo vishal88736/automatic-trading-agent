@@ -83,7 +83,7 @@ function rail(
 function makeTrack() {
   const texture = brushedSteel();
   const strip = new THREE.MeshPhysicalMaterial({
-    color: 0xd4d8df,
+    color: 0xadc5d8,
     metalness: 0.94,
     roughness: 0.29,
     roughnessMap: texture,
@@ -94,7 +94,7 @@ function makeTrack() {
     side: THREE.DoubleSide,
   });
   const outside = new THREE.MeshStandardMaterial({
-    color: 0xa5adb9,
+    color: 0x5e86a8,
     metalness: 0.91,
     roughness: 0.28,
     bumpMap: texture,
@@ -102,7 +102,7 @@ function makeTrack() {
     side: THREE.DoubleSide,
   });
   const rim = new THREE.MeshStandardMaterial({
-    color: 0xe9e7e6,
+    color: 0xeef4f8,
     metalness: 0.96,
     roughness: 0.11,
   });
@@ -140,19 +140,19 @@ function makeTrack() {
 
 function makeCoin() {
   const metal = new THREE.MeshPhysicalMaterial({
-    color: 0xf4c56a,
-    metalness: 0.81,
+    color: 0x5e86a8,
+    metalness: 0.79,
     roughness: 0.23,
-    emissive: 0x985413,
-    emissiveIntensity: 0.19,
+    emissive: 0x2e5878,
+    emissiveIntensity: 0.25,
     clearcoat: 0.36,
   });
   const relief = new THREE.MeshStandardMaterial({
-    color: 0xffdd91,
+    color: 0xeef4f8,
     metalness: 0.83,
     roughness: 0.18,
-    emissive: 0x8d622b,
-    emissiveIntensity: 0.12,
+    emissive: 0xadc5d8,
+    emissiveIntensity: 0.16,
   });
   const profile = [
     [0, -coinHalfWidth],
@@ -266,7 +266,7 @@ function groundReflections() {
 
       void main() {
         vec2 p = ground;
-        float taper = gaussian((p.x - 0.15) * 0.2) * gaussian(p.y * 0.38);
+        float taper = gaussian((p.x - 0.15) * 0.33) * gaussian(p.y * 0.63);
         float diagonal = p.y - 0.34 * p.x;
         float streakA = gaussian((diagonal - 1.24) * 2.7);
         float streakB = gaussian((diagonal + 1.08) * 1.75);
@@ -278,11 +278,11 @@ function groundReflections() {
         vec2 offset = p - coinCenter - vec2(0.44, -0.29);
         float coinShadow = gaussian(offset.x * 2.8) * gaussian(offset.y * 3.7) * 0.28;
         float shade = max(contact, max(longShadow, coinShadow));
-        vec3 beam = lightStage ? vec3(0.87, 0.86, 0.82) : vec3(0.67, 0.57, 0.47);
-        vec3 shadow = lightStage ? vec3(0.16, 0.14, 0.17) : vec3(0.015, 0.015, 0.021);
+        vec3 beam = lightStage ? vec3(0.39, 0.55, 0.67) : vec3(0.19, 0.34, 0.50);
+        vec3 shadow = lightStage ? vec3(0.07, 0.13, 0.20) : vec3(0.002, 0.008, 0.015);
         float opacity = max(glare, shade);
         vec3 color = mix(beam, shadow, shade / max(0.01, glare + shade));
-        gl_FragColor = vec4(color, opacity * (lightStage ? 0.63 : 0.74));
+        gl_FragColor = vec4(color, opacity * (lightStage ? 0.40 : 0.66));
         #include <colorspace_fragment>
       }
     `,
@@ -316,15 +316,15 @@ function destroyScene(scene: THREE.Object3D) {
 
 function reflectionStudio(renderer: THREE.WebGLRenderer) {
   const studio = new THREE.Scene();
-  studio.background = new THREE.Color(0x151620);
+  studio.background = new THREE.Color(0x163148);
   for (const card of [
-    { position: [-3.2, 4.6, 3.1], size: [6.5, 1.35], color: [7.6, 7.05, 6.35] },
-    { position: [2.6, 3.9, 1.4], size: [3.9, 0.72], color: [7.9, 7.5, 7.1] },
-    { position: [-2, 1.1, 5.1], size: [4.1, 0.78], color: [3.7, 3.55, 3.4] },
-    { position: [-3.1, 2.1, 4.5], size: [3.8, 2.33], color: [4.2, 3.65, 2.8] },
+    { position: [-3.2, 4.6, 3.1], size: [6.5, 1.35], color: [6.6, 7.5, 8.4] },
+    { position: [2.6, 3.9, 1.4], size: [3.9, 0.72], color: [7.7, 8.4, 9.2] },
+    { position: [-2, 1.1, 5.1], size: [4.1, 0.78], color: [3.3, 4.4, 5.7] },
+    { position: [-3.1, 2.1, 4.5], size: [3.8, 2.33], color: [4.2, 5.1, 6.0] },
     { position: [4.9, 1.7, -2.4], size: [2.3, 4.8], color: [2.2, 2.45, 3.5] },
-    { position: [-2.9, 2.7, -4.4], size: [5.1, 1.2], color: [2.6, 2.2, 1.66] },
-    { position: [0.3, 0.85, 5.9], size: [2.9, 1.2], color: [2.8, 2.35, 1.67] },
+    { position: [-2.9, 2.7, -4.4], size: [5.1, 1.2], color: [1.8, 2.6, 4.2] },
+    { position: [0.3, 0.85, 5.9], size: [2.9, 1.2], color: [2.2, 2.9, 3.6] },
     { position: [0, 5.5, -1], size: [5.2, 0.6], color: [4.2, 4.35, 5.1] },
   ]) {
     const [width, height] = card.size;
@@ -354,11 +354,12 @@ export function createLandingScene(
 ) {
   const context = canvas.getContext("webgl2", {
     antialias: true,
-    alpha: false,
+    alpha: true,
     powerPreference: "low-power",
   });
   if (!context) return null;
   const renderer = new THREE.WebGLRenderer({ canvas, context });
+  renderer.setClearColor(0x08121c, 0);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.04;
   renderer.shadowMap.enabled = true;
@@ -368,30 +369,17 @@ export function createLandingScene(
   const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 70);
   const reflection = reflectionStudio(renderer);
   scene.environment = reflection.texture;
-  const floorMaterial = new THREE.MeshStandardMaterial({
-    color: 0x26272d,
-    metalness: 0.08,
-    roughness: 0.66,
-  });
-  const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(200, 200),
-    floorMaterial,
-  );
-  floor.position.y = -(trackThickness + 0.006);
-  floor.rotation.x = -Math.PI / 2;
-  floor.receiveShadow = true;
-  scene.add(floor);
   const groundMaterial = groundReflections();
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(30, 30),
     groundMaterial,
   );
   ground.rotation.x = -Math.PI / 2;
-  ground.position.y = floor.position.y + 0.004;
+  ground.position.y = -(trackThickness + 0.002);
   scene.add(ground);
 
-  scene.add(new THREE.HemisphereLight(0xe3e8fc, 0x373038, 0.8));
-  const key = new THREE.SpotLight(0xffe2bd, 260, 23, 0.8, 0.68, 2);
+  scene.add(new THREE.HemisphereLight(0xeef4f8, 0x163148, 0.8));
+  const key = new THREE.SpotLight(0xeef4f8, 275, 23, 0.8, 0.68, 2);
   const pattern = softboxPattern();
   key.map = pattern;
   key.position.set(-4.75, 3.4, 3.2);
@@ -402,11 +390,11 @@ export function createLandingScene(
   key.shadow.normalBias = 0.008;
   key.shadow.radius = 4;
   scene.add(key, key.target);
-  const fill = new THREE.SpotLight(0xd5dbff, 43, 23, 0.79, 0.76, 2);
+  const fill = new THREE.SpotLight(0xadc5d8, 57, 23, 0.79, 0.76, 2);
   fill.position.set(4.4, 3.8, -3.3);
   fill.target.position.set(0, 0, 1.2);
   scene.add(fill, fill.target);
-  const glint = new THREE.PointLight(0xffd494, 0.72, 1.45, 2);
+  const glint = new THREE.PointLight(0xadc5d8, 1.22, 1.45, 2);
   scene.add(glint);
 
   const sculpture = new THREE.Group();
@@ -421,10 +409,6 @@ export function createLandingScene(
     }
   });
 
-  const background = new THREE.Color();
-  scene.background = background;
-  const fog = new THREE.FogExp2(background, 0.081);
-  scene.fog = fog;
   let width = 0;
   let height = 0;
   let frame = 0;
@@ -461,7 +445,7 @@ export function createLandingScene(
     glint.position.z += 0.14;
     glint.position.y -= 0.27;
     groundMaterial.uniforms.coinCenter.value.set(
-      coin.position.x + sculpture.position.x,
+      coin.position.x,
       coin.position.z,
     );
 
@@ -479,10 +463,9 @@ export function createLandingScene(
     const aspect = width / height;
     const scale = Math.max(1, 1.47 / aspect);
     const wide = THREE.MathUtils.smoothstep(aspect, 0.74, 1.45);
-    const short = 1 - THREE.MathUtils.smoothstep(height, 420, 600);
     camera.position.set(-3 * scale, 2.4 * scale, 6.5 * scale);
     camera.lookAt(0.02, THREE.MathUtils.lerp(0.57, 1.14, wide), 0.03);
-    camera.zoom = THREE.MathUtils.lerp(1.26, 1.24, wide) - 0.1 * wide * short;
+    camera.zoom = THREE.MathUtils.lerp(1.26, 1.24, wide);
     const verticalOffset = THREE.MathUtils.lerp(0.046, -0.007, wide);
     camera.setViewOffset(
       width,
@@ -492,9 +475,6 @@ export function createLandingScene(
       width,
       height,
     );
-    sculpture.position.x =
-      0.37 * THREE.MathUtils.smoothstep(aspect, 1.26, 1.64);
-    fog.density = 0.081 / scale;
     renderer.setPixelRatio(
       Math.min(devicePixelRatio, 1.6, Math.sqrt(1800000 / (width * height))),
     );
@@ -521,11 +501,8 @@ export function createLandingScene(
   }
 
   function followTheme() {
-    const isLight = document.documentElement.dataset.theme === "light";
-    background.set(isLight ? 0xe8eaed : 0x23262b);
-    fog.color.copy(background);
-    groundMaterial.uniforms.lightStage.value = isLight;
-    floorMaterial.color.set(isLight ? 0xb1b8be : 0x383c45);
+    groundMaterial.uniforms.lightStage.value =
+      document.documentElement.dataset.theme === "light";
     render();
   }
   const theme = new MutationObserver(followTheme);
