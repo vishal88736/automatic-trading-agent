@@ -9,7 +9,7 @@ import { EquityChart } from "../charts";
 import { money, percent, timestamp } from "../ui";
 import { platform } from "./client";
 import { legacyFixture, workspaceHref } from "./navigation";
-import { PortfolioBars } from "./DashboardPanels";
+import { AssetAllocation, PortfolioPerformance } from "./DashboardPanels";
 
 interface Account {
   id: string;
@@ -19,6 +19,7 @@ interface Account {
 }
 interface Portfolio {
   epoch: number;
+  cash: string;
   available_cash: string;
   equity: string | null;
   realized_pnl: string;
@@ -68,12 +69,12 @@ async function fetchPaper(includeOrders: boolean) {
 
 export default function PaperAccount({
   view = "trade",
-  dashboardSide,
-  dashboardBottom,
+  dashboardAgents,
+  dashboardMarkets,
 }: {
   view?: "dashboard" | "portfolio" | "trade" | "settings";
-  dashboardSide?: ReactNode;
-  dashboardBottom?: ReactNode;
+  dashboardAgents?: ReactNode;
+  dashboardMarkets?: ReactNode;
 }) {
   const dashboard = view === "dashboard";
   const includeOrders = view !== "settings";
@@ -129,15 +130,21 @@ export default function PaperAccount({
       </div>
       <div>
         <dt>Realized P&amp;L</dt>
-        <dd>{money(value.realized_pnl)}</dd>
+        <dd data-sign={Math.sign(Number(value.realized_pnl))}>
+          {money(value.realized_pnl)}
+        </dd>
       </div>
       <div>
         <dt>Unrealized P&amp;L</dt>
-        <dd>{money(value.unrealized_pnl)}</dd>
+        <dd data-sign={Math.sign(Number(value.unrealized_pnl))}>
+          {money(value.unrealized_pnl)}
+        </dd>
       </div>
       <div>
         <dt>Daily P&amp;L</dt>
-        <dd>{money(value.daily_pnl)}</dd>
+        <dd data-sign={Math.sign(Number(value.daily_pnl))}>
+          {money(value.daily_pnl)}
+        </dd>
       </div>
       <div>
         <dt>Drawdown</dt>
@@ -178,8 +185,13 @@ export default function PaperAccount({
         dashboard ? "platform-backtest paper-overview" : "platform-backtest"
       }
     >
+      {dashboard && value && <PortfolioPerformance rows={value.history} />}
       <section
-        className="platform-product-panel paper-overview-balance"
+        className={
+          dashboard
+            ? "platform-product-panel paper-overview-balance dashboard-metrics"
+            : "platform-product-panel paper-overview-balance"
+        }
         aria-labelledby="paper-balance"
       >
         <div className="paper-balance-heading">
@@ -187,7 +199,12 @@ export default function PaperAccount({
             <h3 id="paper-balance">Virtual balance</h3>
             {account && (
               <p className="platform-product-balance">
-                <strong>{account.cash}</strong> virtual {account.currency}
+                <strong>
+                  {dashboard
+                    ? money(value?.cash ?? account.cash)
+                    : account.cash}
+                </strong>{" "}
+                virtual {account.currency}
               </p>
             )}
           </div>
@@ -210,8 +227,9 @@ export default function PaperAccount({
           )}
         </div>
         <p className="paper-money-note">
-          Simulated funds. USD market prices are modeled at 1 virtual USDT per
-          USD.
+          {dashboard
+            ? "USD market prices are modeled at 1 virtual USDT per USD."
+            : "Simulated funds. USD market prices are modeled at 1 virtual USDT per USD."}
         </p>
         {error && (
           <p role="alert" className="platform-error">
@@ -219,6 +237,12 @@ export default function PaperAccount({
           </p>
         )}
         <p role="status">{busy ? "Updating paper account…" : message}</p>
+        {dashboard && value?.emergency_stop && (
+          <p className="dashboard-stop" role="alert">
+            Paper trading is stopped.{" "}
+            <a href={workspaceHref("settings")}>Review controls</a>
+          </p>
+        )}
         {value && view !== "settings" && (
           <>
             {value.equity === null && (
@@ -227,8 +251,7 @@ export default function PaperAccount({
                 prices.
               </p>
             )}
-            {!dashboard && metrics}
-            {dashboard && <PortfolioBars rows={value.history} />}
+            {metrics}
             {view === "portfolio" && value.history.length > 1 && (
               <EquityChart
                 rows={value.history}
@@ -236,35 +259,35 @@ export default function PaperAccount({
                 label="Paper portfolio equity"
               />
             )}
-            <h4>Holdings</h4>
-            {value.holdings.length ? (
-              <ul>
-                {value.holdings.map((item) => (
-                  <li key={item.asset}>
-                    {item.asset} · {item.quantity} · {money(item.mark)} marked
-                    value · {percent(item.allocation)} allocation
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p>No open positions.</p>
+            {!dashboard && (
+              <>
+                <h4>Holdings</h4>
+                {value.holdings.length ? (
+                  <ul>
+                    {value.holdings.map((item) => (
+                      <li key={item.asset}>
+                        {item.asset} · {item.quantity} · {money(item.mark)}{" "}
+                        marked value · {percent(item.allocation)} allocation
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>No open positions.</p>
+                )}
+              </>
             )}
           </>
         )}
       </section>
-      {dashboard && (
-        <aside className="dashboard-side">
-          <section className="platform-product-panel dashboard-metrics">
-            <div className="dashboard-panel-heading">
-              <h3>Paper account</h3>
-              <a href={workspaceHref("portfolio")}>Portfolio</a>
-            </div>
-            {metrics}
-            {!value && <p>Account metrics are unavailable.</p>}
-          </section>
-          {dashboardSide}
-        </aside>
+      {dashboard && value && account && (
+        <AssetAllocation
+          cash={value.cash}
+          currency={account.currency}
+          equity={value.equity}
+          holdings={value.holdings}
+        />
       )}
+      {dashboard && dashboardMarkets}
       {account && value && view === "trade" && (
         <form className="platform-product-panel" onSubmit={submit}>
           <h3>Place a paper order</h3>
@@ -332,7 +355,7 @@ export default function PaperAccount({
             <h3>{dashboard ? "Recent paper orders" : "Order history"}</h3>
             {dashboard && <a href={workspaceHref("paper")}>Paper trading</a>}
           </div>
-          {data.orders.length ? (
+          {data.orders.length || dashboard ? (
             <div className="platform-backtest-table">
               <table>
                 <thead>
@@ -348,6 +371,13 @@ export default function PaperAccount({
                   </tr>
                 </thead>
                 <tbody>
+                  {!data.orders.length && (
+                    <tr>
+                      <td colSpan={7} className="paper-orders-empty">
+                        No paper orders.
+                      </td>
+                    </tr>
+                  )}
                   {(dashboard ? data.orders.slice(0, 5) : data.orders).map(
                     (order) => (
                       <tr key={order.id}>
@@ -418,7 +448,7 @@ export default function PaperAccount({
           )}
         </section>
       )}
-      {dashboard && dashboardBottom}
+      {dashboard && dashboardAgents}
       {account &&
         value &&
         (view === "settings" || (view === "trade" && legacyFixture)) && (

@@ -1,0 +1,202 @@
+.unified-workspace[data-authenticated="true"] {
+  --bg: light-dark(#f7f3eb, #101012);
+  --sidebar: light-dark(#f0e9dc, #151416);
+  --panel: light-dark(#fffdf8, #1b1a1e);
+  --raised: light-dark(#f3ede1, #252428);
+  --border: light-dark(#ded2bd, #37343a);
+  --border-strong: light-dark(#a78b59, #776750);
+  --text: light-dark(#261f16, #f5efe6);
+  --muted: light-dark(#665642, #beb5a7);
+  --subtle: light-dark(#685747, #ab9e8c);
+  --accent: light-dark(#765422, #e6c991);
+  --accent-strong: light-dark(#765422, #d9b980);
+  --accent-hover: light-dark(#553b19, #f3dab0);
+  --accent-bg: light-dark(#eee2ca, #30271c);
+  --accent-border: light-dark(#ad8c50, #90764e);
+  --on-accent: light-dark(#fffaf0, #241a10);
+  --surface-inset: light-dark(#f5efe3, #151417);
+  --surface-hover: light-dark(#eee5d5, #2b272a);
+  --allocation-cash: light-dark(#ae8542, #dfbd81);
+  --allocation-btc: light-dark(#684824, #f4dfb8);
+  --allocation-eth: light-dark(#77726a, #9e8465);
+  --allocation-sol: light-dark(#45565e, #7a8992);
+}
+
+.rail-shell.unified-workspace[data-authenticated="true"] .workspace {
+  display: grid;
+  grid-template: "rail header" auto "rail content" 1fr / clamp(
+      178px,
+      15vw,
+      228px
+    ) minmax(0, 1fr);
+  background: radial-gradient(
+    ellipse 68% 420px at 68% -5%,
+    color-mix(in srgb, var(--accent-bg) 52%, transparent),
+    transparent 96%
+  );
+}
+
+.rail-shell.unified-workspace[data-authenticated="true"] .topbar {
+  grid-area: header;
+  gap: 15px;
+  min-height: 69px;
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter: blur(16px);
+}
+
+.unified-workspace[data-authenticated="true"] .workspace > main {
+  grid-area: content;
+  width: 100%;
+  min-width: 0;
+  padding-bottom: 32px;
+}
+
+.unified-workspace[data-authenticated="true"] .topbar .mobile-brand {
+  display: none;
+}
+
+.workspace-identity {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.workspace-identity > span {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.workspace-identity > div {
+  min-width: 0;
+}
+
+.workspace-identity strong,
+.workspace-identity small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-identity small {
+  margin-top: 1px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.unified-workspace[data-authenticated="true"] .unified-nav {
+  position: sticky;
+  top: 0;
+  grid-area: rail;
+  display: flex;
+  flex-flow: column nowrap;
+  align-self: start;
+  height: 100dvh;
+  overflow-y: auto;
+  gap: 4px;
+  margin: 0;
+  padding: 10px;
+  border: 0;
+  border-inline-end: 1px solid var(--border);
+  background: linear-gradient(165deg, var(--sidebar), var(--bg));
+}
+
+.unified-workspace[data-authenticated="true"] .unified-nav a {
+  flex-shrink: 0;
+  gap: 10px;
+  min-height: 42px;
+  padding-inline: 11px;
+  font-size: 13px;
+  font-weight: 555;
+}
+
+.unified-workspace[data-authenticated="true"]
+  .unified-nav
+  a[aria-current="page"] {
+  border-color: var(--accent-border);
+  background: linear-gradient(100deg, var(--accent-bg), var(--raised));
+  color: var(--accent);
+}
+
+.unified-workspace[data-authenticated="true"]
+  .unified-nav
+  .workspace-rail-brand {
+  padding-block: 0 13px;
+  margin-bottom: 8px;
+  min-height: 53px;
+  border-color: transparent;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.045em;
+}
+
+.workspace-rail-brand .krono-mark {
+  width: 34px;
+  height: 34px;
+}
+
+@media (max-width: 960px) {
+  .rail-shell.unified-workspace[data-authenticated="true"] .workspace {
+    display: block;
+  }
+
+  .unified-workspace[data-authenticated="true"] .topbar .mobile-brand {
+    display: inline-flex;
+  }
+
+  .workspace-identity,
+  .unified-workspace[data-authenticated="true"]
+    .unified-nav
+    .workspace-rail-brand {
+    display: none;
+  }
+
+  .unified-workspace[data-authenticated="true"] .unified-nav-toggle {
+    display: inline-grid;
+    flex: none;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: 1px solid var(--border-strong);
+    border-radius: 50%;
+    color: var(--text);
+    background: var(--raised);
+  }
+
+  .unified-workspace[data-authenticated="true"] .unified-nav {
+    position: static;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 136px), 1fr));
+    gap: 4px;
+    height: auto;
+    padding: 10px var(--workspace-gutter);
+    border-block-end: 1px solid var(--border);
+    border-inline-end: 0;
+    background: var(--sidebar);
+  }
+
+  .unified-workspace[data-authenticated="true"]
+    .unified-nav[data-expanded="false"] {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .rail-shell.unified-workspace[data-authenticated="true"] .topbar {
+    gap: 6px;
+  }
+}

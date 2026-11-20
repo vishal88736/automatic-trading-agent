@@ -102,10 +102,17 @@ export function EquityChart({
             <defs>
               <linearGradient id={fill} x2="0" y2="1">
                 <stop stopColor="var(--accent)" stopOpacity="0.47" />
-                <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.03" />
+                <stop
+                  offset="100%"
+                  stopColor="var(--accent)"
+                  stopOpacity="0.03"
+                />
               </linearGradient>
             </defs>
-            <polygon points={`${left},225 ${points} ${right},225`} fill={`url(#${fill})`} />
+            <polygon
+              points={`${left},225 ${points} ${right},225`}
+              fill={`url(#${fill})`}
+            />
           </>
         )}
         {[0, 1, 2, 3].map((i) => (

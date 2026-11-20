@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import {
   Activity,
   ArrowRight,
@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Square,
+  UserRound,
   Wallet,
   WandSparkles,
 } from "lucide-react";
@@ -51,6 +52,12 @@ const moduleIcons = {
   news: Newspaper,
   settings: Settings2,
 } satisfies Record<Module, typeof Activity>;
+
+const moduleLabels: Partial<Record<Module, string>> = {
+  agents: "AI agents",
+  builder: "Strategy builder",
+  markets: "Market analysis",
+};
 
 interface Session {
   userId: string;
@@ -91,36 +98,46 @@ function DashboardAgents() {
       clearInterval(interval);
     };
   }, []);
+  const monitoring = summary?.items.filter(
+    (agent) =>
+      agent.status === "RUNNING" &&
+      agent.stage === "MONITOR" &&
+      summary.worker_online,
+  ).length;
+  const paused = summary?.items.filter(
+    (agent) => agent.status === "PAUSED",
+  ).length;
   return (
     <section className="platform-product-panel dashboard-agents">
-      <h2>
-        <Bot size={16} /> Agent activity
-      </h2>
+      <div className="dashboard-panel-heading">
+        <h3>
+          <Bot size={17} aria-hidden /> Agent activity
+        </h3>
+        <a href={workspaceHref("agents")} aria-label="Manage agents">
+          <ArrowRight size={16} aria-hidden />
+        </a>
+      </div>
       {error && <p role="alert">Agent status is unavailable.</p>}
       {!summary && !error && <p role="status">Checking worker status…</p>}
       {summary && (
         <>
-          <p>
+          <p className="dashboard-worker" data-online={summary.worker_online}>
             {summary.worker_online
               ? "Worker online"
               : "Worker heartbeat unavailable"}
           </p>
-          <p>
-            {
-              summary.items.filter(
-                (agent) =>
-                  agent.status === "RUNNING" &&
-                  agent.stage === "MONITOR" &&
-                  summary.worker_online,
-              ).length
-            }{" "}
-            agents monitoring
-          </p>
+          <dl className="dashboard-agent-counts">
+            <div>
+              <dt>Monitoring</dt>
+              <dd>{monitoring}</dd>
+            </div>
+            <div>
+              <dt>Paused</dt>
+              <dd>{paused}</dd>
+            </div>
+          </dl>
         </>
       )}
-      <a href={workspaceHref("agents")}>
-        Manage agents <ArrowRight size={15} />
-      </a>
     </section>
   );
 }
@@ -133,6 +150,7 @@ export function Workspace() {
   const [signingOut, setSigningOut] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [replaying, setReplaying] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     let previousPage = readRoute().page;
@@ -218,17 +236,23 @@ export function Workspace() {
   const session = auth.state === "signed-in" ? auth.session : null;
   const showLanding =
     auth.state === "signed-out" && page === "dashboard" && !route.signIn;
+  function closeNavigation() {
+    if (menuOpen) menuButton.current?.focus({ preventScroll: true });
+    setMenuOpen(false);
+  }
   return (
     <div
       className="app-shell rail-shell unified-workspace"
       data-page={page}
       data-landing={showLanding || undefined}
+      data-authenticated={Boolean(session) || undefined}
     >
       <div className="workspace">
         <header className="topbar">
           {session && (
             <button
               className="unified-nav-toggle"
+              ref={menuButton}
               aria-label="Toggle navigation"
               aria-expanded={menuOpen}
               aria-controls="unified-nav"
@@ -245,6 +269,17 @@ export function Workspace() {
             <KronoMark />
             <span>Krono.</span>
           </a>
+          {session && (
+            <div className="workspace-identity">
+              <span>
+                <UserRound size={17} aria-hidden />
+              </span>
+              <div>
+                <strong>Personal workspace</strong>
+                <small>{session.email}</small>
+              </div>
+            </div>
+          )}
           {showLanding && (
             <nav className="landing-nav" aria-label="About Krono">
               {landingSections.map(([id, label]) => (
@@ -284,18 +319,29 @@ export function Workspace() {
             className="unified-nav"
             aria-label="Main navigation"
             data-expanded={menuOpen}
+            onKeyDown={(event) => {
+              if (event.key === "Escape" && menuOpen) closeNavigation();
+            }}
           >
+            <a
+              className="workspace-rail-brand"
+              href={workspaceHref("dashboard")}
+              aria-label="Krono home"
+            >
+              <KronoMark /> <span>Krono.</span>
+            </a>
             {modules.map(([id, label]) => {
               const Icon = moduleIcons[id];
               return (
                 <a
                   key={id}
                   href={workspaceHref(id)}
+                  aria-label={label}
                   aria-current={page === id ? "page" : undefined}
-                  onClick={() => setMenuOpen(false)}
+                  onClick={closeNavigation}
                 >
                   <Icon size={15} aria-hidden="true" />
-                  {label}
+                  <span>{moduleLabels[id] ?? label}</span>
                 </a>
               );
             })}
@@ -392,8 +438,8 @@ export function Workspace() {
                       >
                         <PaperAccount
                           view="dashboard"
-                          dashboardSide={<DashboardAgents />}
-                          dashboardBottom={<DashboardMarkets />}
+                          dashboardAgents={<DashboardAgents />}
+                          dashboardMarkets={<DashboardMarkets />}
                         />
                       </div>
                     </div>

@@ -1,7 +1,12 @@
 import { useEffect, useId, useState, type CSSProperties } from "react";
-import { Activity, ArrowUpRight, ChartNoAxesColumn } from "lucide-react";
-import { Sparkline } from "../charts";
-import { Coin, money, timestamp } from "../ui";
+import {
+  Activity,
+  ArrowUpRight,
+  ChartNoAxesColumn,
+  PieChart,
+} from "lucide-react";
+import { EquityChart, Sparkline } from "../charts";
+import { Coin, Delta, money, percent, timestamp } from "../ui";
 import type { Candle } from "../types";
 import { platform } from "./client";
 import { marketAssets, type MarketAsset } from "./market-assets";
@@ -14,47 +19,35 @@ const periods = {
   week: "Past 7 days",
 } as const;
 
-export function PortfolioBars({ rows }: { rows: EquityMark[] }) {
+const equityAxis = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  notation: "compact",
+  maximumFractionDigits: 2,
+});
+
+export function PortfolioPerformance({ rows }: { rows: EquityMark[] }) {
   const [period, setPeriod] = useState<keyof typeof periods>("latest");
-  const [highlighted, setHighlighted] = useState<string>();
+  const [selectedAt, setSelectedAt] = useState<string>();
   const controlId = useId();
-  const currentTime = Date.now();
-  const threshold = period === "day" ? 86400000 : 7 * 86400000;
-  const candidates = rows.filter(
-    (mark) =>
-      period === "latest" || Date.parse(mark.at) >= currentTime - threshold,
-  );
-  const bucketSize = period === "week" ? 86400000 : 3600000;
-  const buckets = new Map<number, EquityMark>();
-  for (const mark of candidates) {
-    buckets.set(Math.floor(Date.parse(mark.at) / bucketSize), mark);
-  }
-  const marks = (
-    period === "latest" ? candidates : [...buckets.values()]
-  ).slice(-7);
-  const maximum =
-    Math.max(...marks.map((mark) => Number(mark.equity)), 1) * 1.3;
-  const selected =
-    marks.find((mark) => mark.at === highlighted) ?? marks.at(-1);
-  const label = new Intl.DateTimeFormat(
-    undefined,
-    period === "week"
-      ? { month: "short", day: "numeric", timeZone: "UTC" }
-      : { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "UTC" },
-  );
+  const cutoff = Date.now() - (period === "day" ? 1 : 7) * 86400000;
+  const marks =
+    period === "latest"
+      ? rows.slice(-60)
+      : rows.filter((row) => Date.parse(row.at) >= cutoff);
+  const match = marks.findIndex((row) => row.at === selectedAt);
+  const selectedIndex = match >= 0 ? match : marks.length - 1;
+  const selected = marks[selectedIndex];
+  const first = Number(marks[0]?.equity);
+  const last = Number(marks.at(-1)?.equity);
+  const change = marks.length > 1 && first > 0 ? (last - first) / first : null;
 
   return (
-    <div className="portfolio-bars">
-      <div className="portfolio-bars-heading">
-        <div className="portfolio-reading">
-          <span className="product-section-icon">
-            <ChartNoAxesColumn size={16} />
-          </span>
-          <div>
-            <h3>Portfolio performance</h3>
-            <p>Recorded paper equity · UTC</p>
-          </div>
-        </div>
+    <section className="platform-product-panel dashboard-performance">
+      <div className="dashboard-panel-heading">
+        <h3>
+          <ChartNoAxesColumn size={17} aria-hidden /> Portfolio performance
+        </h3>
         <label className="visually-hidden" htmlFor={controlId}>
           Equity period
         </label>
@@ -63,7 +56,7 @@ export function PortfolioBars({ rows }: { rows: EquityMark[] }) {
           value={period}
           onChange={(event) => {
             setPeriod(event.target.value as keyof typeof periods);
-            setHighlighted(undefined);
+            setSelectedAt(undefined);
           }}
         >
           {Object.entries(periods).map(([value, title]) => (
@@ -74,55 +67,153 @@ export function PortfolioBars({ rows }: { rows: EquityMark[] }) {
         </select>
       </div>
       {selected ? (
-        <div className="portfolio-bars-layout">
-          <div className="portfolio-reading-value">
-            <strong>{money(selected.equity)}</strong>
-            <span>Equity at selected mark</span>
-            <time dateTime={selected.at}>{timestamp(selected.at)}</time>
+        <>
+          <div className="dashboard-equity-reading">
+            <div>
+              <p>Recorded paper equity</p>
+              <strong>{money(selected.equity)}</strong>
+              <time dateTime={selected.at}>{timestamp(selected.at)}</time>
+            </div>
+            {change !== null && (
+              <div className="dashboard-equity-change">
+                <Delta value={change} /> <small>Period change</small>
+              </div>
+            )}
           </div>
-          <div
-            className="portfolio-bar-chart"
-            role="group"
-            style={
-              {
-                "--selected-ratio": Math.max(
-                  0,
-                  Number(selected.equity) / maximum,
-                ),
-              } as CSSProperties
-            }
-            aria-label="Recorded paper equity marks"
-          >
-            {marks.map((mark, index) => {
-              const isSelected = selected.at === mark.at;
-              return (
-                <button
-                  key={mark.at}
-                  className="portfolio-bar"
-                  type="button"
-                  aria-label={`${timestamp(mark.at)} · ${money(mark.equity)} equity`}
-                  aria-pressed={isSelected}
-                  onClick={() => setHighlighted(mark.at)}
-                  style={
-                    {
-                      "--bar-index": index,
-                      "--bar-ratio": `${Math.max(0, Number(mark.equity) / maximum) * 100}%`,
-                    } as CSSProperties
-                  }
-                >
-                  <span className="portfolio-bar-track">
-                    <span className="portfolio-bar-fill" />
-                  </span>
-                  <span>{label.format(new Date(mark.at))}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+          <EquityChart
+            rows={marks}
+            baseline={first}
+            padding={Math.max(1, Math.abs(first) * 0.005)}
+            format={equityAxis.format}
+            label="Recorded paper equity"
+            area
+            selectedIndex={selectedIndex}
+          />
+          {marks.length > 1 && (
+            <input
+              className="dashboard-equity-slider"
+              type="range"
+              min={0}
+              max={marks.length - 1}
+              value={selectedIndex}
+              aria-label="Inspect equity snapshot"
+              aria-valuetext={`${money(selected.equity)} at ${timestamp(selected.at)}`}
+              onChange={(event) =>
+                setSelectedAt(marks[Number(event.target.value)].at)
+              }
+            />
+          )}
+        </>
       ) : (
         <p className="dashboard-empty">No equity marks in this period.</p>
       )}
-    </div>
+    </section>
+  );
+}
+
+const allocationColors: Record<string, string> = {
+  BTC: "var(--allocation-btc)",
+  ETH: "var(--allocation-eth)",
+  SOL: "var(--allocation-sol)",
+};
+
+export function AssetAllocation({
+  cash,
+  currency,
+  equity,
+  holdings,
+}: {
+  cash: string;
+  currency: string;
+  equity: string | null;
+  holdings: {
+    asset: string;
+    quantity: string;
+    mark: string | null;
+    allocation: string | null;
+  }[];
+}) {
+  const complete =
+    equity !== null &&
+    holdings.every((item) => item.allocation !== null && item.mark !== null);
+  const total = Number(equity);
+  const slices =
+    complete && total > 0
+      ? [
+          {
+            name: `Virtual ${currency}`,
+            value: cash,
+            share: Number(cash) / total,
+            color: "var(--allocation-cash)",
+            quantity: null,
+          },
+          ...holdings.map((item) => ({
+            name: item.asset,
+            value: item.mark,
+            quantity: item.quantity,
+            share: Number(item.allocation),
+            color: allocationColors[item.asset] ?? "var(--allocation-sol)",
+          })),
+        ].filter((slice) => slice.share > 0)
+      : [];
+  let angle = 0;
+  const stops = slices.map(({ share, color }) => {
+    const start = angle;
+    angle = Math.min(360, angle + share * 360);
+    return `${color} ${start}deg ${angle}deg`;
+  });
+
+  return (
+    <section className="platform-product-panel dashboard-allocation">
+      <div className="dashboard-panel-heading">
+        <h3>
+          <PieChart size={17} aria-hidden /> Asset allocation
+        </h3>
+        <a href={workspaceHref("portfolio")}>Portfolio</a>
+      </div>
+      {slices.length ? (
+        <div className="dashboard-allocation-content">
+          <div
+            className="dashboard-allocation-ring"
+            style={
+              {
+                "--allocation-fill": `conic-gradient(${stops.join(", ")}, transparent ${angle}deg 360deg)`,
+              } as CSSProperties
+            }
+            aria-hidden="true"
+          >
+            <div>
+              <strong>{equityAxis.format(total)}</strong>
+              <small>Paper equity</small>
+            </div>
+          </div>
+          <dl className="dashboard-allocation-legend">
+            {slices.map(({ name, share, value, color, quantity }) => (
+              <div key={name}>
+                <dt>
+                  <span
+                    className="dashboard-allocation-swatch"
+                    style={{ background: color }}
+                  />
+                  {name}
+                </dt>
+                <dd>{percent(share, 1)}</dd>
+                <dd>
+                  {money(value)}
+                  {quantity && ` · ${quantity} ${name}`}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      ) : (
+        <p className="dashboard-empty">
+          {complete
+            ? "No portfolio value to allocate."
+            : "Allocation requires fresh prices for every holding."}
+        </p>
+      )}
+    </section>
   );
 }
 
