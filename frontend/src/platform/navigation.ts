@@ -47,8 +47,11 @@ export function workspaceHref(page: Module, suffix = "") {
   return `#/${(legacyFixture && fixtureRoutes[page]) || page}${suffix}`;
 }
 
+export const signInHref = "#/sign-in";
+
 export function readRoute() {
   const [path = "", query] = location.hash.replace(/^#\/?/, "").split("?", 2);
+  const signIn = path === "sign-in";
   const isRetiredDex = path === "aegis" || path.startsWith("aegis/");
   const candidate = isRetiredDex ? (path.split("/")[1] ?? "") : path;
   const report = /^(?:platform\/)?backtests\/([a-f0-9-]{36})$/i.exec(candidate);
@@ -58,5 +61,10 @@ export function readRoute() {
       ? historicalRoutes[candidate]
       : "dashboard");
   const suffix = (report ? `/${report[1]}` : "") + (query ? `?${query}` : "");
-  return { page, reportId: report?.[1], href: workspaceHref(page, suffix) };
+  return {
+    page,
+    reportId: report?.[1],
+    signIn,
+    href: signIn ? signInHref : workspaceHref(page, suffix),
+  };
 }

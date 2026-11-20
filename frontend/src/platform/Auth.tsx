@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   Cloud,
@@ -10,7 +10,13 @@ import {
 import { KronoMark } from "../brand";
 import { platform } from "./client";
 
-export function Auth({ done }: { done: () => void }) {
+export function Auth({
+  done,
+  focusEmail = false,
+}: {
+  done: () => void;
+  focusEmail?: boolean;
+}) {
   const [mode, setMode] = useState("login"),
     [email, setEmail] = useState(""),
     [password, setPassword] = useState(""),
@@ -19,6 +25,12 @@ export function Auth({ done }: { done: () => void }) {
     [error, setError] = useState(""),
     [pending, setPending] = useState(false),
     [notice, setNotice] = useState("");
+  const emailInput = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (focusEmail) emailInput.current?.focus({ preventScroll: true });
+  }, [focusEmail]);
+
   return (
     <div className="platform-auth">
       <div className="platform-auth-story">
@@ -123,6 +135,7 @@ export function Auth({ done }: { done: () => void }) {
           Email
           <input
             type="email"
+            ref={emailInput}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="email"

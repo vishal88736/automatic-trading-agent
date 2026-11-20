@@ -24,32 +24,21 @@
   --warning-bg: light-dark(#fff4df, #3a2e22);
   --product-ease: cubic-bezier(0.2, 0.72, 0.2, 1);
   color: var(--text);
-  background:
-    radial-gradient(
-      ellipse at 88% 0%,
-      light-dark(#e8e3f6, #262138),
-      transparent 54%
-    ),
-    radial-gradient(
-      ellipse at 8% 6%,
-      light-dark(#f6e9f1, #302335),
-      transparent 52%
-    ),
-    light-dark(#eeeef5, #171521);
-  padding: clamp(8px, 2.4vw, 36px);
+  background: var(--bg);
 }
 
 .rail-shell.unified-workspace .workspace {
   --workspace-gutter: clamp(14px, 2.2vw, 32px);
-  max-width: 1550px;
-  min-height: calc(100dvh - clamp(16px, 4.8vw, 72px));
-  margin-inline: auto;
+  min-height: 100dvh;
   padding-top: 0;
-  padding-bottom: 24px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 27px;
-  box-shadow: 0 24px 72px light-dark(#454b6114, #09071055);
+}
+
+.rail-shell.unified-workspace .workspace > main {
+  max-width: none;
+}
+
+.rail-shell.unified-workspace main:has(> .home-hero) {
+  padding-bottom: 0;
 }
 
 .rail-shell.unified-workspace .topbar {
@@ -121,21 +110,289 @@
 }
 
 .rail-shell.unified-workspace .home-hero {
-  margin-top: 20px;
-  background: var(--surface-inset);
+  --orbit-width: min(96vw, 1880px);
+  --orbit-height: clamp(195px, 55svh, 660px);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  min-height: calc(100svh - 66px);
+  margin: 0 calc(-1 * var(--workspace-gutter));
+  padding: clamp(25px, 7svh, 82px) 16px 18px;
+  border: 0;
+  border-radius: 0;
+  background:
+    radial-gradient(
+      ellipse at 50% 100%,
+      light-dark(#e3ead9, #1b2318),
+      transparent 68%
+    ),
+    light-dark(#f3f4f7, #0b0d10);
+}
+
+.rail-shell.unified-workspace .home-hero h1 {
+  font-size: clamp(43px, min(8.3vw, 14svh), 124px);
+}
+
+.unified-workspace .home-hero .page-heading {
+  gap: clamp(12px, 3svh, 24px);
+  z-index: 2;
+}
+
+.unified-workspace .home-kicker {
+  margin-bottom: clamp(7px, 2svh, 20px);
 }
 
 .unified-workspace .home-orbit {
-  --orbit-ink: light-dark(#63784855, #a7d27766);
+  --orbit-ink: light-dark(#5f775782, #9bc18585);
   --orbit-mark: var(--accent);
+  --orbit-halo: light-dark(#7a713594, #c9985a9e);
+  inset: auto 0 7px;
+  height: var(--orbit-height);
+  mask-image: none;
+  background: none;
+}
+
+.unified-workspace .home-orbit::before {
+  content: "";
+  position: absolute;
+  inset: -30% 0 0;
+  mask-image: radial-gradient(ellipse at 50% 75%, #000 35%, transparent 77%);
   background:
     radial-gradient(
-      ellipse at 50% 92%,
-      light-dark(#d6e4c2ab, #58633676),
-      transparent 62%
+      ellipse at 50% 70%,
+      light-dark(#b9d19b66, #73945450),
+      transparent 68%
     ),
-    radial-gradient(circle, var(--orbit-ink) 0.7px, transparent 1px) center /
-      18px 18px;
+    linear-gradient(to right, var(--border) 1px, transparent 1px) 50% 50% / 64px
+      64px,
+    linear-gradient(to bottom, var(--border) 1px, transparent 1px) 50% 50% /
+      64px 64px;
+}
+
+.unified-workspace .orbit-plane {
+  top: 59%;
+  width: var(--orbit-width);
+  height: 78%;
+  aspect-ratio: auto;
+  transform: translate(-50%, -50%);
+  border: 1px solid var(--orbit-ink);
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse,
+    transparent 30%,
+    light-dark(#e0e9d741, #111a1233) 71%
+  );
+}
+
+.unified-workspace .orbit-plane::before,
+.unified-workspace .orbit-plane::after {
+  position: absolute;
+  left: 50%;
+  width: 75%;
+  height: 84%;
+  translate: -50% 0;
+  border: 1px solid var(--orbit-halo);
+  border-radius: 50%;
+  content: "";
+}
+
+.unified-workspace .orbit-plane::before {
+  bottom: 14%;
+  box-shadow: 0 0 20px color-mix(in srgb, var(--orbit-halo) 24%, transparent);
+}
+
+.unified-workspace .orbit-plane::after {
+  bottom: 31%;
+  opacity: 0.65;
+}
+
+.unified-workspace .orbit-rotor {
+  inset: 2%;
+  background:
+    repeating-conic-gradient(
+      from 8deg,
+      transparent 0deg 21deg,
+      var(--orbit-ink) 21.2deg 21.45deg
+    ),
+    repeating-radial-gradient(
+      ellipse,
+      transparent 0 12%,
+      var(--orbit-ink) 12.2% 12.5%,
+      transparent 12.7% 14%
+    );
+  animation: orbit-depth 6s ease-in-out infinite alternate;
+}
+
+.unified-workspace .orbit-track {
+  rotate: none;
+}
+
+.unified-workspace .orbit-crosshair,
+.unified-workspace .orbit-track::before,
+.unified-workspace .orbit-track::after {
+  display: none;
+}
+
+@keyframes orbit-depth {
+  from {
+    opacity: 0.54;
+  }
+  to {
+    opacity: 0.88;
+  }
+}
+
+.unified-workspace .orbit-coins,
+.unified-workspace .orbit-core {
+  position: absolute;
+  top: 59%;
+  left: 50%;
+  translate: -50% -50%;
+}
+
+.unified-workspace .orbit-coins {
+  width: var(--orbit-width);
+  height: 78%;
+}
+
+@property --orbit-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.unified-workspace .orbit-core {
+  display: grid;
+  place-items: center;
+  width: clamp(60px, 12vw, 143px);
+  aspect-ratio: 1;
+  border: 1px solid var(--accent-border);
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 36% 28%,
+    var(--accent-bg),
+    var(--bg) 77%
+  );
+  box-shadow: 0 0 45px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.unified-workspace .orbit-core .krono-mark {
+  width: 48%;
+  height: 48%;
+  color: var(--accent);
+}
+
+.unified-workspace .orbit-satellite {
+  position: absolute;
+  --orbit-angle: var(--orbit-start);
+  left: calc(50% + cos(var(--orbit-angle)) * var(--orbit-x, 43%));
+  top: calc(50% + sin(var(--orbit-angle)) * var(--orbit-y, 40%));
+  translate: -50% -50%;
+  display: grid;
+  place-items: center;
+  width: clamp(27px, 4.5vw, 60px);
+  aspect-ratio: 1;
+  animation: orbit-coin-travel var(--orbit-time, 24s) linear infinite;
+}
+
+.unified-workspace .orbit-satellite[data-coin="BTC"] {
+  --coin-rim: #ad661f;
+  --coin-light: #fff1bf;
+  --coin-mid: #f6b647;
+  --coin-shadow: #c47d2b;
+  --coin-text: #512900;
+  --orbit-start: 20deg;
+}
+
+.unified-workspace .orbit-satellite[data-coin="ETH"] {
+  --coin-rim: #7b86bb;
+  --coin-light: #f4f4ff;
+  --coin-mid: #abb4e6;
+  --coin-shadow: #838fc6;
+  --coin-text: #30396d;
+  --orbit-start: 190deg;
+  --orbit-x: 37%;
+  --orbit-y: 36%;
+  --orbit-time: 29s;
+}
+
+.unified-workspace .orbit-satellite[data-coin="SOL"] {
+  --coin-rim: #387c76;
+  --coin-light: #c7fff1;
+  --coin-mid: #72d9bf;
+  --coin-shadow: #9d75d5;
+  --coin-text: #214338;
+  --orbit-start: 310deg;
+  --orbit-x: 30%;
+  --orbit-y: 31%;
+  --orbit-time: 34s;
+}
+
+.unified-workspace .orbit-satellite .coin {
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--coin-rim);
+  border-radius: 50%;
+  font-size: clamp(16px, 2.3vw, 29px);
+  font-weight: 700;
+  color: var(--coin-text);
+  background: linear-gradient(
+    142deg,
+    var(--coin-light),
+    var(--coin-mid) 53%,
+    var(--coin-shadow)
+  );
+  box-shadow:
+    inset 0 0 0 3px var(--coin-mid),
+    inset 0 0 0 4px var(--coin-rim),
+    0 3px 0 var(--coin-rim),
+    0 8px 19px color-mix(in srgb, var(--coin-rim) 43%, transparent);
+  animation: orbit-coin-tilt 5s ease-in-out infinite alternate;
+}
+
+@keyframes orbit-coin-travel {
+  to {
+    --orbit-angle: calc(var(--orbit-start) + 360deg);
+  }
+}
+
+@keyframes orbit-coin-tilt {
+  from {
+    transform: rotate(-8deg) rotateY(-19deg) translateY(-2px);
+  }
+  to {
+    transform: rotate(9deg) rotateY(23deg) translateY(2px);
+  }
+}
+
+.unified-workspace .home-orbit[data-paused="true"] .orbit-satellite,
+.unified-workspace .home-orbit[data-paused="true"] .orbit-satellite .coin {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .unified-workspace .orbit-satellite,
+  .unified-workspace .orbit-satellite .coin {
+    animation: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .rail-shell.unified-workspace .home-hero {
+    --orbit-width: 93vw;
+    --orbit-height: clamp(172px, 47svh, 365px);
+    padding-top: clamp(20px, 5svh, 45px);
+  }
+}
+
+.unified-workspace .product-auth-page {
+  display: grid;
+  align-content: center;
+  min-height: calc(100svh - 92px);
+}
+
+.unified-workspace .product-auth-page .platform-auth {
+  width: 100%;
 }
 
 .rail-shell.unified-workspace .platform-auth-story {
@@ -698,10 +955,6 @@
 }
 
 @media (max-width: 760px) {
-  .rail-shell.unified-workspace .workspace {
-    border-radius: 19px;
-  }
-
   .rail-shell.unified-workspace .topbar {
     padding-inline: 10px;
   }

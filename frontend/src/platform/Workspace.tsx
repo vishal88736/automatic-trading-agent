@@ -22,7 +22,13 @@ import { HomeOrbit } from "../HomeOrbit";
 import { ThemeToggle } from "../ThemeToggle";
 import { Auth } from "./Auth";
 import { platform, PlatformRequestError } from "./client";
-import { modules, readRoute, workspaceHref, type Module } from "./navigation";
+import {
+  modules,
+  readRoute,
+  signInHref,
+  workspaceHref,
+  type Module,
+} from "./navigation";
 import { DashboardMarkets } from "./DashboardPanels";
 import "./platform.css";
 
@@ -133,6 +139,7 @@ export function Workspace() {
       if (location.hash !== next.href)
         history.replaceState(null, "", next.href);
       setRoute(next);
+      if (next.signIn) window.scrollTo(0, 0);
       setMenuOpen(false);
       setReplaying(false);
     }
@@ -148,6 +155,11 @@ export function Workspace() {
     try {
       const health = await platform<{ productConfigured: boolean }>("/health");
       const session = await platform<Session>("/auth/session");
+      if (readRoute().signIn) {
+        history.replaceState(null, "", workspaceHref("dashboard"));
+        setRoute(readRoute());
+        window.scrollTo(0, 0);
+      }
       setAuth({
         state: "signed-in",
         session,
@@ -265,44 +277,34 @@ export function Workspace() {
           </nav>
         )}
         <main className="platform-workspace">
-          {auth.state === "signed-out" && (
-            <>
-              {page === "dashboard" && (
-                <section className="workspace-intro home-hero">
-                  <div className="page-heading">
-                    <div>
-                      <span className="home-kicker">
-                        Autonomous crypto research
-                      </span>
-                      <h1>Trade with Krono.</h1>
-                      <p>
-                        Build and backtest strategies. Run autonomous agents
-                        with virtual funds.
-                      </p>
-                    </div>
-                    <div className="page-actions">
-                      <a
-                        className="button primary"
-                        href="#sign-in"
-                        onClick={(event) => {
-                          event.preventDefault();
-                          document
-                            .querySelector<HTMLInputElement>("#sign-in input")
-                            ?.focus();
-                        }}
-                      >
-                        Get started <ArrowRight size={16} />
-                      </a>
-                    </div>
+          {auth.state === "signed-out" &&
+            (page === "dashboard" && !route.signIn ? (
+              <section className="workspace-intro home-hero">
+                <div className="page-heading">
+                  <div>
+                    <span className="home-kicker">
+                      Autonomous crypto research
+                    </span>
+                    <h1>Trade with Krono.</h1>
+                    <p>
+                      Build and backtest strategies. Run autonomous agents with
+                      virtual funds.
+                    </p>
                   </div>
-                  <HomeOrbit />
-                </section>
-              )}
-              <div id="sign-in">
-                <Auth done={() => void check()} />
-              </div>
-            </>
-          )}
+                  <div className="page-actions">
+                    <a className="button primary" href={signInHref}>
+                      Get started <ArrowRight size={16} />
+                    </a>
+                  </div>
+                </div>
+                <HomeOrbit movingCoins />
+              </section>
+            ) : (
+              <section className="product-auth-page">
+                <h1 className="visually-hidden">Sign in to Krono</h1>
+                <Auth done={() => void check()} focusEmail={route.signIn} />
+              </section>
+            ))}
           {auth.state === "loading" && (
             <p className="platform-loading" role="status">
               Connecting to Krono…

@@ -73,3 +73,91 @@ test("the home orbit rotates, respects reduced motion, and leaves the desk actio
     page.getByRole("heading", { name: "Trading desk", exact: true }),
   ).toBeVisible();
 });
+
+test("the unified landing fits the full ring and opens a separate sign-in screen", async ({
+  page,
+}) => {
+  await page.route("**/platform/health", (route) =>
+    route.fulfill({ json: { productConfigured: true } }),
+  );
+  await page.route("**/platform/auth/session", (route) =>
+    route.fulfill({ status: 401, json: {} }),
+  );
+  await page.route("**/platform/auth/refresh", (route) =>
+    route.fulfill({ status: 401, json: {} }),
+  );
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto("/workspace#/dashboard");
+  const hero = page.getByRole("heading", {
+    name: "Trade with Krono.",
+    exact: true,
+  });
+  await expect(hero).toBeVisible();
+
+  for (const [width, height] of [
+    [1502, 726],
+    [1366, 600],
+    [390, 844],
+    [320, 568],
+  ]) {
+    await page.setViewportSize({ width, height });
+    const bounds = await page.evaluate(() => {
+      const workspace = document
+        .querySelector(".unified-workspace .workspace")!
+        .getBoundingClientRect();
+      const { left, top, right, bottom } = document
+        .querySelector(".orbit-plane")!
+        .getBoundingClientRect();
+      return {
+        left,
+        top,
+        right,
+        bottom,
+        workspaceLeft: workspace.left,
+        workspaceRight: workspace.right,
+        scrollWidth: document.documentElement.scrollWidth,
+      };
+    });
+    expect(bounds.workspaceLeft).toBe(0);
+    expect(bounds.workspaceRight).toBe(width);
+    expect(bounds.scrollWidth).toBe(width);
+    expect(bounds.left).toBeGreaterThan(0);
+    expect(bounds.right).toBeLessThan(width);
+    expect(bounds.top).toBeGreaterThan(0);
+    expect(bounds.bottom).toBeLessThan(height);
+  }
+  const coins = page.locator(".orbit-satellite");
+  await expect(coins).toHaveCount(3);
+  const moved = await coins.first().evaluate(async (coin) => {
+    const [motion] = coin.getAnimations();
+    motion.pause();
+    await motion.ready;
+    motion.currentTime = 0;
+    const initial = coin.getBoundingClientRect();
+    motion.currentTime = 6000;
+    const latest = coin.getBoundingClientRect();
+    return Math.hypot(latest.x - initial.x, latest.y - initial.y) > 10;
+  });
+  expect(moved).toBe(true);
+  await page.getByRole("button", { name: "Pause orbit animation" }).click();
+  await expect(coins.last()).toHaveCSS("animation-play-state", "paused");
+  await expect(coins.last().locator(".coin")).toHaveCSS(
+    "animation-play-state",
+    "paused",
+  );
+  await page.getByRole("button", { name: "Play orbit animation" }).click();
+  await expect(coins.last()).toHaveCSS("animation-play-state", "running");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(coins.last()).toHaveCSS("animation-name", "none");
+  await expect(page.getByLabel("Email", { exact: true })).toHaveCount(0);
+  await page.getByRole("link", { name: "Get started" }).click();
+  await expect(page).toHaveURL(/#\/sign-in$/);
+  await expect(
+    page.getByRole("heading", { name: "Welcome to your workspace" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Email", { exact: true })).toBeFocused();
+  await expect(hero).toHaveCount(0);
+  await expect(page.locator(".home-orbit")).toHaveCount(0);
+  await page.goBack();
+  await expect(hero).toBeVisible();
+});

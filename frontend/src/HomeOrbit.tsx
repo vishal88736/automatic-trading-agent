@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { Pause, Play } from "lucide-react";
+import { KronoMark } from "./brand";
+import { Coin } from "./ui";
 
-export function HomeOrbit() {
+export function HomeOrbit({ movingCoins = false }: { movingCoins?: boolean }) {
   const [paused, setPaused] = useState(false);
   const label = paused ? "Play orbit animation" : "Pause orbit animation";
 
@@ -16,9 +18,28 @@ export function HomeOrbit() {
             <span className="orbit-crosshair" />
           </div>
         </div>
-        <div className="hero-art">
-          <img src="/art/krono-orbit.webp" alt="" width="720" height="720" />
-        </div>
+        {movingCoins ? (
+          <>
+            <div className="orbit-core">
+              <KronoMark />
+            </div>
+            <div className="orbit-coins">
+              {["BTC", "ETH", "SOL"].map((symbol) => (
+                <div
+                  className="orbit-satellite"
+                  data-coin={symbol}
+                  key={symbol}
+                >
+                  <Coin symbol={symbol} />
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="hero-art">
+            <img src="/art/krono-orbit.webp" alt="" width="720" height="720" />
+          </div>
+        )}
       </div>
       <button
         type="button"
