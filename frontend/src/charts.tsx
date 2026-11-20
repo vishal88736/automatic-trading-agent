@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { Amount, Candle, ChartIndicators } from "./types";
 
 // The SVG coordinate system follows its container. Axis labels therefore stay
@@ -64,6 +64,8 @@ export function EquityChart({
   label = "Recorded simulation equity history",
   format = (value: number) => value.toFixed(0),
   formatPoint = (value: number) => `$${value.toFixed(4)} simulated equity`,
+  area = false,
+  selectedIndex,
 }: {
   rows: { at: string; equity: Amount }[];
   baseline?: number;
@@ -71,8 +73,11 @@ export function EquityChart({
   label?: string;
   format?: (value: number) => string;
   formatPoint?: (value: number) => string;
+  area?: boolean;
+  selectedIndex?: number;
 }) {
   const { ref, width } = useChartWidth();
+  const fill = useId();
   const left = 12,
     right = width - 72,
     plotWidth = Math.max(1, right - left);
@@ -80,12 +85,11 @@ export function EquityChart({
   const minimum = Math.min(...values, baseline) - padding,
     maximum = Math.max(...values, baseline) + padding,
     range = maximum - minimum;
-  const points = rows
-    .map(
-      (r, i) =>
-        `${left + (i * plotWidth) / Math.max(1, rows.length - 1)},${225 - ((Number(r.equity) - minimum) * 175) / range}`,
-    )
-    .join(" ");
+  const coordinates = values.map((equity, index) => ({
+    x: left + (index * plotWidth) / Math.max(1, rows.length - 1),
+    y: 225 - ((equity - minimum) * 175) / range,
+  }));
+  const points = coordinates.map(({ x, y }) => `${x},${y}`).join(" ");
   return (
     <div className="equity-chart" ref={ref}>
       <svg
@@ -93,6 +97,17 @@ export function EquityChart({
         role="img"
         aria-label={`${label}, ${rows.length} snapshots`}
       >
+        {area && rows.length > 1 && (
+          <>
+            <defs>
+              <linearGradient id={fill} x2="0" y2="1">
+                <stop stopColor="var(--accent)" stopOpacity="0.47" />
+                <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.03" />
+              </linearGradient>
+            </defs>
+            <polygon points={`${left},225 ${points} ${right},225`} fill={`url(#${fill})`} />
+          </>
+        )}
         {[0, 1, 2, 3].map((i) => (
           <g key={i}>
             <line
@@ -118,16 +133,19 @@ export function EquityChart({
             points={points}
             fill="none"
             stroke="var(--accent)"
-            strokeWidth="2"
+            strokeWidth={area ? 2.5 : 2}
+            strokeLinejoin="round"
           />
         )}
         {rows.map((r, i) => (
           <circle
             key={i}
-            cx={left + (i * plotWidth) / Math.max(1, rows.length - 1)}
-            cy={225 - ((Number(r.equity) - minimum) * 175) / range}
-            r="3"
+            cx={coordinates[i].x}
+            cy={coordinates[i].y}
+            r={i === selectedIndex ? 5 : area ? 2 : 3}
             fill="var(--accent)"
+            stroke={i === selectedIndex ? "var(--panel)" : undefined}
+            strokeWidth={i === selectedIndex ? 2 : undefined}
           >
             <title>
               {r.at}: {formatPoint(Number(r.equity))}
