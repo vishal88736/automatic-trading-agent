@@ -1,4 +1,6 @@
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useRef,
@@ -30,6 +32,8 @@ import { KronoMark } from "../brand";
 import { platform, type AgentRow, type Preview, type Runtime } from "./client";
 import { PaperAccount, Strategies } from "./Strategies";
 import "./platform.css";
+
+const BacktestingLab = lazy(() => import("./BacktestingLab"));
 
 type Message = {
   role: "user" | "assistant";
@@ -251,7 +255,8 @@ export function PlatformWorkspace() {
   const route = useSyncExternalStore(subscribeToHash, currentHash);
   const strategies = route === "#/platform/strategies";
   const paper = route === "#/platform/paper";
-  const showingAgents = !strategies && !paper;
+  const backtesting = /^#\/platform\/backtests(?:\/[^/]+)?$/.test(route);
+  const showingAgents = !strategies && !paper && !backtesting;
   const [session, setSession] = useState<{
       userId: string;
       email: string;
@@ -537,7 +542,9 @@ export function PlatformWorkspace() {
               ? "Strategies"
               : paper
                 ? "Paper Trading"
-                : "One workspace. Every agent."}
+                : backtesting
+                  ? "Backtesting Lab"
+                  : "One workspace. Every agent."}
           </h2>
           <p>
             {session.email} · Bedrock / {health.model} · {health.region}
@@ -568,11 +575,11 @@ export function PlatformWorkspace() {
           <LogOut size={15} /> Sign out
         </button>
       </div>
-      {(health.productConfigured || strategies || paper) && (
+      {(health.productConfigured || !showingAgents) && (
         <nav className="platform-product-nav" aria-label="Platform workspaces">
           <a
             href="#/platform"
-            aria-current={!strategies && !paper ? "page" : undefined}
+            aria-current={showingAgents ? "page" : undefined}
           >
             AI Agents
           </a>
@@ -581,6 +588,12 @@ export function PlatformWorkspace() {
             aria-current={strategies ? "page" : undefined}
           >
             Strategies
+          </a>
+          <a
+            href="#/platform/backtests"
+            aria-current={backtesting ? "page" : undefined}
+          >
+            Backtesting Lab
           </a>
           <a href="#/platform/paper" aria-current={paper ? "page" : undefined}>
             Paper Trading
@@ -594,7 +607,7 @@ export function PlatformWorkspace() {
       )}
     </>
   );
-  if (strategies || paper) {
+  if (!showingAgents) {
     return (
       <div className="platform-workspace">
         {header}
@@ -604,8 +617,15 @@ export function PlatformWorkspace() {
           </p>
         ) : strategies ? (
           <Strategies key={session.userId} />
-        ) : (
+        ) : paper ? (
           <PaperAccount key={session.userId} />
+        ) : (
+          <Suspense fallback={<p role="status">Loading Backtesting Lab…</p>}>
+            <BacktestingLab
+              key={`${session.userId}${route}`}
+              reportId={route.split("/")[3]}
+            />
+          </Suspense>
         )}
       </div>
     );

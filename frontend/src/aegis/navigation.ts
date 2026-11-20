@@ -38,7 +38,8 @@ export function readRoute(): Route {
   if (
     path === "platform" ||
     path === "platform/strategies" ||
-    path === "platform/paper"
+    path === "platform/paper" ||
+    /^platform\/backtests(?:\/[^/]+)?$/.test(path)
   )
     return { workspace: "platform", page: "platform" };
   if (path === "aegis") return { workspace: "aegis", page: "overview" };

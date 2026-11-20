@@ -9,7 +9,7 @@ async function signIn(page: Page, user: "alice" | "bob") {
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
 }
 
-test("Fund a virtual account and edit, copy, compare, and archive a tenant strategy", async ({
+test("Fund, version, backtest, and isolate a tenant strategy", async ({
   page,
 }) => {
   await page.goto("/#/platform/paper");
@@ -55,8 +55,40 @@ test("Fund a virtual account and edit, copy, compare, and archive a tenant strat
   await expect(
     page.getByRole("button", { name: "Reviewed RSI · BTC · v2" }),
   ).toBeVisible();
+  await page
+    .getByRole("link", { name: "Backtesting Lab", exact: true })
+    .click();
+  await page
+    .getByRole("combobox", { name: "Strategy", exact: true })
+    .selectOption({
+      label: "Reviewed RSI · BTC/USD · v2",
+    });
+  await page.getByLabel("Start date").fill("2026-01-15");
+  await page.getByLabel("End date (exclusive)").fill("2026-01-22");
+  await page.getByRole("button", { name: "Run backtest" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Replay report" }),
+  ).toBeVisible();
+  await expect(page.getByText("Total return", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "In-sample" }).click();
+  await expect(
+    page.getByRole("img", { name: /Backtest equity/ }),
+  ).toBeVisible();
+  await page.getByText("Assumptions and dataset", { exact: true }).click();
+  await expect(page.getByText("SHA-256", { exact: false })).toBeVisible();
+  const report = page.url();
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "Replay report" }),
+  ).toBeVisible();
+
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await signIn(page, "bob");
+  await expect(page.getByRole("alert")).toContainText(
+    "Backtest is unavailable",
+  );
+  expect(page.url()).toBe(report);
+  await page.getByRole("link", { name: "Strategies", exact: true }).click();
   await expect(page.getByText("No saved strategies.")).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Reviewed RSI · BTC · v2" }),

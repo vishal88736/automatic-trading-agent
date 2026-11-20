@@ -52,7 +52,7 @@ jobs:
           export KRONO_E2E_PRODUCT_API_KEY="$KRONO_PRODUCT_API_KEY"
           export KRONO_E2E_PRODUCT_API_URL="http://127.0.0.1:8794"
           .venv/bin/python -m scripts.platform_database
-          .venv/bin/python -m uvicorn backend.platform_product_api:app_from_environment --factory --host 127.0.0.1 --port 8794 &
+          TERMINAL_TEST_RUN=1 .venv/bin/python -m uvicorn e2e.product_api:application --factory --host 127.0.0.1 --port 8794 &
           product_pid=$!
           trap 'kill "$product_pid" 2>/dev/null || true' EXIT
           curl --silent --show-error --retry 10 --retry-connrefused --retry-delay 1 --output /dev/null "$KRONO_E2E_PRODUCT_API_URL/platform/paper-account"

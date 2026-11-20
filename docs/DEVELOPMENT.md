@@ -116,9 +116,9 @@ Create a saved-strategy replay with `POST /platform/custom-strategies/{id}/backt
 
 Retrieve the saved report with `GET /platform/backtests/{id}` and add `?include_dataset=true` to export the exact normalized market snapshot. The report pins the strategy version, replay version, candle digest, input assumptions, in-sample and holdout results, fills, equity and drawdown. Protection triggers use a documented hourly OHLC assumption. Paper order execution is a later integration step.
 
-With the gateway configured, sign in and open **Strategies** or **Paper Trading** from the Agent Platform workspace. Strategies supports JSON editing, copies, revision comparison and archiving. Paper Trading displays the backend balance after opening a virtual account.
+With the gateway configured, sign in and open **Strategies**, **Backtesting Lab**, or **Paper Trading** from the Agent Platform workspace. Strategies supports JSON editing, copies, revision comparison and archiving. Backtesting Lab takes a saved version and a range of four to fourteen complete UTC days. Its persisted report shows in-sample and holdout metrics, charts, fills, assumptions, and the dataset digest. Paper Trading displays the backend balance after opening a virtual account.
 
-The isolated browser test uses the same PostgreSQL-backed service with fixture identities. Start the private API against a disposable database, set `KRONO_E2E_PRODUCT_API_URL` and `KRONO_E2E_PRODUCT_API_KEY` in the shell to match the private API, and run:
+The isolated browser test uses the same PostgreSQL-backed service with fixture identities. For reproducible candle inputs, run the test-only `e2e.product_api:application` Uvicorn factory with `TERMINAL_TEST_RUN=1` against a migrated disposable database. Set `KRONO_E2E_PRODUCT_API_URL` and `KRONO_E2E_PRODUCT_API_KEY` in the shell to match the private API, and run:
 
 ```bash
 npm run test:e2e -- e2e/platform-strategy.spec.ts

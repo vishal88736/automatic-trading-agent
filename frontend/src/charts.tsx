@@ -59,16 +59,26 @@ export function Sparkline({
 
 export function EquityChart({
   rows,
+  baseline = 10000,
+  padding = 2,
+  label = "Recorded simulation equity history",
+  format = (value: number) => value.toFixed(0),
+  formatPoint = (value: number) => `$${value.toFixed(4)} simulated equity`,
 }: {
   rows: { at: string; equity: Amount }[];
+  baseline?: number;
+  padding?: number;
+  label?: string;
+  format?: (value: number) => string;
+  formatPoint?: (value: number) => string;
 }) {
   const { ref, width } = useChartWidth();
   const left = 12,
     right = width - 72,
     plotWidth = Math.max(1, right - left);
   const values = rows.map((r) => Number(r.equity));
-  const minimum = Math.min(...values, 10000) - 2,
-    maximum = Math.max(...values, 10000) + 2,
+  const minimum = Math.min(...values, baseline) - padding,
+    maximum = Math.max(...values, baseline) + padding,
     range = maximum - minimum;
   const points = rows
     .map(
@@ -81,7 +91,7 @@ export function EquityChart({
       <svg
         viewBox={`0 0 ${width} 270`}
         role="img"
-        aria-label={`Recorded simulation equity history, ${rows.length} snapshots`}
+        aria-label={`${label}, ${rows.length} snapshots`}
       >
         {[0, 1, 2, 3].map((i) => (
           <g key={i}>
@@ -99,7 +109,7 @@ export function EquityChart({
               fill="var(--muted)"
               fontSize="12"
             >
-              {(maximum - (i * range) / 3).toFixed(0)}
+              {format(maximum - (i * range) / 3)}
             </text>
           </g>
         ))}
@@ -120,7 +130,7 @@ export function EquityChart({
             fill="var(--accent)"
           >
             <title>
-              {r.at}: ${Number(r.equity).toFixed(4)} simulated equity
+              {r.at}: {formatPoint(Number(r.equity))}
             </title>
           </circle>
         ))}

@@ -757,3 +757,37 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.platform-backtest > a {
+  display: inline-block;
+  margin-block: 8px;
+}
+.platform-backtest-fields,
+.platform-backtest-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: 12px;
+  margin-block: 12px;
+}
+.platform-backtest-fields :is(input, select) {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+}
+.platform-backtest-metrics > div {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+}
+.platform-backtest-metrics dd {
+  margin: 3px 0 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+}
+.platform-backtest-table {
+  overflow-x: auto;
+  margin-bottom: 16px;
+}
+.platform-backtest code {
+  overflow-wrap: anywhere;
+}
