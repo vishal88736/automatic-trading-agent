@@ -65,28 +65,40 @@ def lock_account(db: Connection, owner: UUID) -> tuple[PaperAccount, bool]:
     return account, row[0]
 
 
-def positions(db: Connection, owner: UUID, epoch: int) -> dict[str, dict]:
+def positions(
+    db: Connection, owner: UUID, epoch: int, *, actor_only=False, agent_id: UUID | None = None
+) -> dict[str, dict]:
     with db.cursor(row_factory=dict_row) as cursor:
         rows = cursor.execute(
             """
-            SELECT asset, sum(quantity) AS quantity, sum(cost_delta) AS basis,
-                   sum(realized_pnl) AS realized_pnl
-            FROM paper_ledger_entries WHERE owner_id = %s AND epoch = %s AND asset IS NOT NULL
-            GROUP BY asset
+            SELECT l.asset, sum(l.quantity) AS quantity, sum(l.cost_delta) AS basis,
+                   sum(l.realized_pnl) AS realized_pnl
+            FROM paper_ledger_entries l JOIN paper_orders o ON o.id = l.order_id
+            WHERE l.owner_id = %s AND l.epoch = %s
+              AND (NOT %s OR o.agent_id IS NOT DISTINCT FROM %s)
+            GROUP BY l.asset
             """,
-            (owner, epoch),
+            (owner, epoch, actor_only, agent_id),
         ).fetchall()
     return {row["asset"]: row for row in rows}
 
 
-def reservations(db: Connection, owner: UUID, epoch: int, exclude: UUID | None = None):
+def reservations(
+    db: Connection,
+    owner: UUID,
+    epoch: int,
+    exclude: UUID | None = None,
+    agent_id: UUID | None = None,
+):
     rows = db.execute(
         """
-        SELECT request->>'asset', sum(reserved_cash), sum(reserved_quantity) FROM paper_orders
+        SELECT request->>'asset', sum(reserved_cash),
+          coalesce(sum(reserved_quantity) FILTER (WHERE agent_id IS NOT DISTINCT FROM %s), 0)
+        FROM paper_orders
         WHERE owner_id = %s AND epoch = %s AND status = 'OPEN' AND id IS DISTINCT FROM %s
         GROUP BY request->>'asset'
         """,
-        (owner, epoch, exclude),
+        (agent_id, owner, epoch, exclude),
     ).fetchall()
     return sum((cash for _, cash, _ in rows), Decimal(0)), {
         asset: quantity for asset, _, quantity in rows
@@ -181,7 +193,7 @@ def get_order(db: Connection, owner: UUID, order_id: UUID) -> dict | None:
     with db.cursor(row_factory=dict_row) as cursor:
         return cursor.execute(
             """
-            SELECT o.id, o.epoch, o.request, o.status, o.reason, o.reserved_cash,
+            SELECT o.id, o.epoch, o.agent_id, o.request, o.status, o.reason, o.reserved_cash,
                    o.reserved_quantity, o.created_at, o.updated_at, l.price AS fill_price,
                    l.amount AS cash_delta, l.fee, l.realized_pnl, l.market_at, l.market_source
             FROM paper_orders o LEFT JOIN paper_ledger_entries l ON l.order_id = o.id
@@ -191,7 +203,9 @@ def get_order(db: Connection, owner: UUID, order_id: UUID) -> dict | None:
         ).fetchone()
 
 
-def _evaluate(db, owner, account, stopped, order_id, request, quotes, terms, at, *, pending):
+def _evaluate(
+    db, owner, account, stopped, order_id, request, quotes, terms, at, *, pending, agent_id=None
+):
     if stopped:
         _finish(db, order_id, "REJECTED", "EMERGENCY_STOP", at)
         return
@@ -211,8 +225,9 @@ def _evaluate(db, owner, account, stopped, order_id, request, quotes, terms, at,
         return
     gross, fee = _cost(request.quantity, price if crosses else limit, terms)
     held = positions(db, owner, account.epoch)
-    position = held.get(request.asset, {"quantity": Decimal(0), "basis": Decimal(0)})
-    reserved_cash, reserved_quantity = reservations(db, owner, account.epoch, order_id)
+    actor_positions = positions(db, owner, account.epoch, actor_only=True, agent_id=agent_id)
+    position = actor_positions.get(request.asset, {"quantity": Decimal(0), "basis": Decimal(0)})
+    reserved_cash, reserved_quantity = reservations(db, owner, account.epoch, order_id, agent_id)
     reason = None
     if gross <= fee:
         reason = "ORDER_TOO_SMALL"
@@ -235,6 +250,22 @@ def _evaluate(db, owner, account, stopped, order_id, request, quotes, terms, at,
         )
         return
 
+    if buy and agent_id is not None:
+        capital, cash_delta = db.execute(
+            """
+            SELECT a.capital, coalesce(sum(l.amount), 0)
+            FROM paper_agents a LEFT JOIN paper_orders o ON o.agent_id = a.id
+            LEFT JOIN paper_ledger_entries l ON l.order_id = o.id
+            WHERE a.owner_id = %s AND a.id = %s AND a.epoch = %s AND a.status = 'RUNNING'
+            GROUP BY a.id
+            """,
+            (owner, agent_id, account.epoch),
+        ).fetchone() or (Decimal(0), Decimal(0))
+        if gross + fee > min(capital, capital + cash_delta) or (
+            position["quantity"] * quote.price + gross > capital
+        ):
+            _finish(db, order_id, "REJECTED", "AGENT_CAPITAL", at)
+            return
     quantity = request.quantity if buy else -request.quantity
     cash_delta = -(gross + fee) if buy else gross - fee
     if buy:
@@ -272,24 +303,29 @@ def _evaluate(db, owner, account, stopped, order_id, request, quotes, terms, at,
     _finish(db, order_id, "FILLED", None, at)
 
 
-def submit_order(db, owner: UUID, request: OrderRequest, quotes, terms: PaperTerms, *, clock=now):
+def submit_order(
+    db, owner: UUID, request: OrderRequest, quotes, terms: PaperTerms, *, clock=now, agent_id=None
+):
     with db.transaction():
         account, stopped = lock_account(db, owner)
         existing = db.execute(
-            "SELECT id, request FROM paper_orders WHERE owner_id = %s AND request_key = %s",
+            "SELECT id, request, agent_id FROM paper_orders WHERE owner_id = %s AND request_key = %s",
             (owner, request.request_key),
         ).fetchone()
         if existing:
-            if OrderRequest.model_validate(existing[1]) != request:
+            if OrderRequest.model_validate(existing[1]) != request or existing[2] != agent_id:
                 raise ValueError("Order key already belongs to a different request")
             return get_order(db, owner, existing[0])
+        if agent_id is not None and request.limit_price is not None:
+            raise ValueError("Autonomous orders use market execution")
         if request.epoch != account.epoch:
             raise ValueError("Paper account epoch changed")
         at, order = clock(), uuid4()
         db.execute(
             """
             INSERT INTO paper_orders (id, owner_id, account_id, epoch, request_key, request,
-              status, created_at, updated_at) VALUES (%s, %s, %s, %s, %s, %s, 'OPEN', %s, %s)
+              status, created_at, updated_at, agent_id)
+            VALUES (%s, %s, %s, %s, %s, %s, 'OPEN', %s, %s, %s)
             """,
             (
                 order,
@@ -300,9 +336,22 @@ def submit_order(db, owner: UUID, request: OrderRequest, quotes, terms: PaperTer
                 Jsonb(request.model_dump(mode="json")),
                 at,
                 at,
+                agent_id,
             ),
         )
-        _evaluate(db, owner, account, stopped, order, request, quotes, terms, at, pending=False)
+        _evaluate(
+            db,
+            owner,
+            account,
+            stopped,
+            order,
+            request,
+            quotes,
+            terms,
+            at,
+            pending=False,
+            agent_id=agent_id,
+        )
         return get_order(db, owner, order)
 
 
@@ -338,7 +387,23 @@ def set_emergency(db, owner: UUID, enabled: bool) -> bool:
         )
         if enabled:
             _cancel_open(db, owner, account.epoch, "EMERGENCY_STOP")
+            _halt_agents(db, owner, account.epoch, "PAUSED", "Emergency stop")
     return enabled
+
+
+def _halt_agents(db, owner, epoch, status, reason):
+    db.execute(
+        """
+        WITH changed AS (
+            UPDATE paper_agents SET status = %s, lease_token = NULL, lease_until = NULL
+            WHERE owner_id = %s AND epoch = %s AND status IN ('RUNNING', 'PAUSED')
+            RETURNING owner_id, id
+        )
+        INSERT INTO paper_agent_events (owner_id, agent_id, kind, detail)
+        SELECT owner_id, id, %s, jsonb_build_object('reason', %s::text) FROM changed
+        """,
+        (status, owner, epoch, status, reason),
+    )
 
 
 def _cancel_open(db, owner, epoch, reason):
@@ -358,6 +423,7 @@ def reset_account(db, owner: UUID, expected_epoch: int, opening_credit: Decimal)
         if account.epoch != expected_epoch:
             raise ValueError("Paper account epoch changed")
         _cancel_open(db, owner, account.epoch, "ACCOUNT_RESET")
+        _halt_agents(db, owner, account.epoch, "STOPPED", "Account reset")
         db.execute(
             "UPDATE paper_account_epochs SET closed_at = now() WHERE owner_id = %s AND epoch = %s",
             (owner, expected_epoch),
@@ -461,7 +527,7 @@ def order_history(db, owner: UUID, *, epoch: int | None = None, limit=50) -> lis
     with db.cursor(row_factory=dict_row) as cursor:
         return cursor.execute(
             """
-            SELECT o.id, o.epoch, o.request, o.status, o.reason, o.reserved_cash,
+            SELECT o.id, o.epoch, o.agent_id, o.request, o.status, o.reason, o.reserved_cash,
                    o.reserved_quantity, o.created_at, o.updated_at, l.price AS fill_price,
                    l.amount AS cash_delta, l.fee, l.realized_pnl, l.market_at, l.market_source
             FROM paper_orders o LEFT JOIN paper_ledger_entries l ON l.order_id = o.id

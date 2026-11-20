@@ -21,6 +21,14 @@ from backend.backtest_repository import get_replay, save_replay
 from backend.historical_data import HistoricalBacktestRequest, load_candles
 from backend.models import Model
 from backend.paper_accounts import DEFAULT_INITIAL_USDT, PaperAccount, ensure_account, get_account
+from backend.paper_agents import (
+    AgentCommand,
+    AgentStart,
+    control_agent,
+    list_agents,
+    start_agent,
+    timeline,
+)
 from backend.paper_execution import (
     OrderRequest,
     PaperTerms,
@@ -252,6 +260,40 @@ def create_product_api(
     @app.put("/platform/paper-account/emergency")
     def paper_emergency(change: PaperEmergency, subject: Principal, db: Database):
         return {"emergency_stop": set_emergency(db, subject, change.enabled)}
+
+    @app.get("/platform/paper-agents")
+    def paper_agent_list(subject: Principal, db: Database):
+        return financial({"items": list_agents(db, subject)})
+
+    @app.post("/platform/paper-agents", status_code=201)
+    def paper_agent_start(request: AgentStart, subject: Principal, db: Database):
+        try:
+            agent = start_agent(db, subject, request)
+        except LookupError:
+            raise ProductError(404, "NOT_FOUND", "Backtest is unavailable") from None
+        except ValueError as exc:
+            raise ProductError(409, "AGENT_START_REJECTED", str(exc)) from None
+        return {"id": agent}
+
+    @app.post("/platform/paper-agents/{agent_id}/control")
+    def paper_agent_control(
+        agent_id: UUID, command: AgentCommand, subject: Principal, db: Database
+    ):
+        try:
+            return {"status": control_agent(db, subject, agent_id, command.action)}
+        except LookupError:
+            raise ProductError(404, "NOT_FOUND", "Paper agent is unavailable") from None
+        except ValueError as exc:
+            raise ProductError(409, "AGENT_CONTROL_REJECTED", str(exc)) from None
+
+    @app.get("/platform/paper-agents/{agent_id}/events")
+    def paper_agent_timeline(
+        agent_id: UUID,
+        subject: Principal,
+        db: Database,
+        after: Annotated[int, Query(ge=0)] = 0,
+    ):
+        return financial({"items": timeline(db, subject, agent_id, after)})
 
     @app.get("/platform/custom-strategies")
     def strategies(

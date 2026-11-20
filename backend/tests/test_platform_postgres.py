@@ -382,3 +382,103 @@ def test_parallel_submissions_share_cash_lock(database):
             "SELECT count(*) FROM paper_ledger_entries WHERE owner_id = %s AND kind = 'BUY'",
             (owner,),
         ).fetchone() == (1,)
+
+
+def test_durable_agent_lease_recovers_and_shared_execution_stops_atomically(
+    database, strategy_draft
+):
+    from datetime import timedelta
+
+    from backend.backtest_repository import save_replay
+    from backend.historical_data import HistoricalBacktestRequest
+    from backend.models import now
+    from backend.paper_agents import (
+        AgentStart,
+        claim_agent,
+        control_agent,
+        list_agents,
+        start_agent,
+        timeline,
+    )
+    from backend.paper_execution import (
+        OrderRequest,
+        PaperTerms,
+        order_history,
+        positions,
+        submit_order,
+    )
+    from backend.paper_worker import PaperWorker
+    from e2e.product_api import history, quotes
+
+    owner, other = uuid4(), uuid4()
+    raw = strategy_draft.model_dump(mode="json")
+    raw["definition"]["entry"]["conditions"] = [
+        {"indicator": "price", "operator": "gt", "threshold": "1"}
+    ]
+    raw["definition"]["exit"]["conditions"] = [
+        {"indicator": "price", "operator": "gt", "threshold": "1"}
+    ]
+    draft = StrategyDraft.model_validate(raw)
+    market = fixture_market("BTC")
+    study = HistoricalBacktestRequest(
+        version=1, start=market.candles[81].timestamp, end=market.candles[-1].closed_at
+    )
+    with database() as db:
+        migrate(db)
+        ensure_account(db, owner)
+        ensure_account(db, other)
+        strategy = create_strategy(db, owner, draft)
+        report = save_replay(db, owner, strategy, study, market)
+        request = AgentStart(
+            name="Durable paper test", report_id=report["id"], epoch=1, capital="1000"
+        )
+        with pytest.raises(LookupError):
+            start_agent(db, other, request)
+        ident = start_agent(db, owner, request)
+        initial = claim_agent(db)
+        assert initial["stage"] == "VALIDATE"
+        worker = PaperWorker(history, quotes, allow_fixture=True)
+        worker.tick(db, initial)
+        abandoned = claim_agent(db)
+        assert abandoned["stage"] == "MONITOR"
+        assert claim_agent(db) is None
+        db.execute(
+            "UPDATE paper_agents SET lease_until = now() - interval '1 second' WHERE id = %s",
+            (ident,),
+        )
+
+    # A new process/connection reclaims abandoned work. The old claim is fenced out.
+    with database() as db:
+        recovered = claim_agent(db)
+        assert recovered["recovered"]
+        restart = PaperWorker(history, quotes, allow_fixture=True)
+        restart.tick(db, abandoned)
+        restart.tick(db, recovered)
+        restart.tick(db, recovered)
+        [fill] = order_history(db, owner)
+        assert fill["agent_id"] == ident and fill["status"] == "FILLED"
+        assert list_agents(db, other) == [] and timeline(db, other, ident) == []
+        held = positions(db, owner, 1, actor_only=True, agent_id=ident)
+        manual = OrderRequest(
+            request_key=uuid4(), epoch=1, asset="BTC", side="SELL", quantity=held["BTC"]["quantity"]
+        )
+        assert (
+            submit_order(db, owner, manual, quotes({"BTC"}), PaperTerms())["reason"]
+            == "INSUFFICIENT_ASSET"
+        )
+        assert {"RECOVERED", "DECISION", "VALIDATION"} <= {
+            entry["kind"] for entry in timeline(db, owner, ident)
+        }
+
+        db.execute("UPDATE paper_agents SET next_run = now() WHERE id = %s", (ident,))
+        cancelled = claim_agent(db)
+        assert control_agent(db, owner, ident, "pause") == "PAUSED"
+        restart.tick(db, cancelled)
+        assert claim_agent(db) is None
+        assert control_agent(db, owner, ident, "resume") == "RUNNING"
+        after_resume = claim_agent(db)
+        assert after_resume["last_quote"] >= now() - timedelta(minutes=1)
+        assert control_agent(db, owner, ident, "stop") == "STOPPED"
+        restart.tick(db, after_resume)
+        assert claim_agent(db) is None
+        assert [row["status"] for row in order_history(db, owner)].count("FILLED") == 1
