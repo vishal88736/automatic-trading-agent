@@ -2,21 +2,23 @@
 
 from __future__ import annotations
 
+import argparse
 import logging
 import os
 import signal
+import socket
+import time
 from decimal import ROUND_DOWN, Decimal
 from threading import Event
 from typing import TypedDict
 from uuid import uuid5
 
-from httpx import HTTPError
 from langgraph.graph import END, START, StateGraph
 
 from backend.backtest_repository import get_replay
 from backend.historical_data import load_candles
 from backend.models import Market, RiskConfig, now
-from backend.paper_agents import checkpoint, claim_agent, event, fence
+from backend.paper_agents import checkpoint, claim_agent, event, fence, mark_agent
 from backend.paper_execution import (
     PX,
     OrderRequest,
@@ -28,6 +30,7 @@ from backend.paper_execution import (
     submit_order,
 )
 from backend.paper_market import load_quotes
+from backend.paper_workflow import activation_graph
 from backend.platform_db import DSN_ENV, open_database
 from backend.strategies import indicators
 from backend.strategy_repository import get_strategy
@@ -76,12 +79,13 @@ class PaperWorker:
         self.allow_fixture, self.clock = allow_fixture, clock
         self.market_clock = market_clock or clock
         self.graph = trade_graph()
+        self.activation = activation_graph()
         self.closed_markets = {}
 
     def tick(self, db, work):
         try:
             self._tick(db, work)
-        except (ValueError, OSError, HTTPError) as exc:
+        except Exception as exc:
             self._fail(db, work, type(exc).__name__)
 
     def _fail(self, db, work, reason):
@@ -157,6 +161,13 @@ class PaperWorker:
             candle_at = market.candles[-1].closed_at
             new_candle = work["last_candle"] is None or candle_at > work["last_candle"]
             peak = max(work["peak_price"] or quote.price, quote.price) if quantity else None
+            equity, breach = mark_agent(db, work, quantity, quote.price, now_at)
+            if breach:
+                event(db, owner, agent, "RISK_PAUSED", {"reason": breach, "equity": str(equity)})
+                checkpoint(
+                    db, work, status="PAUSED", candle=candle_at, quote=quote.observed_at, peak=peak
+                )
+                return
             choice = self.graph.invoke(
                 {"definition": definition, "market": market, "holding": quantity > 0}
             )
@@ -242,14 +253,10 @@ class PaperWorker:
             or report["strategy_id"] != str(strategy.id)
         ):
             raise ValueError("Replay does not match the pinned strategy")
-        holdout = report["result"]["out_of_sample"]
-        reasons = []
-        if report["result"]["fixture"] and not self.allow_fixture:
-            reasons.append("Fixture replay")
-        if not holdout["trade_count"]:
-            reasons.append("Holdout contains no closed trades")
-        if Decimal(holdout["maximum_drawdown"]) >= terms.risk.max_drawdown:
-            reasons.append("Holdout drawdown exceeds the configured cap")
+        review = self.activation.invoke(
+            {"report": report, "terms": terms, "allow_fixture": self.allow_fixture}
+        )
+        reasons = review["reasons"]
         with db.transaction():
             account, stopped = lock_account(db, owner)
             if not fence(db, work) or stopped or account.epoch != work["epoch"]:
@@ -261,20 +268,54 @@ class PaperWorker:
                 "VALIDATION",
                 {
                     "report_id": str(work["report_id"]),
-                    "holdout_trades": holdout["trade_count"],
-                    "holdout_drawdown": holdout["maximum_drawdown"],
+                    **review["evidence"],
                     "approved": not reasons,
                     "reasons": reasons,
+                    "suggestion": review["suggestion"],
                 },
             )
-            checkpoint(db, work, status="FAILED" if reasons else "RUNNING", delay=0)
+            checkpoint(
+                db,
+                work,
+                stage="VALIDATE" if reasons else "MONITOR",
+                status="FAILED" if reasons else "RUNNING",
+                delay=0,
+            )
+
+
+def heartbeat_fresh(db, worker_id=None):
+    return db.execute(
+        """
+        SELECT EXISTS (
+            SELECT 1 FROM paper_worker_heartbeats
+            WHERE (%s::text IS NULL OR worker_id = %s)
+                AND seen_at > clock_timestamp() - interval '30 seconds'
+        )
+        """,
+        (worker_id, worker_id),
+    ).fetchone()[0]
+
+
+def worker_identity():
+    return os.environ.get("KRONO_PAPER_WORKER_ID", socket.gethostname())
 
 
 def service(dsn: str, stop: Event, worker: PaperWorker):
+    worker_id = worker_identity()
+    last_heartbeat = float("-inf")
     while not stop.is_set():
         try:
             with open_database(dsn) as db:
                 db.execute("SET statement_timeout = '5s'")
+                if time.monotonic() - last_heartbeat >= 5:
+                    db.execute(
+                        """
+                        INSERT INTO paper_worker_heartbeats VALUES (%s, clock_timestamp())
+                        ON CONFLICT (worker_id) DO UPDATE SET seen_at = excluded.seen_at
+                        """,
+                        (worker_id,),
+                    )
+                    last_heartbeat = time.monotonic()
                 work = claim_agent(db)
                 if work:
                     worker.tick(db, work)
@@ -300,6 +341,14 @@ def service(dsn: str, stop: Event, worker: PaperWorker):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--health", action="store_true", help="Check this worker's database heartbeat"
+    )
+    args = parser.parse_args()
+    if args.health:
+        with open_database(os.environ[DSN_ENV]) as db:
+            raise SystemExit(0 if heartbeat_fresh(db, worker_identity()) else 1)
     logging.basicConfig(level=logging.INFO)
     stop = Event()
     for signum in (signal.SIGINT, signal.SIGTERM):

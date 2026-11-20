@@ -1,4 +1,6 @@
 import { createHash, createHmac } from "node:crypto";
+import { Readable } from "node:stream";
+import type { ReadableStream } from "node:stream/web";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { Config } from "../config.js";
@@ -144,8 +146,35 @@ export function registerProductRoutes(
       model: response.modelId,
     };
   });
+  app.get("/platform/paper-agents/:id/stream", async (req, reply) => {
+    const response = await forward(
+      req.principal.userId,
+      "GET",
+      req.url,
+      undefined,
+      30000,
+    );
+    if (!response.ok || !response.body)
+      throw new PlatformError(
+        "STREAM_UNAVAILABLE",
+        "Agent event stream unavailable",
+        503,
+      );
+    const stream = Readable.fromWeb(response.body as unknown as ReadableStream);
+    reply.raw.once("close", () => stream.destroy());
+    return reply
+      .header("cache-control", "no-store")
+      .header("x-accel-buffering", "no")
+      .type("text/event-stream")
+      .send(stream);
+  });
+
   const routes = [
     { method: "GET", url: "/platform/strategy-authoring" },
+    { method: "GET", url: "/platform/paper-news", timeout: 22000 },
+    { method: "GET", url: "/platform/paper-market/:asset", timeout: 22000 },
+    { method: "GET", url: "/platform/paper-watchlist" },
+    { method: "PUT", url: "/platform/paper-watchlist/:asset" },
     { method: ["GET", "POST"], url: "/platform/paper-account" },
     { method: "POST", url: "/platform/paper-account/reset" },
     { method: "PUT", url: "/platform/paper-account/emergency" },
@@ -155,6 +184,7 @@ export function registerProductRoutes(
     { method: "POST", url: "/platform/paper-orders/:id/evaluate" },
     { method: ["GET", "POST"], url: "/platform/paper-agents" },
     { method: "POST", url: "/platform/paper-agents/:id/control" },
+    { method: "POST", url: "/platform/paper-agents/:id/close-position" },
     { method: "GET", url: "/platform/paper-agents/:id/events" },
     { method: ["GET", "POST"], url: "/platform/custom-strategies" },
     { method: ["GET", "PUT"], url: "/platform/custom-strategies/:id" },

@@ -28,6 +28,25 @@ test("Fund, version, backtest, and isolate a tenant strategy", async ({
   await expect(page.getByText("BUY 0.001 BTC", { exact: false })).toBeVisible();
   await expect(page.getByText("0.001 ·", { exact: false })).toBeVisible();
 
+  await page.getByRole("link", { name: "Markets", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Bitcoin (BTC/USD)" }),
+  ).toBeVisible();
+  await page.getByLabel("Asset name or symbol").fill("Ethereum");
+  await page.getByRole("button", { name: "ETH", exact: true }).click();
+  await page.getByRole("button", { name: "Add to watchlist" }).click();
+  await expect(
+    page.getByRole("button", { name: "Ethereum", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Crypto News", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Latest crypto news" }),
+  ).toBeVisible();
+  await page
+    .getByRole("combobox", { name: "Filter by cryptocurrency" })
+    .selectOption("BTC");
+  await expect(page.getByText(/FIXTURE.*Retrieved/)).toBeVisible();
+
   await page.getByRole("link", { name: "Strategies", exact: true }).click();
   await page
     .getByRole("button", { name: "Natural language", exact: true })

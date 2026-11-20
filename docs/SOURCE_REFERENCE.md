@@ -404,17 +404,20 @@ Cognito access-token identity and tenant-aware repositories protect application 
 
 ### backend/paper_agents.py
 
-- [AgentStart](../backend/paper_agents.py#L18) — class
-- [AgentCommand](../backend/paper_agents.py#L29) — class
-- [event](../backend/paper_agents.py#L33) — `event(db, owner, agent, kind, detail)`
-- [list_agents](../backend/paper_agents.py#L40) — `list_agents(db, owner: UUID)`
-- [timeline](../backend/paper_agents.py#L78) — `timeline(db, owner: UUID, agent: UUID, after: int=0)`
-- [start_agent](../backend/paper_agents.py#L90) — `start_agent(db, owner: UUID, request: AgentStart)`
-- [_validate_allocation](../backend/paper_agents.py#L155) — `_validate_allocation(db, owner, epoch, cash, capital, exclude=None)`
-- [control_agent](../backend/paper_agents.py#L180) — `control_agent(db, owner: UUID, agent: UUID, action: str)`
-- [claim_agent](../backend/paper_agents.py#L213) — `claim_agent(db, lease_seconds=60)`
-- [fence](../backend/paper_agents.py#L236) — `fence(db, work)`
-- [checkpoint](../backend/paper_agents.py#L249) — `checkpoint(db, work, *, stage='MONITOR', status='RUNNING', failures=0, delay=None, candle=None, quote=None, peak=None)`
+- [AgentStart](../backend/paper_agents.py#L27) — class
+- [AgentCommand](../backend/paper_agents.py#L38) — class
+- [event](../backend/paper_agents.py#L42) — `event(db, owner, agent, kind, detail)`
+- [list_agents](../backend/paper_agents.py#L49) — `list_agents(db, owner: UUID)`
+- [timeline](../backend/paper_agents.py#L87) — `timeline(db, owner: UUID, agent: UUID, after: int=0)`
+- [start_agent](../backend/paper_agents.py#L99) — `start_agent(db, owner: UUID, request: AgentStart)`
+- [_validate_allocation](../backend/paper_agents.py#L164) — `_validate_allocation(db, owner, epoch, cash, capital, exclude=None)`
+- [control_agent](../backend/paper_agents.py#L189) — `control_agent(db, owner: UUID, agent: UUID, action: str)`
+- [claim_agent](../backend/paper_agents.py#L222) — `claim_agent(db, lease_seconds=60)`
+- [fence](../backend/paper_agents.py#L263) — `fence(db, work)`
+- [checkpoint](../backend/paper_agents.py#L276) — `checkpoint(db, work, *, stage='MONITOR', status='RUNNING', failures=0, delay=None, candle=None, quote=None, peak=None)`
+- [mark_agent](../backend/paper_agents.py#L309) — `mark_agent(db, work, quantity, price, at)`
+- [position_asset](../backend/paper_agents.py#L343) — `position_asset(db, owner, agent)`
+- [close_agent_position](../backend/paper_agents.py#L358) — `close_agent_position(db, owner, agent, request_key, epoch, quotes)`
 
 ### backend/paper_execution.py
 
@@ -448,18 +451,27 @@ Cognito access-token identity and tenant-aware repositories protect application 
 
 ### backend/paper_worker.py
 
-- [Tick](../backend/paper_worker.py#L39) — class
-- [research](../backend/paper_worker.py#L47) — `research(state: Tick)`
-- [rules](../backend/paper_worker.py#L51) — `rules(state: Tick)`
-- [trade_graph](../backend/paper_worker.py#L55) — `trade_graph()`
-- [PaperWorker](../backend/paper_worker.py#L65) — class
-- [PaperWorker.__init__](../backend/paper_worker.py#L66) — `__init__(self, history=load_candles, quotes=load_quotes, *, allow_fixture=False, clock=now, market_clock=None)`
-- [PaperWorker.tick](../backend/paper_worker.py#L81) — `tick(self, db, work)`
-- [PaperWorker._fail](../backend/paper_worker.py#L87) — `_fail(self, db, work, reason)`
-- [PaperWorker._tick](../backend/paper_worker.py#L110) — `_tick(self, db, work)`
-- [PaperWorker._activate](../backend/paper_worker.py#L236) — `_activate(self, db, work, strategy, terms)`
-- [service](../backend/paper_worker.py#L273) — `service(dsn: str, stop: Event, worker: PaperWorker)`
-- [main](../backend/paper_worker.py#L302) — `main()`
+- [Tick](../backend/paper_worker.py#L42) — class
+- [research](../backend/paper_worker.py#L50) — `research(state: Tick)`
+- [rules](../backend/paper_worker.py#L54) — `rules(state: Tick)`
+- [trade_graph](../backend/paper_worker.py#L58) — `trade_graph()`
+- [PaperWorker](../backend/paper_worker.py#L68) — class
+- [PaperWorker.__init__](../backend/paper_worker.py#L69) — `__init__(self, history=load_candles, quotes=load_quotes, *, allow_fixture=False, clock=now, market_clock=None)`
+- [PaperWorker.tick](../backend/paper_worker.py#L85) — `tick(self, db, work)`
+- [PaperWorker._fail](../backend/paper_worker.py#L91) — `_fail(self, db, work, reason)`
+- [PaperWorker._tick](../backend/paper_worker.py#L114) — `_tick(self, db, work)`
+- [PaperWorker._activate](../backend/paper_worker.py#L247) — `_activate(self, db, work, strategy, terms)`
+- [heartbeat_fresh](../backend/paper_worker.py#L286) — `heartbeat_fresh(db, worker_id=None)`
+- [worker_identity](../backend/paper_worker.py#L299) — `worker_identity()`
+- [service](../backend/paper_worker.py#L303) — `service(dsn: str, stop: Event, worker: PaperWorker)`
+- [main](../backend/paper_worker.py#L343) — `main()`
+
+### backend/paper_workflow.py
+
+- [Activation](../backend/paper_workflow.py#L11) — class
+- [review_holdout](../backend/paper_workflow.py#L20) — `review_holdout(state: Activation)`
+- [activation_risk](../backend/paper_workflow.py#L37) — `activation_risk(state: Activation)`
+- [activation_graph](../backend/paper_workflow.py#L54) — `activation_graph()`
 
 ### backend/platform_db.py
 
@@ -468,46 +480,57 @@ Cognito access-token identity and tenant-aware repositories protect application 
 
 ### backend/platform_product_api.py
 
-- [StrategyEdit](../backend/platform_product_api.py#L63) — class
-- [StrategyArchive](../backend/platform_product_api.py#L68) — class
-- [PaperReset](../backend/platform_product_api.py#L72) — class
-- [PaperEmergency](../backend/platform_product_api.py#L77) — class
-- [ProductError](../backend/platform_product_api.py#L81) — class
-- [ProductError.__init__](../backend/platform_product_api.py#L82) — `__init__(self, status: int, code: str, message: str)`
-- [create_product_api](../backend/platform_product_api.py#L88) — `create_product_api(dsn: str, key: str, initial_usdt: Decimal=DEFAULT_INITIAL_USDT, *, history_source=load_candles, quote_source=load_quotes)`
-- [create_product_api.product_error](../backend/platform_product_api.py#L104) — `async product_error(_request, exc)`
-- [create_product_api.validation_error](../backend/platform_product_api.py#L110) — `async validation_error(_request, exc)`
-- [create_product_api.database_error](../backend/platform_product_api.py#L126) — `async database_error(_request, _exc)`
-- [create_product_api.missing_strategy](../backend/platform_product_api.py#L133) — `async missing_strategy(_request, _exc)`
-- [create_product_api.conflict](../backend/platform_product_api.py#L140) — `async conflict(_request, _exc)`
-- [create_product_api.owner](../backend/platform_product_api.py#L146) — `async owner(request: Request)`
-- [create_product_api.database](../backend/platform_product_api.py#L187) — `database()`
-- [create_product_api.paper_account](../backend/platform_product_api.py#L196) — `paper_account(subject: Principal, db: Database)`
-- [create_product_api.provision_paper_account](../backend/platform_product_api.py#L200) — `provision_paper_account(subject: Principal, db: Database)`
-- [create_product_api.financial](../backend/platform_product_api.py#L203) — `financial(data, status=200)`
-- [create_product_api.quotes_for](../backend/platform_product_api.py#L208) — `quotes_for(db, subject, asset=None)`
-- [create_product_api.paper_portfolio](../backend/platform_product_api.py#L222) — `paper_portfolio(subject: Principal, db: Database)`
-- [create_product_api.paper_order_history](../backend/platform_product_api.py#L226) — `paper_order_history(subject: Principal, db: Database, epoch: Annotated[int | None, Query(ge=1)]=None, limit: Annotated[int, Query(ge=1, le=100)]=50)`
-- [create_product_api.paper_order_submit](../backend/platform_product_api.py#L235) — `paper_order_submit(order: OrderRequest, subject: Principal, db: Database)`
-- [create_product_api.paper_order_cancel](../backend/platform_product_api.py#L240) — `paper_order_cancel(order_id: UUID, subject: Principal, db: Database)`
-- [create_product_api.paper_order_evaluate](../backend/platform_product_api.py#L247) — `paper_order_evaluate(order_id: UUID, subject: Principal, db: Database)`
-- [create_product_api.paper_reset](../backend/platform_product_api.py#L257) — `paper_reset(reset: PaperReset, subject: Principal, db: Database)`
-- [create_product_api.paper_emergency](../backend/platform_product_api.py#L261) — `paper_emergency(change: PaperEmergency, subject: Principal, db: Database)`
-- [create_product_api.paper_agent_list](../backend/platform_product_api.py#L265) — `paper_agent_list(subject: Principal, db: Database)`
-- [create_product_api.paper_agent_start](../backend/platform_product_api.py#L269) — `paper_agent_start(request: AgentStart, subject: Principal, db: Database)`
-- [create_product_api.paper_agent_control](../backend/platform_product_api.py#L279) — `paper_agent_control(agent_id: UUID, command: AgentCommand, subject: Principal, db: Database)`
-- [create_product_api.paper_agent_timeline](../backend/platform_product_api.py#L290) — `paper_agent_timeline(agent_id: UUID, subject: Principal, db: Database, after: Annotated[int, Query(ge=0)]=0)`
-- [create_product_api.strategy_authoring](../backend/platform_product_api.py#L299) — `strategy_authoring(subject: Principal)`
-- [create_product_api.validate_draft](../backend/platform_product_api.py#L303) — `validate_draft(draft: StrategyDraft, subject: Principal)`
-- [create_product_api.strategies](../backend/platform_product_api.py#L307) — `strategies(subject: Principal, db: Database, after: UUID | None=None, limit: Annotated[int, Query(ge=1, le=100)]=50)`
-- [create_product_api.new_strategy](../backend/platform_product_api.py#L316) — `new_strategy(document: StrategyDraft, subject: Principal, db: Database)`
-- [create_product_api.strategy](../backend/platform_product_api.py#L321) — `strategy(strategy_id: UUID, subject: Principal, db: Database, version: Annotated[int | None, Query(ge=1, le=2 ** 31 - 1)]=None)`
-- [create_product_api.edit_strategy](../backend/platform_product_api.py#L333) — `edit_strategy(strategy_id: UUID, edit: StrategyEdit, subject: Principal, db: Database)`
-- [create_product_api.remove_strategy](../backend/platform_product_api.py#L339) — `remove_strategy(strategy_id: UUID, archive: StrategyArchive, subject: Principal, db: Database)`
-- [create_product_api.versions](../backend/platform_product_api.py#L345) — `versions(strategy_id: UUID, subject: Principal, db: Database, before: Annotated[int, Query(ge=2, le=2 ** 31)]=2 ** 31, limit: Annotated[int, Query(ge=1, le=100)]=50)`
-- [create_product_api.create_backtest](../backend/platform_product_api.py#L359) — `create_backtest(strategy_id: UUID, study: HistoricalBacktestRequest, subject: Principal, db: Database)`
-- [create_product_api.backtest_report](../backend/platform_product_api.py#L376) — `backtest_report(run_id: UUID, subject: Principal, db: Database, include_dataset: bool=False)`
-- [app_from_environment](../backend/platform_product_api.py#L387) — `app_from_environment()`
+- [StrategyEdit](../backend/platform_product_api.py#L73) — class
+- [StrategyArchive](../backend/platform_product_api.py#L78) — class
+- [PaperReset](../backend/platform_product_api.py#L82) — class
+- [PositionClose](../backend/platform_product_api.py#L87) — class
+- [PaperEmergency](../backend/platform_product_api.py#L92) — class
+- [ProductError](../backend/platform_product_api.py#L96) — class
+- [ProductError.__init__](../backend/platform_product_api.py#L97) — `__init__(self, status: int, code: str, message: str)`
+- [create_product_api](../backend/platform_product_api.py#L103) — `create_product_api(dsn: str, key: str, initial_usdt: Decimal=DEFAULT_INITIAL_USDT, *, history_source=load_candles, quote_source=load_quotes, fixture_feeds=False)`
+- [create_product_api.lifespan](../backend/platform_product_api.py#L119) — `async lifespan(application)`
+- [create_product_api.health](../backend/platform_product_api.py#L143) — `health()`
+- [create_product_api.product_error](../backend/platform_product_api.py#L154) — `async product_error(_request, exc)`
+- [create_product_api.validation_error](../backend/platform_product_api.py#L160) — `async validation_error(_request, exc)`
+- [create_product_api.database_error](../backend/platform_product_api.py#L176) — `async database_error(_request, _exc)`
+- [create_product_api.missing_strategy](../backend/platform_product_api.py#L183) — `async missing_strategy(_request, _exc)`
+- [create_product_api.conflict](../backend/platform_product_api.py#L190) — `async conflict(_request, _exc)`
+- [create_product_api.owner](../backend/platform_product_api.py#L196) — `async owner(request: Request)`
+- [create_product_api.database](../backend/platform_product_api.py#L237) — `database()`
+- [create_product_api.paper_account](../backend/platform_product_api.py#L246) — `paper_account(subject: Principal, db: Database)`
+- [create_product_api.provision_paper_account](../backend/platform_product_api.py#L250) — `provision_paper_account(subject: Principal, db: Database)`
+- [create_product_api.financial](../backend/platform_product_api.py#L253) — `financial(data, status=200)`
+- [create_product_api.quotes_for](../backend/platform_product_api.py#L258) — `quotes_for(db, subject, asset=None)`
+- [create_product_api.paper_portfolio](../backend/platform_product_api.py#L272) — `paper_portfolio(subject: Principal, db: Database)`
+- [create_product_api.paper_order_history](../backend/platform_product_api.py#L276) — `paper_order_history(subject: Principal, db: Database, epoch: Annotated[int | None, Query(ge=1)]=None, limit: Annotated[int, Query(ge=1, le=100)]=50)`
+- [create_product_api.paper_order_submit](../backend/platform_product_api.py#L285) — `paper_order_submit(order: OrderRequest, subject: Principal, db: Database)`
+- [create_product_api.paper_order_cancel](../backend/platform_product_api.py#L290) — `paper_order_cancel(order_id: UUID, subject: Principal, db: Database)`
+- [create_product_api.paper_order_evaluate](../backend/platform_product_api.py#L297) — `paper_order_evaluate(order_id: UUID, subject: Principal, db: Database)`
+- [create_product_api.paper_reset](../backend/platform_product_api.py#L307) — `paper_reset(reset: PaperReset, subject: Principal, db: Database)`
+- [create_product_api.paper_emergency](../backend/platform_product_api.py#L311) — `paper_emergency(change: PaperEmergency, subject: Principal, db: Database)`
+- [create_product_api.paper_agent_list](../backend/platform_product_api.py#L315) — `paper_agent_list(subject: Principal, db: Database)`
+- [create_product_api.paper_agent_start](../backend/platform_product_api.py#L319) — `paper_agent_start(request: AgentStart, subject: Principal, db: Database)`
+- [create_product_api.paper_agent_control](../backend/platform_product_api.py#L329) — `paper_agent_control(agent_id: UUID, command: AgentCommand, subject: Principal, db: Database)`
+- [create_product_api.paper_agent_close](../backend/platform_product_api.py#L340) — `paper_agent_close(agent_id: UUID, command: PositionClose, subject: Principal, db: Database)`
+- [create_product_api.paper_agent_timeline](../backend/platform_product_api.py#L355) — `paper_agent_timeline(agent_id: UUID, subject: Principal, db: Database, after: Annotated[int, Query(ge=0)]=0)`
+- [create_product_api.paper_agent_stream](../backend/platform_product_api.py#L364) — `async paper_agent_stream(agent_id: UUID, request: Request, subject: Principal, after: Annotated[int, Query(ge=0)]=0)`
+- [create_product_api.paper_agent_stream.latest](../backend/platform_product_api.py#L370) — `latest(cursor)`
+- [create_product_api.paper_agent_stream.events](../backend/platform_product_api.py#L374) — `async events()`
+- [create_product_api.paper_market](../backend/platform_product_api.py#L393) — `async paper_market(asset: Asset, request: Request, subject: Principal)`
+- [create_product_api.paper_news](../backend/platform_product_api.py#L404) — `async paper_news(request: Request, subject: Principal, asset: Asset | None=None)`
+- [create_product_api.paper_watchlist](../backend/platform_product_api.py#L415) — `paper_watchlist(subject: Principal, db: Database)`
+- [create_product_api.paper_watch](../backend/platform_product_api.py#L423) — `paper_watch(subject: Principal, db: Database, asset: Asset, change: PaperEmergency)`
+- [create_product_api.strategy_authoring](../backend/platform_product_api.py#L438) — `strategy_authoring(subject: Principal)`
+- [create_product_api.validate_draft](../backend/platform_product_api.py#L442) — `validate_draft(draft: StrategyDraft, subject: Principal)`
+- [create_product_api.strategies](../backend/platform_product_api.py#L446) — `strategies(subject: Principal, db: Database, after: UUID | None=None, limit: Annotated[int, Query(ge=1, le=100)]=50)`
+- [create_product_api.new_strategy](../backend/platform_product_api.py#L455) — `new_strategy(document: StrategyDraft, subject: Principal, db: Database)`
+- [create_product_api.strategy](../backend/platform_product_api.py#L460) — `strategy(strategy_id: UUID, subject: Principal, db: Database, version: Annotated[int | None, Query(ge=1, le=2 ** 31 - 1)]=None)`
+- [create_product_api.edit_strategy](../backend/platform_product_api.py#L472) — `edit_strategy(strategy_id: UUID, edit: StrategyEdit, subject: Principal, db: Database)`
+- [create_product_api.remove_strategy](../backend/platform_product_api.py#L478) — `remove_strategy(strategy_id: UUID, archive: StrategyArchive, subject: Principal, db: Database)`
+- [create_product_api.versions](../backend/platform_product_api.py#L484) — `versions(strategy_id: UUID, subject: Principal, db: Database, before: Annotated[int, Query(ge=2, le=2 ** 31)]=2 ** 31, limit: Annotated[int, Query(ge=1, le=100)]=50)`
+- [create_product_api.create_backtest](../backend/platform_product_api.py#L498) — `create_backtest(strategy_id: UUID, study: HistoricalBacktestRequest, subject: Principal, db: Database)`
+- [create_product_api.backtest_report](../backend/platform_product_api.py#L515) — `backtest_report(run_id: UUID, subject: Principal, db: Database, include_dataset: bool=False)`
+- [app_from_environment](../backend/platform_product_api.py#L526) — `app_from_environment()`
 
 ### backend/portfolio.py
 
@@ -726,7 +749,7 @@ Cognito access-token identity and tenant-aware repositories protect application 
 
 ### backend/src/product/routes.ts
 
-- [registerProductRoutes](../backend/src/product/routes.ts#L22)
+- [registerProductRoutes](../backend/src/product/routes.ts#L24)
 
 ### backend/src/profiles/profile.service.ts
 

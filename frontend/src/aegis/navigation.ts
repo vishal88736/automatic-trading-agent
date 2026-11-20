@@ -40,6 +40,8 @@ export function readRoute(): Route {
     path === "platform/strategies" ||
     path === "platform/paper" ||
     path === "platform/paper-agents" ||
+    path === "platform/markets" ||
+    path === "platform/news" ||
     /^platform\/backtests(?:\/[^/]+)?$/.test(path)
   )
     return { workspace: "platform", page: "platform" };

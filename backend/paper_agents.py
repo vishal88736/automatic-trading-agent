@@ -11,7 +11,16 @@ from psycopg.types.json import Jsonb
 from pydantic import Field
 
 from backend.models import Model
-from backend.paper_execution import agent_cash_reserved, lock_account, reservations
+from backend.paper_execution import (
+    OrderRequest,
+    PaperTerms,
+    agent_cash_reserved,
+    get_order,
+    lock_account,
+    positions,
+    reservations,
+    submit_order,
+)
 from backend.strategy_rules import Name
 
 
@@ -44,7 +53,7 @@ def list_agents(db, owner: UUID):
             SELECT a.id, a.name, a.status, a.stage, a.heartbeat, a.next_run, a.capital, a.failures,
               a.strategy_id, a.strategy_version, a.report_id, a.epoch, a.interval_seconds,
               a.last_candle, a.last_quote, v.document->'definition'->>'asset' AS asset,
-              totals.fills, totals.realized_pnl,
+              totals.fills, totals.realized_pnl, totals.quantity AS open_quantity,
               CASE WHEN totals.quantity = 0 THEN 0
                    WHEN a.last_quote >= now() - make_interval(secs => a.interval_seconds * 2 + 20)
                    THEN totals.quantity * mark.price - totals.basis END AS unrealized_pnl,
@@ -223,12 +232,30 @@ def claim_agent(db, lease_seconds=60):
             )
             UPDATE paper_agents a SET lease_token = %s,
                 lease_until = clock_timestamp() + make_interval(secs => %s),
-                heartbeat = clock_timestamp()
+                heartbeat = clock_timestamp(),
+                failures = a.failures + CASE WHEN due.recovered THEN 1 ELSE 0 END
             FROM due WHERE a.id = due.id RETURNING a.*, due.recovered
             """,
             (token, lease_seconds),
         ).fetchone()
         if row and row["recovered"]:
+            if row["failures"] >= 5:
+                event(
+                    db,
+                    row["owner_id"],
+                    row["id"],
+                    "FAILED",
+                    {"reason": "Worker claim retry limit", "stage": row["stage"]},
+                )
+                checkpoint(
+                    db,
+                    row,
+                    stage=row["stage"],
+                    status="FAILED",
+                    failures=row["failures"],
+                    peak=row["peak_price"],
+                )
+                return None
             event(db, row["owner_id"], row["id"], "RECOVERED", {"stage": row["stage"]})
         return row
 
@@ -277,3 +304,99 @@ def checkpoint(
             work["id"],
         ),
     )
+
+
+def mark_agent(db, work, quantity, price, at):
+    owner, agent = work["owner_id"], work["id"]
+    (cash_delta,) = db.execute(
+        """
+        SELECT coalesce(sum(l.amount), 0)
+        FROM paper_ledger_entries l JOIN paper_orders o ON o.id = l.order_id
+        WHERE o.owner_id = %s AND o.agent_id = %s
+        """,
+        (owner, agent),
+    ).fetchone()
+    equity = work["capital"] + cash_delta + quantity * price
+    peak, daily = db.execute(
+        """
+        SELECT max(equity), (
+            SELECT equity FROM paper_agent_equity WHERE owner_id = %s AND agent_id = %s
+                  AND observed_at < date_trunc('day', %s::timestamptz, 'UTC')
+            ORDER BY observed_at DESC LIMIT 1
+        ) FROM paper_agent_equity WHERE owner_id = %s AND agent_id = %s
+        """,
+        (owner, agent, at, owner, agent),
+    ).fetchone()
+    db.execute(
+        "INSERT INTO paper_agent_equity VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING",
+        (owner, agent, at, equity),
+    )
+    daily = work["capital"] if daily is None else daily
+    high = max(peak or work["capital"], work["capital"])
+    if equity <= daily * (1 - work["max_daily_loss"]):
+        return equity, "AGENT_DAILY_LOSS"
+    if equity <= high * (1 - work["max_drawdown"]):
+        return equity, "AGENT_DRAWDOWN"
+    return equity, None
+
+
+def position_asset(db, owner, agent):
+    row = db.execute(
+        """
+        SELECT v.document->'definition'->>'asset'
+        FROM paper_agents a JOIN platform_strategy_versions v
+          ON (v.owner_id, v.strategy_id, v.version) = (a.owner_id, a.strategy_id, a.strategy_version)
+        WHERE a.owner_id = %s AND a.id = %s
+        """,
+        (owner, agent),
+    ).fetchone()
+    if row is None:
+        raise LookupError("Paper agent is unavailable")
+    return row[0]
+
+
+def close_agent_position(db, owner, agent, request_key, epoch, quotes):
+    with db.transaction():
+        account, _ = lock_account(db, owner)
+        row = db.execute(
+            "SELECT status, epoch FROM paper_agents WHERE owner_id = %s AND id = %s FOR UPDATE",
+            (owner, agent),
+        ).fetchone()
+        if row is None:
+            raise LookupError("Paper agent is unavailable")
+        previous = db.execute(
+            "SELECT id, agent_id, epoch, request->>'side' FROM paper_orders WHERE owner_id = %s AND request_key = %s",
+            (owner, request_key),
+        ).fetchone()
+        if previous:
+            if previous[1:] != (agent, epoch, "SELL"):
+                raise ValueError("Order key already belongs to a different request")
+            return get_order(db, owner, previous[0])
+        if account.epoch != epoch or row[1] != epoch or row[0] == "RUNNING":
+            raise ValueError("Pause or stop the current-epoch agent before closing its position")
+        asset = position_asset(db, owner, agent)
+        held = positions(db, owner, account.epoch, actor_only=True, agent_id=agent).get(asset)
+        if not held or held["quantity"] <= 0:
+            raise ValueError("This agent has no open position")
+        order = submit_order(
+            db,
+            owner,
+            OrderRequest(
+                request_key=request_key,
+                epoch=epoch,
+                asset=asset,
+                side="SELL",
+                quantity=held["quantity"],
+            ),
+            quotes,
+            PaperTerms(),
+            agent_id=agent,
+        )
+        event(
+            db,
+            owner,
+            agent,
+            "MANUAL_CLOSE",
+            {"order_id": str(order["id"]), "status": order["status"], "reason": order["reason"]},
+        )
+        return order

@@ -40,5 +40,9 @@ def application():
     if os.environ.get("TERMINAL_TEST_RUN") != "1":
         raise RuntimeError("Use the isolated e2e configuration")
     return create_product_api(
-        os.environ[DSN_ENV], os.environ[KEY_ENV], history_source=history, quote_source=quotes
+        os.environ[DSN_ENV],
+        os.environ[KEY_ENV],
+        history_source=history,
+        quote_source=quotes,
+        fixture_feeds=True,
     )

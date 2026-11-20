@@ -195,6 +195,7 @@ def test_authenticated_product_http_checks_identity_payload_and_ownership(
         key,
         Decimal("1250.000001"),
         history_source=lambda symbol, *_: fixture_market(symbol),
+        fixture_feeds=True,
     )
 
     def headers(method, path, subject, body="", ttl=20):
@@ -229,6 +230,16 @@ def test_authenticated_product_http_checks_identity_payload_and_ownership(
         assert funded.json()["account"]["cash"] == "1250.000001"
         assert call("POST", account).json() == funded.json()
         assert call("GET", account, other).json() == {"account": None}
+
+        watch = "/platform/paper-watchlist"
+        assert call("PUT", watch + "/ETH", payload={"enabled": True}).status_code == 200
+        assert call("GET", watch).json() == {"assets": ["ETH"]}
+        assert call("GET", watch, other).json() == {"assets": []}
+        assert call("GET", "/platform/paper-market/BTC").json()["market"]["status"] == "FIXTURE"
+        feed = call("GET", "/platform/paper-news?asset=BTC").json()
+        assert feed["status"] == "FIXTURE"
+        assert all("BTC" in row["assets"] for row in feed["articles"])
+        assert client.get("/healthz").json() == {"ready": True}
 
         strategies = "/platform/custom-strategies"
         draft = strategy_draft.model_dump(mode="json")
@@ -395,6 +406,7 @@ def test_durable_agent_lease_recovers_and_shared_execution_stops_atomically(
     from backend.paper_agents import (
         AgentStart,
         claim_agent,
+        close_agent_position,
         control_agent,
         list_agents,
         start_agent,
@@ -430,11 +442,16 @@ def test_durable_agent_lease_recovers_and_shared_execution_stops_atomically(
         strategy = create_strategy(db, owner, draft)
         report = save_replay(db, owner, strategy, study, market)
         request = AgentStart(
-            name="Durable paper test", report_id=report["id"], epoch=1, capital="1000"
+            name="Durable paper test",
+            report_id=report["id"],
+            epoch=1,
+            capital="1000",
+            max_daily_loss="0.01",
         )
         with pytest.raises(LookupError):
             start_agent(db, other, request)
         ident = start_agent(db, owner, request)
+        assert start_agent(db, owner, request) == ident
         initial = claim_agent(db)
         assert initial["stage"] == "VALIDATE"
         worker = PaperWorker(history, quotes, allow_fixture=True)
@@ -478,7 +495,53 @@ def test_durable_agent_lease_recovers_and_shared_execution_stops_atomically(
         assert control_agent(db, owner, ident, "resume") == "RUNNING"
         after_resume = claim_agent(db)
         assert after_resume["last_quote"] >= now() - timedelta(minutes=1)
+        from backend.paper_execution import PaperQuote
+
+        low = PaperWorker(
+            history,
+            lambda _assets: {
+                "BTC": PaperQuote(asset="BTC", price="100", observed_at=now(), source="fixture")
+            },
+            allow_fixture=True,
+        )
+        low.tick(db, after_resume)
+        assert list_agents(db, owner)[0]["status"] == "PAUSED"
+        assert any(
+            entry["detail"].get("reason") == "AGENT_DAILY_LOSS"
+            for entry in timeline(db, owner, ident)
+        )
         assert control_agent(db, owner, ident, "stop") == "STOPPED"
         restart.tick(db, after_resume)
         assert claim_agent(db) is None
         assert [row["status"] for row in order_history(db, owner)].count("FILLED") == 1
+        key = uuid4()
+        close = close_agent_position(db, owner, ident, key, 1, quotes({"BTC"}))
+        assert close["status"] == "FILLED"
+        assert close_agent_position(db, owner, ident, key, 1, {}) == close
+        assert positions(db, owner, 1, actor_only=True, agent_id=ident)["BTC"]["quantity"] == 0
+
+
+def test_activation_critic_rejects_unrealistic_holdout_before_trading():
+    from backend.paper_execution import PaperTerms
+    from backend.paper_workflow import activation_graph
+
+    report = {
+        "result": {
+            "fixture": True,
+            "assumptions": {"fee_bps": 0, "slippage_bps": 0},
+            "in_sample": {"trade_count": 3},
+            "out_of_sample": {
+                "trade_count": 0,
+                "maximum_drawdown": "0.20",
+                "total_return": "-0.15",
+                "benchmark_return": "0.01",
+            },
+        }
+    }
+    review = activation_graph().invoke(
+        {"report": report, "terms": PaperTerms(), "allow_fixture": False}
+    )
+    assert len(review["reasons"]) == 4
+    assert review["evidence"]["development_trades"] == 3
+    assert review["evidence"]["holdout_trades"] == 0
+    assert "independent evaluation window" in review["suggestion"]

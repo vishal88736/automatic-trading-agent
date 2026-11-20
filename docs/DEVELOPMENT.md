@@ -139,3 +139,21 @@ Open a saved report in Backtesting Lab, choose **Use report for a paper agent**,
 The restarted worker resumes from the existing checkpoint. An interrupted claim can take up to 60 seconds to expire. Source failures retry with bounded exponential delay. Stopped and failed agents retain their order and decision history. Validate process recovery with `e2e/paper-autonomy.spec.ts` against a disposable database. The test launches and restarts its own product API and accelerated worker when `KRONO_E2E_AUTONOMY=1`, using the existing product API key and URL test settings.
 
 Open **Strategies** to choose a structured JSON editor, visual rule builder, or a natural-language draft. Templates, manual edits and model drafts use the same hourly strategy schema. Model generation uses one request to the control plane's configured model provider and returns a validated preview. Saving and backtesting the draft are separate user actions. The model call has no order or account tools.
+
+### Container topology and recovery
+
+The Vite frontend and authenticated Fastify gateway retain their existing deployment configuration. Run the private FastAPI product service and paper worker independently of both. The local Compose file starts PostgreSQL, the schema migration, the product API and the worker. PostgreSQL stores the durable due-work queue and acts as the scheduler using indexed due times, row locks and expiring claims. No additional broker is required for the current queue.
+
+Copy `deploy/paper/.env.example` to `deploy/paper/.env`, fill each secret with an independent random hex value, then run:
+
+```bash
+docker compose --env-file deploy/paper/.env -f deploy/paper/compose.yaml up -d --build
+```
+
+For local development, point the existing Fastify process at `KRONO_PRODUCT_API_URL=http://127.0.0.1:8794` with the same `KRONO_PRODUCT_API_KEY`. Use the existing frontend startup. In a hosted environment, route `/platform/*` through the authenticated Fastify gateway and serve the product API at a private HTTPS origin. API instances and workers need the same migrated PostgreSQL database and workers need network access to Coinbase Exchange.
+
+`/healthz` checks product database readiness. The worker health command checks the most recent worker heartbeat in PostgreSQL. For a failed process, inspect the Compose logs, restart only the unhealthy service and wait for the worker lease to expire if it was interrupted. A worker unavailable for 30 seconds loses its healthy signal. Use PostgreSQL backups to protect durable state. Recovery from service restarts relies on persistence of the database volume.
+
+Markets and Crypto News reuse the existing Coinbase and cryptocurrency.cv integrations. The workspace displays source, status and timestamps. Watchlists are saved per tenant. The agent timeline streams persisted events over SSE and falls back to polling if streaming is unavailable. The worker continues when every client disconnects.
+
+Paper agent allocations reserve virtual buying power while active or paused. Agent positions retain their order attribution in the shared ledger. The worker checks both account-wide execution limits and each agent's loss and drawdown against its own marked allocation. A breach pauses the agent and records a risk event.

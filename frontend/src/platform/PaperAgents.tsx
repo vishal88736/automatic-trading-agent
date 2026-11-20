@@ -14,6 +14,8 @@ interface Agent {
   realized_pnl: string;
   unrealized_pnl: string | null;
   fills: number;
+  epoch: number;
+  open_quantity: string;
   status: AgentStatus;
   stage: "VALIDATE" | "MONITOR";
   heartbeat: string | null;
@@ -43,7 +45,7 @@ function eventText(entry: TimelineEvent) {
   if (entry.kind === "VALIDATION") {
     return detail.approved
       ? `Replay approved · ${detail.holdout_trades} closed holdout trades`
-      : `Replay rejected · ${(detail.reasons as string[]).join(", ")}`;
+      : `Replay rejected · ${(detail.reasons as string[]).join(", ")}${detail.suggestion ? ` · ${detail.suggestion}` : ""}`;
   }
   if (entry.kind === "QUEUED")
     return `Strategy v${detail.version} queued for validation`;
@@ -62,6 +64,8 @@ export default function PaperAgents() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [feedError, setFeedError] = useState("");
+  const [workerOnline, setWorkerOnline] = useState<boolean>();
+  const closeKeys = useRef(new Map<string, string>());
   const retry = useRef<{ input: string; key: string } | null>(null);
   const report =
     new URLSearchParams(location.hash.split("?")[1] ?? "").get("report") ?? "";
@@ -69,12 +73,13 @@ export default function PaperAgents() {
     let active = true;
     async function refresh() {
       try {
-        const [{ items }, wallet] = await Promise.all([
-          platform<{ items: Agent[] }>("/paper-agents"),
+        const [{ items, worker_online }, wallet] = await Promise.all([
+          platform<{ items: Agent[]; worker_online: boolean }>("/paper-agents"),
           platform<{ account: { epoch: number } | null }>("/paper-account"),
         ]);
         if (!active) return;
         setAgents(items);
+        setWorkerOnline(worker_online);
         setAccount(wallet.account);
         setSelected((current) => current || items[0]?.id || "");
         setFeedError("");
@@ -93,20 +98,46 @@ export default function PaperAgents() {
     setEvents([]);
     if (!selected) return;
     let active = true;
+    let streaming = false;
+    const endpoint = `/paper-agents/${selected}`;
     async function refresh() {
+      if (streaming) return;
       try {
         const { items } = await platform<{ items: TimelineEvent[] }>(
-          `/paper-agents/${selected}/events`,
+          endpoint + "/events",
         );
-        if (active) setEvents(items);
+        if (active && !streaming) setEvents(items);
       } catch {
-        if (active) setEvents([]);
+        // Existing activity remains visible during a temporary outage.
       }
     }
     void refresh();
+    const stream =
+      typeof EventSource === "undefined"
+        ? undefined
+        : new EventSource("/platform" + endpoint + "/stream");
+    if (stream) {
+      stream.onopen = () => {
+        streaming = true;
+      };
+      stream.onerror = () => {
+        streaming = false;
+        void refresh();
+      };
+      stream.onmessage = (message) => {
+        const entry = JSON.parse(message.data) as TimelineEvent;
+        if (active)
+          setEvents((items) =>
+            [entry, ...items.filter((item) => item.seq !== entry.seq)]
+              .sort((a, b) => b.seq - a.seq)
+              .slice(0, 100),
+          );
+      };
+    }
     const timer = setInterval(() => void refresh(), 5000);
     return () => {
       active = false;
+      stream?.close();
       clearInterval(timer);
     };
   }, [selected]);
@@ -157,6 +188,9 @@ export default function PaperAgents() {
     <div className="platform-backtest">
       <section className="platform-product-panel">
         <h3>Start a paper agent</h3>
+        {workerOnline === false && (
+          <p role="status">Waiting for a paper worker heartbeat.</p>
+        )}
         <p>
           Choose a saved backtest report. The worker reviews the pinned strategy
           version and can continue when you sign out or close the browser.
@@ -332,6 +366,36 @@ export default function PaperAgents() {
                   </button>
                 ))}
               </div>
+              {agent.status !== "RUNNING" &&
+                agent.epoch === account?.epoch &&
+                Number(agent.open_quantity) > 0 && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() =>
+                      void act(async () => {
+                        const key =
+                          closeKeys.current.get(agent.id) ??
+                          crypto.randomUUID();
+                        closeKeys.current.set(agent.id, key);
+                        const result = await platform<{
+                          status: string;
+                          reason: string | null;
+                        }>(`/paper-agents/${agent.id}/close-position`, "POST", {
+                          request_key: key,
+                          epoch: agent.epoch,
+                        });
+                        closeKeys.current.delete(agent.id);
+                        if (result.status !== "FILLED")
+                          throw Error(
+                            `Close rejected · ${result.reason ?? result.status}`,
+                          );
+                      })
+                    }
+                  >
+                    Close agent paper position
+                  </button>
+                )}
               <h4>Activity timeline</h4>
               {events.length ? (
                 <ul>

@@ -176,6 +176,9 @@ test("paper agent continues without a browser and survives API and worker restar
     expect(new Set(afterCrash.fill_ids).size).toBe(afterCrash.fills);
 
     const reopened = await browserSession();
+    const eventStream = reopened.page.waitForResponse((response) =>
+      response.url().endsWith(`/paper-agents/${id}/stream`),
+    );
     await reopened.page
       .getByRole("link", { name: "Paper Agents", exact: true })
       .click();
@@ -185,6 +188,9 @@ test("paper agent continues without a browser and survives API and worker restar
     await expect(
       reopened.page.getByText("Activity timeline", { exact: true }),
     ).toBeVisible();
+    expect((await eventStream).headers()["content-type"]).toContain(
+      "text/event-stream",
+    );
     await expect(reopened.page.getByText(/Replay approved/)).toBeVisible();
     await reopened.page
       .getByRole("button", { name: "Stop agent", exact: true })

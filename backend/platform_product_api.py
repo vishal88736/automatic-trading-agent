@@ -1,9 +1,12 @@
 """Private product API. Fastify verifies Cognito and signs each forwarded request."""
 
+import asyncio
 import hashlib
 import hmac
+import json
 import os
 import time
+from contextlib import asynccontextmanager
 from decimal import Decimal
 from typing import Annotated, Literal
 from uuid import UUID
@@ -11,25 +14,29 @@ from uuid import UUID
 from fastapi import Depends, FastAPI, Query, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from httpx import HTTPError
 from psycopg import Connection
 from psycopg import Error as DatabaseError
 from pydantic import Field, TypeAdapter
 
 from backend.backtest_repository import get_replay, save_replay
+from backend.data import Providers
 from backend.historical_data import HistoricalBacktestRequest, load_candles
 from backend.models import Model
 from backend.paper_accounts import DEFAULT_INITIAL_USDT, PaperAccount, ensure_account, get_account
 from backend.paper_agents import (
     AgentCommand,
     AgentStart,
+    close_agent_position,
     control_agent,
     list_agents,
+    position_asset,
     start_agent,
     timeline,
 )
 from backend.paper_execution import (
+    Asset,
     OrderRequest,
     PaperTerms,
     cancel_order,
@@ -43,7 +50,10 @@ from backend.paper_execution import (
     submit_order,
 )
 from backend.paper_market import load_quotes
+from backend.paper_worker import heartbeat_fresh
 from backend.platform_db import DSN_ENV, open_database
+from backend.storage import Store
+from backend.strategies import indicators
 from backend.strategy_repository import (
     archive_strategy,
     create_strategy,
@@ -74,6 +84,11 @@ class PaperReset(Model):
     acknowledge: Literal["RESET_PAPER_ACCOUNT"]
 
 
+class PositionClose(Model):
+    request_key: UUID
+    epoch: int = Field(ge=1)
+
+
 class PaperEmergency(Model):
     enabled: bool
 
@@ -92,13 +107,48 @@ def create_product_api(
     *,
     history_source=load_candles,
     quote_source=load_quotes,
+    fixture_feeds=False,
 ) -> FastAPI:
     if not dsn or len(key.encode()) < 32:
         raise ValueError(
             "Configure the platform database and a product API key of at least 32 bytes"
         )
     initial_usdt = TypeAdapter(OpeningCredit).validate_python(initial_usdt)
-    app = FastAPI(title="Krono Product API", docs_url=None, redoc_url=None, openapi_url=None)
+
+    @asynccontextmanager
+    async def lifespan(application):
+        cache = Store(":memory:")
+        feeds = Providers(
+            cache,
+            market_provider="fixture" if fixture_feeds else "coinbase",
+            news_provider="fixture" if fixture_feeds else "cryptocurrency.cv",
+            news_key=os.environ.get("NEWS_API_KEY", ""),
+        )
+        application.state.feeds = feeds
+        try:
+            yield
+        finally:
+            await feeds.close()
+            cache.close()
+
+    app = FastAPI(
+        title="Krono Product API",
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
+        lifespan=lifespan,
+    )
+
+    @app.get("/healthz")
+    def health():
+        try:
+            with open_database(dsn) as db:
+                (ready,) = db.execute(
+                    "SELECT to_regclass('paper_worker_heartbeats') IS NOT NULL"
+                ).fetchone()
+        except DatabaseError:
+            ready = False
+        return JSONResponse({"ready": ready}, status_code=200 if ready else 503)
 
     @app.exception_handler(ProductError)
     async def product_error(_request, exc):
@@ -263,7 +313,7 @@ def create_product_api(
 
     @app.get("/platform/paper-agents")
     def paper_agent_list(subject: Principal, db: Database):
-        return financial({"items": list_agents(db, subject)})
+        return financial({"items": list_agents(db, subject), "worker_online": heartbeat_fresh(db)})
 
     @app.post("/platform/paper-agents", status_code=201)
     def paper_agent_start(request: AgentStart, subject: Principal, db: Database):
@@ -286,6 +336,21 @@ def create_product_api(
         except ValueError as exc:
             raise ProductError(409, "AGENT_CONTROL_REJECTED", str(exc)) from None
 
+    @app.post("/platform/paper-agents/{agent_id}/close-position")
+    def paper_agent_close(agent_id: UUID, command: PositionClose, subject: Principal, db: Database):
+        try:
+            asset = position_asset(db, subject, agent_id)
+            quotes = quotes_for(db, subject, asset)
+            return financial(
+                close_agent_position(
+                    db, subject, agent_id, command.request_key, command.epoch, quotes
+                )
+            )
+        except LookupError:
+            raise ProductError(404, "NOT_FOUND", "Paper agent is unavailable") from None
+        except ValueError as exc:
+            raise ProductError(409, "CLOSE_REJECTED", str(exc)) from None
+
     @app.get("/platform/paper-agents/{agent_id}/events")
     def paper_agent_timeline(
         agent_id: UUID,
@@ -294,6 +359,80 @@ def create_product_api(
         after: Annotated[int, Query(ge=0)] = 0,
     ):
         return financial({"items": timeline(db, subject, agent_id, after)})
+
+    @app.get("/platform/paper-agents/{agent_id}/stream")
+    async def paper_agent_stream(
+        agent_id: UUID,
+        request: Request,
+        subject: Principal,
+        after: Annotated[int, Query(ge=0)] = 0,
+    ):
+        def latest(cursor):
+            with open_database(dsn) as db:
+                return timeline(db, subject, agent_id, cursor)
+
+        async def events():
+            cursor = after
+            yield ": connected\n\n"
+            until = time.monotonic() + 20
+            while time.monotonic() < until and not await request.is_disconnected():
+                rows = await asyncio.to_thread(latest, cursor)
+                for row in reversed(rows):
+                    cursor = row["seq"]
+                    data = json.dumps(jsonable_encoder(row), separators=(",", ":"))
+                    yield f"id: {cursor}\ndata: {data}\n\n"
+                await asyncio.sleep(2)
+
+        return StreamingResponse(
+            events(),
+            media_type="text/event-stream",
+            headers={"cache-control": "no-store", "x-accel-buffering": "no"},
+        )
+
+    @app.get("/platform/paper-market/{asset}")
+    async def paper_market(asset: Asset, request: Request, subject: Principal):
+        market = await request.app.state.feeds.market(asset)
+        technical = None
+        if market.status in {"AVAILABLE", "FIXTURE"}:
+            try:
+                technical = await asyncio.to_thread(indicators, market)
+            except ValueError:
+                pass
+        return {"market": market, "indicators": technical}
+
+    @app.get("/platform/paper-news")
+    async def paper_news(request: Request, subject: Principal, asset: Asset | None = None):
+        feed = await request.app.state.feeds.news()
+        if asset is not None:
+            return feed.model_copy(
+                update={
+                    "articles": [article for article in feed.articles if asset in article.assets]
+                }
+            )
+        return feed
+
+    @app.get("/platform/paper-watchlist")
+    def paper_watchlist(subject: Principal, db: Database):
+        rows = db.execute(
+            "SELECT asset FROM platform_watchlist WHERE owner_id = %s ORDER BY asset",
+            (subject,),
+        ).fetchall()
+        return {"assets": [asset for (asset,) in rows]}
+
+    @app.put("/platform/paper-watchlist/{asset}")
+    def paper_watch(subject: Principal, db: Database, asset: Asset, change: PaperEmergency):
+        ensure_account(db, subject, initial_usdt)
+        if change.enabled:
+            db.execute(
+                "INSERT INTO platform_watchlist VALUES (%s, %s) ON CONFLICT DO NOTHING",
+                (subject, asset),
+            )
+        else:
+            db.execute(
+                "DELETE FROM platform_watchlist WHERE owner_id = %s AND asset = %s",
+                (subject, asset),
+            )
+        return {"asset": asset, "enabled": change.enabled}
 
     @app.get("/platform/strategy-authoring")
     def strategy_authoring(subject: Principal):

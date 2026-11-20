@@ -1,0 +1,76 @@
+name: krono-paper
+
+x-product-build: &product-build
+  image: krono-paper:local
+  build:
+    context: ../..
+    dockerfile: deploy/paper/Dockerfile
+
+x-database-env: &database-env
+  KRONO_DATABASE_DSN: postgresql://krono:${KRONO_PAPER_DB_PASSWORD:?Set a URL-safe database password}@postgres/krono
+
+services:
+  postgres:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: krono
+      POSTGRES_DB: krono
+      POSTGRES_PASSWORD: ${KRONO_PAPER_DB_PASSWORD:?Set a URL-safe database password}
+    volumes:
+      - postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "krono", "-d", "krono"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrate:
+    <<: *product-build
+    command: ["python", "-m", "scripts.platform_database"]
+    environment: *database-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  product-api:
+    <<: *product-build
+    restart: unless-stopped
+    environment:
+      <<: *database-env
+      KRONO_PRODUCT_API_KEY: ${KRONO_PRODUCT_API_KEY:?Set a 32-byte or longer signing key}
+      KRONO_PAPER_INITIAL_USDT: ${KRONO_PAPER_INITIAL_USDT:-10000}
+      NEWS_API_KEY: ${NEWS_API_KEY:-}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:8794:8794"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "from urllib.request import urlopen; urlopen('http://127.0.0.1:8794/healthz', timeout=3).close()",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  worker:
+    <<: *product-build
+    restart: unless-stopped
+    command: ["python", "-m", "backend.paper_worker"]
+    environment: *database-env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-m", "backend.paper_worker", "--health"]
+      interval: 10s
+      timeout: 6s
+      retries: 5
+
+volumes:
+  postgres:
