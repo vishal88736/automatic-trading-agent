@@ -63,10 +63,20 @@ def trade_graph():
 
 
 class PaperWorker:
-    def __init__(self, history=load_candles, quotes=load_quotes, *, allow_fixture=False, clock=now):
+    def __init__(
+        self,
+        history=load_candles,
+        quotes=load_quotes,
+        *,
+        allow_fixture=False,
+        clock=now,
+        market_clock=None,
+    ):
         self.history, self.quotes = history, quotes
         self.allow_fixture, self.clock = allow_fixture, clock
+        self.market_clock = market_clock or clock
         self.graph = trade_graph()
+        self.closed_markets = {}
 
     def tick(self, db, work):
         try:
@@ -112,9 +122,12 @@ class PaperWorker:
             self._activate(db, work, strategy, terms)
             return
 
-        at = self.clock()
-        end = at.replace(minute=0, second=0, microsecond=0)
-        market = self.history(definition.asset, end, end)
+        end = self.market_clock().replace(minute=0, second=0, microsecond=0)
+        market = self.closed_markets.get(definition.asset)
+        if market is None or market.as_of != end:
+            market = self.history(definition.asset, end, end)
+            if market.status in {"AVAILABLE", "FIXTURE"} and market.as_of == end:
+                self.closed_markets[definition.asset] = market
         if market.status == "FIXTURE" and not self.allow_fixture:
             raise ValueError("Fixture data cannot drive this worker")
         if not market.candles or market.candles[-1].closed_at != end:
@@ -188,6 +201,7 @@ class PaperWorker:
                 "candle_at": candle_at.isoformat(),
                 "quote_at": quote.observed_at.isoformat(),
                 "source": quote.source,
+                "price": str(quote.price),
             }
             if side in ("BUY", "SELL") and quantity > 0:
                 order = submit_order(

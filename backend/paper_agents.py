@@ -11,11 +11,12 @@ from psycopg.types.json import Jsonb
 from pydantic import Field
 
 from backend.models import Model
-from backend.paper_execution import lock_account
+from backend.paper_execution import agent_cash_reserved, lock_account, reservations
 from backend.strategy_rules import Name
 
 
 class AgentStart(Model):
+    request_key: UUID = Field(default_factory=uuid4)
     name: Name
     report_id: UUID
     epoch: int = Field(ge=1)
@@ -43,12 +44,31 @@ def list_agents(db, owner: UUID):
             SELECT a.id, a.name, a.status, a.stage, a.heartbeat, a.next_run, a.capital, a.failures,
               a.strategy_id, a.strategy_version, a.report_id, a.epoch, a.interval_seconds,
               a.last_candle, a.last_quote, v.document->'definition'->>'asset' AS asset,
+              totals.fills, totals.realized_pnl,
+              CASE WHEN totals.quantity = 0 THEN 0
+                   WHEN a.last_quote >= now() - make_interval(secs => a.interval_seconds * 2 + 20)
+                   THEN totals.quantity * mark.price - totals.basis END AS unrealized_pnl,
+              CASE WHEN totals.quantity = 0 THEN a.capital + totals.delta
+                   WHEN a.last_quote >= now() - make_interval(secs => a.interval_seconds * 2 + 20)
+                   THEN a.capital + totals.delta + totals.quantity * mark.price END AS value,
               (a.status = 'RUNNING' AND (
                     (a.lease_until IS NOT NULL AND a.lease_until <= now())
                     OR (a.lease_until IS NULL AND a.next_run < now() - interval '30 seconds')
               )) AS worker_overdue
             FROM paper_agents a JOIN platform_strategy_versions v
               ON (v.owner_id, v.strategy_id, v.version) = (a.owner_id, a.strategy_id, a.strategy_version)
+            CROSS JOIN LATERAL (
+                SELECT count(*) AS fills, coalesce(sum(l.realized_pnl), 0) AS realized_pnl,
+                    coalesce(sum(l.quantity), 0) AS quantity, coalesce(sum(l.cost_delta), 0) AS basis,
+                    coalesce(sum(l.amount), 0) AS delta
+                FROM paper_orders o JOIN paper_ledger_entries l ON l.order_id = o.id
+                WHERE o.owner_id = a.owner_id AND o.agent_id = a.id
+            ) totals
+            LEFT JOIN LATERAL (
+                SELECT (detail->>'price')::numeric AS price FROM paper_agent_events
+                WHERE owner_id = a.owner_id AND agent_id = a.id AND kind = 'DECISION'
+                ORDER BY seq DESC LIMIT 1
+            ) mark ON TRUE
             WHERE a.owner_id = %s ORDER BY a.created_at DESC LIMIT 100
             """,
             (owner,),
@@ -70,6 +90,25 @@ def timeline(db, owner: UUID, agent: UUID, after: int = 0):
 def start_agent(db, owner: UUID, request: AgentStart):
     with db.transaction():
         account, stopped = lock_account(db, owner)
+        previous = db.execute(
+            """
+            SELECT name, report_id, epoch, capital, interval_seconds, max_drawdown, max_daily_loss
+            FROM paper_agents WHERE owner_id = %s AND id = %s
+            """,
+            (owner, request.request_key),
+        ).fetchone()
+        if previous:
+            if previous != (
+                request.name,
+                request.report_id,
+                request.epoch,
+                request.capital,
+                request.interval_seconds,
+                request.max_drawdown,
+                request.max_daily_loss,
+            ):
+                raise ValueError("Agent key already belongs to a different request")
+            return request.request_key
         if stopped or account.epoch != request.epoch:
             raise ValueError("Paper account cannot start agents in this state")
         report = db.execute(
@@ -84,7 +123,7 @@ def start_agent(db, owner: UUID, request: AgentStart):
         if report is None:
             raise LookupError("Backtest is unavailable")
         _validate_allocation(db, owner, account.epoch, account.cash, request.capital)
-        ident = uuid4()
+        ident = request.request_key
         db.execute(
             """
             INSERT INTO paper_agents (id, owner_id, account_id, epoch, name, strategy_id,
@@ -114,15 +153,27 @@ def start_agent(db, owner: UUID, request: AgentStart):
 
 
 def _validate_allocation(db, owner, epoch, cash, capital, exclude=None):
-    count, booked = db.execute(
+    (count,) = db.execute(
         """
-        SELECT count(*), coalesce(sum(capital), 0) FROM paper_agents
+        SELECT count(*) FROM paper_agents
         WHERE owner_id = %s AND epoch = %s AND status IN ('RUNNING', 'PAUSED')
             AND id IS DISTINCT FROM %s
         """,
         (owner, epoch, exclude),
     ).fetchone()
-    if count >= 10 or booked + capital > cash:
+    booked = agent_cash_reserved(db, owner, epoch, exclude)
+    pending, _ = reservations(db, owner, epoch)
+    if exclude is not None:
+        (delta,) = db.execute(
+            """
+            SELECT coalesce(sum(l.amount), 0) FROM paper_ledger_entries l
+            JOIN paper_orders o ON o.id = l.order_id
+            WHERE o.owner_id = %s AND o.agent_id = %s
+            """,
+            (owner, exclude),
+        ).fetchone()
+        capital = max(Decimal(0), capital + delta)
+    if count >= 10 or booked + pending + capital > cash:
         raise ValueError("Agent allocation exceeds the available paper capital")
 
 

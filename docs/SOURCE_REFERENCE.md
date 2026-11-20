@@ -405,16 +405,16 @@ Cognito access-token identity and tenant-aware repositories protect application 
 ### backend/paper_agents.py
 
 - [AgentStart](../backend/paper_agents.py#L18) — class
-- [AgentCommand](../backend/paper_agents.py#L28) — class
-- [event](../backend/paper_agents.py#L32) — `event(db, owner, agent, kind, detail)`
-- [list_agents](../backend/paper_agents.py#L39) — `list_agents(db, owner: UUID)`
-- [timeline](../backend/paper_agents.py#L58) — `timeline(db, owner: UUID, agent: UUID, after: int=0)`
-- [start_agent](../backend/paper_agents.py#L70) — `start_agent(db, owner: UUID, request: AgentStart)`
-- [_validate_allocation](../backend/paper_agents.py#L116) — `_validate_allocation(db, owner, epoch, cash, capital, exclude=None)`
-- [control_agent](../backend/paper_agents.py#L129) — `control_agent(db, owner: UUID, agent: UUID, action: str)`
-- [claim_agent](../backend/paper_agents.py#L162) — `claim_agent(db, lease_seconds=60)`
-- [fence](../backend/paper_agents.py#L185) — `fence(db, work)`
-- [checkpoint](../backend/paper_agents.py#L198) — `checkpoint(db, work, *, stage='MONITOR', status='RUNNING', failures=0, delay=None, candle=None, quote=None, peak=None)`
+- [AgentCommand](../backend/paper_agents.py#L29) — class
+- [event](../backend/paper_agents.py#L33) — `event(db, owner, agent, kind, detail)`
+- [list_agents](../backend/paper_agents.py#L40) — `list_agents(db, owner: UUID)`
+- [timeline](../backend/paper_agents.py#L78) — `timeline(db, owner: UUID, agent: UUID, after: int=0)`
+- [start_agent](../backend/paper_agents.py#L90) — `start_agent(db, owner: UUID, request: AgentStart)`
+- [_validate_allocation](../backend/paper_agents.py#L155) — `_validate_allocation(db, owner, epoch, cash, capital, exclude=None)`
+- [control_agent](../backend/paper_agents.py#L180) — `control_agent(db, owner: UUID, agent: UUID, action: str)`
+- [claim_agent](../backend/paper_agents.py#L213) — `claim_agent(db, lease_seconds=60)`
+- [fence](../backend/paper_agents.py#L236) — `fence(db, work)`
+- [checkpoint](../backend/paper_agents.py#L249) — `checkpoint(db, work, *, stage='MONITOR', status='RUNNING', failures=0, delay=None, candle=None, quote=None, peak=None)`
 
 ### backend/paper_execution.py
 
@@ -425,21 +425,22 @@ Cognito access-token identity and tenant-aware repositories protect application 
 - [lock_account](../backend/paper_execution.py#L58) — `lock_account(db: Connection, owner: UUID)`
 - [positions](../backend/paper_execution.py#L68) — `positions(db: Connection, owner: UUID, epoch: int, *, actor_only=False, agent_id: UUID | None=None)`
 - [reservations](../backend/paper_execution.py#L86) — `reservations(db: Connection, owner: UUID, epoch: int, exclude: UUID | None=None, agent_id: UUID | None=None)`
-- [_fresh](../backend/paper_execution.py#L108) — `_fresh(quotes: dict[str, PaperQuote], asset: str, at: datetime, max_age: int)`
-- [_cost](../backend/paper_execution.py#L116) — `_cost(quantity: Decimal, price: Decimal, terms: PaperTerms)`
-- [_finish](../backend/paper_execution.py#L122) — `_finish(db: Connection, order_id: UUID, status: str, reason: str | None, at: datetime)`
-- [_buy_risk](../backend/paper_execution.py#L132) — `_buy_risk(db, owner, account, asset, gross, fee, held, quotes, at, terms)`
-- [get_order](../backend/paper_execution.py#L192) — `get_order(db: Connection, owner: UUID, order_id: UUID)`
-- [_evaluate](../backend/paper_execution.py#L206) — `_evaluate(db, owner, account, stopped, order_id, request, quotes, terms, at, *, pending, agent_id=None)`
-- [submit_order](../backend/paper_execution.py#L306) — `submit_order(db, owner: UUID, request: OrderRequest, quotes, terms: PaperTerms, *, clock=now, agent_id=None)`
-- [process_limit](../backend/paper_execution.py#L358) — `process_limit(db, owner: UUID, order_id: UUID, quotes, terms: PaperTerms, *, clock=now)`
-- [cancel_order](../backend/paper_execution.py#L372) — `cancel_order(db, owner: UUID, order_id: UUID)`
-- [set_emergency](../backend/paper_execution.py#L382) — `set_emergency(db, owner: UUID, enabled: bool)`
-- [_halt_agents](../backend/paper_execution.py#L394) — `_halt_agents(db, owner, epoch, status, reason)`
-- [_cancel_open](../backend/paper_execution.py#L409) — `_cancel_open(db, owner, epoch, reason)`
-- [reset_account](../backend/paper_execution.py#L420) — `reset_account(db, owner: UUID, expected_epoch: int, opening_credit: Decimal)`
-- [portfolio](../backend/paper_execution.py#L445) — `portfolio(db, owner: UUID, quotes: dict[str, PaperQuote], *, clock=now, max_age=20)`
-- [order_history](../backend/paper_execution.py#L526) — `order_history(db, owner: UUID, *, epoch: int | None=None, limit=50)`
+- [agent_cash_reserved](../backend/paper_execution.py#L108) — `agent_cash_reserved(db, owner, epoch, exclude=None)`
+- [_fresh](../backend/paper_execution.py#L124) — `_fresh(quotes: dict[str, PaperQuote], asset: str, at: datetime, max_age: int)`
+- [_cost](../backend/paper_execution.py#L132) — `_cost(quantity: Decimal, price: Decimal, terms: PaperTerms)`
+- [_finish](../backend/paper_execution.py#L138) — `_finish(db: Connection, order_id: UUID, status: str, reason: str | None, at: datetime)`
+- [_buy_risk](../backend/paper_execution.py#L148) — `_buy_risk(db, owner, account, asset, gross, fee, held, quotes, at, terms)`
+- [get_order](../backend/paper_execution.py#L208) — `get_order(db: Connection, owner: UUID, order_id: UUID)`
+- [_evaluate](../backend/paper_execution.py#L222) — `_evaluate(db, owner, account, stopped, order_id, request, quotes, terms, at, *, pending, agent_id=None)`
+- [submit_order](../backend/paper_execution.py#L324) — `submit_order(db, owner: UUID, request: OrderRequest, quotes, terms: PaperTerms, *, clock=now, agent_id=None)`
+- [process_limit](../backend/paper_execution.py#L376) — `process_limit(db, owner: UUID, order_id: UUID, quotes, terms: PaperTerms, *, clock=now)`
+- [cancel_order](../backend/paper_execution.py#L390) — `cancel_order(db, owner: UUID, order_id: UUID)`
+- [set_emergency](../backend/paper_execution.py#L400) — `set_emergency(db, owner: UUID, enabled: bool)`
+- [_halt_agents](../backend/paper_execution.py#L412) — `_halt_agents(db, owner, epoch, status, reason)`
+- [_cancel_open](../backend/paper_execution.py#L427) — `_cancel_open(db, owner, epoch, reason)`
+- [reset_account](../backend/paper_execution.py#L438) — `reset_account(db, owner: UUID, expected_epoch: int, opening_credit: Decimal)`
+- [portfolio](../backend/paper_execution.py#L463) — `portfolio(db, owner: UUID, quotes: dict[str, PaperQuote], *, clock=now, max_age=20)`
+- [order_history](../backend/paper_execution.py#L546) — `order_history(db, owner: UUID, *, epoch: int | None=None, limit=50)`
 
 ### backend/paper_market.py
 
@@ -452,13 +453,13 @@ Cognito access-token identity and tenant-aware repositories protect application 
 - [rules](../backend/paper_worker.py#L51) — `rules(state: Tick)`
 - [trade_graph](../backend/paper_worker.py#L55) — `trade_graph()`
 - [PaperWorker](../backend/paper_worker.py#L65) — class
-- [PaperWorker.__init__](../backend/paper_worker.py#L66) — `__init__(self, history=load_candles, quotes=load_quotes, *, allow_fixture=False, clock=now)`
-- [PaperWorker.tick](../backend/paper_worker.py#L71) — `tick(self, db, work)`
-- [PaperWorker._fail](../backend/paper_worker.py#L77) — `_fail(self, db, work, reason)`
-- [PaperWorker._tick](../backend/paper_worker.py#L100) — `_tick(self, db, work)`
-- [PaperWorker._activate](../backend/paper_worker.py#L222) — `_activate(self, db, work, strategy, terms)`
-- [service](../backend/paper_worker.py#L259) — `service(dsn: str, stop: Event, worker: PaperWorker)`
-- [main](../backend/paper_worker.py#L288) — `main()`
+- [PaperWorker.__init__](../backend/paper_worker.py#L66) — `__init__(self, history=load_candles, quotes=load_quotes, *, allow_fixture=False, clock=now, market_clock=None)`
+- [PaperWorker.tick](../backend/paper_worker.py#L81) — `tick(self, db, work)`
+- [PaperWorker._fail](../backend/paper_worker.py#L87) — `_fail(self, db, work, reason)`
+- [PaperWorker._tick](../backend/paper_worker.py#L110) — `_tick(self, db, work)`
+- [PaperWorker._activate](../backend/paper_worker.py#L236) — `_activate(self, db, work, strategy, terms)`
+- [service](../backend/paper_worker.py#L273) — `service(dsn: str, stop: Event, worker: PaperWorker)`
+- [main](../backend/paper_worker.py#L302) — `main()`
 
 ### backend/platform_db.py
 

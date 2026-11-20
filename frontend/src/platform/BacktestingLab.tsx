@@ -94,6 +94,11 @@ function ReportView({ report }: { report: Report }) {
   return (
     <section className="platform-product-panel">
       <h3>Replay report</h3>
+      <a
+        href={`#/platform/paper-agents?report=${encodeURIComponent(report.id)}`}
+      >
+        Use report for a paper agent
+      </a>
       <p>
         {report.result.symbol}/USD · hourly · strategy v
         {report.strategy_version} ·{" "}

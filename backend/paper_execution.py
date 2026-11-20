@@ -105,6 +105,22 @@ def reservations(
     }
 
 
+def agent_cash_reserved(db, owner, epoch, exclude=None):
+    return db.execute(
+        """
+        SELECT coalesce(sum(greatest(0, capital + delta)), 0) FROM (
+            SELECT a.capital, coalesce(sum(l.amount), 0) AS delta
+            FROM paper_agents a LEFT JOIN paper_orders o ON o.agent_id = a.id
+            LEFT JOIN paper_ledger_entries l ON l.order_id = o.id
+            WHERE a.owner_id = %s AND a.epoch = %s AND a.status IN ('RUNNING', 'PAUSED')
+                AND a.id IS DISTINCT FROM %s
+            GROUP BY a.id
+        ) AS allocations
+        """,
+        (owner, epoch, exclude),
+    ).fetchone()[0]
+
+
 def _fresh(quotes: dict[str, PaperQuote], asset: str, at: datetime, max_age: int):
     quote = quotes.get(asset)
     if quote is not None and quote.asset == asset:
@@ -232,7 +248,9 @@ def _evaluate(
     if gross <= fee:
         reason = "ORDER_TOO_SMALL"
     elif buy:
-        if gross + fee > account.cash - reserved_cash:
+        if gross + fee > account.cash - reserved_cash - agent_cash_reserved(
+            db, owner, account.epoch, agent_id
+        ):
             reason = "INSUFFICIENT_CASH"
         else:
             reason = _buy_risk(
@@ -509,7 +527,9 @@ def portfolio(db, owner: UUID, quotes: dict[str, PaperQuote], *, clock=now, max_
             "epoch": account.epoch,
             "currency": account.currency,
             "cash": account.cash,
-            "available_cash": account.cash - reserved,
+            "available_cash": account.cash
+            - reserved
+            - agent_cash_reserved(db, owner, account.epoch),
             "equity": equity,
             "holdings": holdings,
             "realized_pnl": sum((row["realized_pnl"] for row in held.values()), Decimal(0)),

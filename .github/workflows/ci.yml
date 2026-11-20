@@ -58,6 +58,15 @@ jobs:
           curl --silent --show-error --retry 10 --retry-connrefused --retry-delay 1 --output /dev/null "$KRONO_E2E_PRODUCT_API_URL/platform/paper-account"
           npm run test:e2e -- e2e/platform-strategy.spec.ts
 
+      - name: Browser disconnect and process recovery
+        run: |
+          export KRONO_DATABASE_DSN="$KRONO_TEST_DATABASE_DSN"
+          export KRONO_PRODUCT_API_KEY="$(openssl rand -hex 32)"
+          export KRONO_E2E_PRODUCT_API_KEY="$KRONO_PRODUCT_API_KEY"
+          export KRONO_E2E_PRODUCT_API_URL="http://127.0.0.1:8794"
+          export KRONO_E2E_AUTONOMY=1
+          npm run test:e2e -- e2e/paper-autonomy.spec.ts
+
   validate:
     runs-on: ubuntu-latest
     timeout-minutes: 20

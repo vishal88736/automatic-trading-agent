@@ -34,6 +34,7 @@ import { Strategies } from "./Strategies";
 import "./platform.css";
 
 const PaperAccount = lazy(() => import("./PaperTrading"));
+const PaperAgents = lazy(() => import("./PaperAgents"));
 const BacktestingLab = lazy(() => import("./BacktestingLab"));
 
 type Message = {
@@ -257,7 +258,8 @@ export function PlatformWorkspace() {
   const strategies = route === "#/platform/strategies";
   const paper = route === "#/platform/paper";
   const backtesting = /^#\/platform\/backtests(?:\/[^/]+)?$/.test(route);
-  const showingAgents = !strategies && !paper && !backtesting;
+  const paperAgents = route === "#/platform/paper-agents";
+  const showingAgents = !strategies && !paper && !backtesting && !paperAgents;
   const [session, setSession] = useState<{
       userId: string;
       email: string;
@@ -545,7 +547,9 @@ export function PlatformWorkspace() {
                 ? "Paper Trading"
                 : backtesting
                   ? "Backtesting Lab"
-                  : "One workspace. Every agent."}
+                  : paperAgents
+                    ? "Autonomous Paper Agents"
+                    : "One workspace. Every agent."}
           </h2>
           <p>
             {session.email} · Bedrock / {health.model} · {health.region}
@@ -596,6 +600,12 @@ export function PlatformWorkspace() {
           >
             Backtesting Lab
           </a>
+          <a
+            href="#/platform/paper-agents"
+            aria-current={paperAgents ? "page" : undefined}
+          >
+            Paper Agents
+          </a>
           <a href="#/platform/paper" aria-current={paper ? "page" : undefined}>
             Paper Trading
           </a>
@@ -618,6 +628,10 @@ export function PlatformWorkspace() {
           </p>
         ) : strategies ? (
           <Strategies key={session.userId} />
+        ) : paperAgents ? (
+          <Suspense fallback={<p role="status">Loading Paper Agents…</p>}>
+            <PaperAgents key={session.userId} />
+          </Suspense>
         ) : paper ? (
           <Suspense fallback={<p role="status">Loading Paper Trading…</p>}>
             <PaperAccount key={session.userId} />
