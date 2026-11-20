@@ -10,6 +10,36 @@ permissions:
   contents: read
 
 jobs:
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: krono_test
+          POSTGRES_USER: krono_test
+          POSTGRES_PASSWORD: local-ci-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U krono_test -d krono_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      KRONO_TEST_DATABASE_DSN: postgresql://krono_test:local-ci-only@127.0.0.1:5432/krono_test
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: "3.12"
+          enable-cache: false
+      - run: uv sync --frozen --extra platform --python 3.12
+      - run: .venv/bin/python -m pytest -q backend/tests/test_platform_postgres.py
+
   validate:
     runs-on: ubuntu-latest
     timeout-minutes: 20

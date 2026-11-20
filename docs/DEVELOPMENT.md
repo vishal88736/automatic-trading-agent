@@ -43,15 +43,15 @@ The terminal database defaults to `.runtime/terminal.sqlite3`; AEGIS uses `.runt
 
 Do not copy a limit, asset list or network URL into a second place. Read it from its source:
 
-| Value | Source | Consumers |
-| --- | --- | --- |
+| Value                                                                                         | Source                                                                                            | Consumers                                                                                        |
+| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | Guard caps (sizing, trades/hour/day, loss, drawdown, exposure, cooldown, stops, holding time) | `CAPS` in `agent/aegis/risk/policy.py`, checked against `GUARD_LIMITS` in `agent/aegis/deploy.py` | `entry_check`, circuit breaker, `AgentParams` ceilings, chat tool schema, `state.caps` in the UI |
-| Preference bounds | `AgentParams` → `PARAM_BOUNDS` | `state.param_bounds` → AEGIS settings form `min`/`max` |
-| Supported assets, native strategies | `SUPPORTED_ASSETS`, `NATIVE_STRATEGIES` | runtime market filter, chat schema, `state.supported_assets` / `state.native_strategies` |
-| Risk-appetite presets, mean-reversion thresholds | `RISK_PRESETS`, `MEAN_REVERSION_Z` | deterministic router and LLM tool path alike |
-| Paper costs | `PaperTerms` | gateway, signals, `state.costs` |
-| Explorer URL | `config/networks.yaml` | `state.explorer` |
-| Krono risk bounds | `RiskConfig` in `backend/models.py` | `risk.bounds` in `/api/risk` and `/api/dashboard` → risk form |
+| Preference bounds                                                                             | `AgentParams` → `PARAM_BOUNDS`                                                                    | `state.param_bounds` → AEGIS settings form `min`/`max`                                           |
+| Supported assets, native strategies                                                           | `SUPPORTED_ASSETS`, `NATIVE_STRATEGIES`                                                           | runtime market filter, chat schema, `state.supported_assets` / `state.native_strategies`         |
+| Risk-appetite presets, mean-reversion thresholds                                              | `RISK_PRESETS`, `MEAN_REVERSION_Z`                                                                | deterministic router and LLM tool path alike                                                     |
+| Paper costs                                                                                   | `PaperTerms`                                                                                      | gateway, signals, `state.costs`                                                                  |
+| Explorer URL                                                                                  | `config/networks.yaml`                                                                            | `state.explorer`                                                                                 |
+| Krono risk bounds                                                                             | `RiskConfig` in `backend/models.py`                                                               | `risk.bounds` in `/api/risk` and `/api/dashboard` → risk form                                    |
 
 `agent/tests/test_single_source.py` and `backend/tests/test_api_backtest.py::test_risk_bounds_are_served_from_the_model` fail when a value drifts. Fix the source, not the test.
 
@@ -74,3 +74,22 @@ ALPACA_USE_PAPER=True .venv-legacy/bin/python run_webui_dash.py
 ```
 
 This optional install downloads the legacy dependency set. Review provider compatibility and supply credentials locally. Alpaca is never an HSKSwap fallback. Attribution and component licenses are retained in [third-party notices](../THIRD_PARTY_NOTICES.md).
+
+## Tenant PostgreSQL foundation
+
+The platform schema lives in `migrations/versions/`. It applies to a dedicated PostgreSQL database and uses verified Cognito subject UUIDs for ownership. The existing local launcher continues to use its current SQLite stores. The PostgreSQL account repository is ready for the authenticated product API to call after identity verification. An opening credit defaults to 10,000 virtual USDT and can be specified by the server when provisioning a new account.
+
+Install the optional driver and run the migration as a release step. Set `KRONO_DATABASE_DSN` in the shell from your local configuration or deployment secret.
+
+```bash
+uv sync --frozen --extra platform
+.venv/bin/python -m scripts.platform_database
+```
+
+Migrations run in a single PostgreSQL transaction with a transaction-scoped advisory lock and verify the applied revision checksums. A failed migration rolls back its changes. Keep applied revision files intact and take a database backup before upgrading a deployed environment. Use a migration role with DDL permissions and a separate, restricted runtime role. [PostgreSQL advisory locks](https://www.postgresql.org/docs/18/explicit-locking.html#ADVISORY-LOCKS), [Psycopg transactions](https://www.psycopg.org/psycopg3/docs/basic/transactions.html)
+
+Set `KRONO_TEST_DATABASE_DSN` to a disposable PostgreSQL database with permission to create schemas and run:
+
+```bash
+.venv/bin/python -m pytest -q backend/tests/test_platform_postgres.py
+```
