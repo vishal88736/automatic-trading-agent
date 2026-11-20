@@ -43,6 +43,7 @@ import {
 import { dataStatusLabel, type AegisView, type Preview } from "./aegis/types";
 import { applyAssistantAction } from "./assistantActions";
 import { KronoBrand, KronoMark } from "./brand";
+import { HomeOrbit } from "./HomeOrbit";
 import { WorkspaceHighlights, WorkspaceSearch } from "./discovery";
 import { PlatformWorkspace } from "./platform/Platform";
 import { TradingDesk } from "./TradingDesk";
@@ -614,136 +615,14 @@ function AppContent({
           : text,
       ) as [string, string])
     : TITLES[page];
+  const isHome = !isAegis && page === "overview";
   const agentActive = isAegis
     ? aegis.state?.available && !aegis.state.paused && !aegis.state.emergency
     : data?.scheduler.state === "RUNNING";
   return (
     <div
-      className={`app-shell rail-shell ${isAegis && aegis.chatOpen ? "aegis-chat-open" : ""} ${!isAegis && (page === "overview" || page === "strategies") ? "discovery-page" : ""}`}
+      className={`app-shell rail-shell ${isAegis && aegis.chatOpen ? "aegis-chat-open" : ""}`}
     >
-      <aside className={`sidebar ${sidebar ? "is-open" : ""}`}>
-        <a
-          href={`#${routeHash(CLOUD_PLATFORM ? "platform" : "research")}`}
-          className="brand"
-          aria-label="Krono home"
-          onClick={(event) => {
-            event.preventDefault();
-            switchWorkspace(CLOUD_PLATFORM ? "platform" : "research");
-          }}
-        >
-          <KronoBrand />
-        </a>
-        <div className="workspace-label">
-          <span className="workspace-icon">
-            <FlaskConical size={13} />
-          </span>
-          <div>
-            <strong>
-              {isAegis
-                ? "HSKSwap agent"
-                : page === "platform"
-                  ? "Agent platform"
-                  : "Research desk"}
-            </strong>
-            <small>
-              {isAegis
-                ? aegis.state?.mode === "testnet"
-                  ? "Autonomous testnet trading"
-                  : "Autonomous paper trading"
-                : page === "platform"
-                  ? "Private AWS workspace"
-                  : "Simulation mode"}
-            </small>
-          </div>
-          <ChevronDown size={13} />
-        </div>
-        {!CLOUD_PLATFORM && (
-          <label className="workspace-switcher">
-            <span>Execution workspace</span>
-            <select
-              aria-label="Execution workspace"
-              value={route.workspace}
-              onChange={(e) => switchWorkspace(e.target.value as Workspace)}
-            >
-              <option value="aegis">
-                HSKSwap · AEGIS{" "}
-                {aegis.state?.mode === "testnet" ? "testnet" : "paper"}
-              </option>
-              <option value="research">Research · simulation</option>
-              {page === "platform" && (
-                <option value="platform">Agent platform · AWS</option>
-              )}
-            </select>
-          </label>
-        )}
-        <button
-          className="sidebar-search"
-          onClick={() => {
-            setSidebar(false);
-            setSearch(true);
-          }}
-        >
-          <Search size={17} />
-          Search workspace
-        </button>
-        <nav aria-label="Main navigation">
-          <span className="nav-section">WORKSPACE</span>
-          {navItems.map((item) => (
-            <div key={item.id}>
-              {item.group && <span className="nav-section">{item.group}</span>}
-              <button
-                className={page === item.id ? "nav-item active" : "nav-item"}
-                onClick={() => navigate(item.id)}
-                aria-label={item.name}
-                title={item.name}
-                aria-current={page === item.id ? "page" : undefined}
-              >
-                <item.icon size={17} />
-                <span className="nav-label">{item.name}</span>
-                {item.id === "observatory" && (
-                  <span className={`nav-dot ${agentActive ? "running" : ""}`} />
-                )}
-              </button>
-            </div>
-          ))}
-        </nav>
-        <div className="sidebar-bottom">
-          <div className="sidebar-agent">
-            <Radio size={20} className="sidebar-status-icon" />
-            <span className={`agent-dot ${agentActive ? "is-running" : ""}`} />
-            <div>
-              <strong>
-                Agent{" "}
-                {isAegis
-                  ? !aegis.state?.available
-                    ? "connecting"
-                    : aegis.state.emergency
-                      ? "stopped"
-                      : aegis.state.paused
-                        ? "paused"
-                        : "running"
-                  : (data?.scheduler.state
-                      ?.toLowerCase()
-                      .replaceAll("_", " ") ?? "connecting")}
-              </strong>
-              <small>
-                {isAegis
-                  ? `${aegis.state?.data_status === "LIVE" ? "Live pool data" : dataStatusLabel(aegis.state)} · ${aegis.state?.mode === "testnet" ? "TESTNET" : "PAPER"}`
-                  : status?.research.enabled
-                    ? "Research provider configured"
-                    : "LLM research unconfigured"}
-              </small>
-            </div>
-          </div>
-        </div>
-      </aside>
-      {sidebar && (
-        <button
-          className="sidebar-backdrop"
-          onClick={() => setSidebar(false)}
-          aria-label="Close navigation"
-        />
-      )}
       <div className="workspace">
         <header className="topbar">
           <button
@@ -867,16 +746,168 @@ function AppContent({
             </button>
           </div>
         </header>
-        <main>
-          <section
-            className={`workspace-intro ${!isAegis && (page === "overview" || page === "strategies") ? "discovery-intro" : ""}`}
+        <aside className={`sidebar ${sidebar ? "is-open" : ""}`}>
+          <a
+            href={`#${routeHash(CLOUD_PLATFORM ? "platform" : "research")}`}
+            className="brand"
+            aria-label="Krono home"
+            onClick={(event) => {
+              event.preventDefault();
+              switchWorkspace(CLOUD_PLATFORM ? "platform" : "research");
+            }}
           >
-            {!isAegis && (page === "overview" || page === "strategies") && (
+            <KronoBrand />
+          </a>
+          <div className="workspace-label">
+            <span className="workspace-icon">
+              <FlaskConical size={13} />
+            </span>
+            <div>
+              <strong>
+                {isAegis
+                  ? "HSKSwap agent"
+                  : page === "platform"
+                    ? "Agent platform"
+                    : "Research desk"}
+              </strong>
+              <small>
+                {isAegis
+                  ? aegis.state?.mode === "testnet"
+                    ? "Autonomous testnet trading"
+                    : "Autonomous paper trading"
+                  : page === "platform"
+                    ? "Private AWS workspace"
+                    : "Simulation mode"}
+              </small>
+            </div>
+            <ChevronDown size={13} />
+          </div>
+          {!CLOUD_PLATFORM && (
+            <label className="workspace-switcher">
+              <span>Execution workspace</span>
+              <select
+                aria-label="Execution workspace"
+                value={route.workspace}
+                onChange={(e) => switchWorkspace(e.target.value as Workspace)}
+              >
+                <option value="aegis">
+                  HSKSwap · AEGIS{" "}
+                  {aegis.state?.mode === "testnet" ? "testnet" : "paper"}
+                </option>
+                <option value="research">Research · simulation</option>
+                {page === "platform" && (
+                  <option value="platform">Agent platform · AWS</option>
+                )}
+              </select>
+            </label>
+          )}
+          <button
+            className="sidebar-search"
+            onClick={() => {
+              setSidebar(false);
+              setSearch(true);
+            }}
+          >
+            <Search size={17} />
+            Search workspace
+          </button>
+          <nav aria-label="Main navigation">
+            <span className="nav-section">WORKSPACE</span>
+            {navItems.map((item) => (
+              <div key={item.id}>
+                {item.group && (
+                  <span className="nav-section">{item.group}</span>
+                )}
+                <button
+                  className={page === item.id ? "nav-item active" : "nav-item"}
+                  onClick={() => navigate(item.id)}
+                  aria-label={item.name}
+                  title={item.name}
+                  aria-current={page === item.id ? "page" : undefined}
+                >
+                  <item.icon size={17} />
+                  <span className="nav-label">{item.name}</span>
+                  {item.id === "observatory" && (
+                    <span
+                      className={`nav-dot ${agentActive ? "running" : ""}`}
+                    />
+                  )}
+                </button>
+              </div>
+            ))}
+          </nav>
+          <div className="sidebar-bottom">
+            <div className="sidebar-agent">
+              <Radio size={20} className="sidebar-status-icon" />
+              <span
+                className={`agent-dot ${agentActive ? "is-running" : ""}`}
+              />
+              <div>
+                <strong>
+                  Agent{" "}
+                  {isAegis
+                    ? !aegis.state?.available
+                      ? "connecting"
+                      : aegis.state.emergency
+                        ? "stopped"
+                        : aegis.state.paused
+                          ? "paused"
+                          : "running"
+                    : (data?.scheduler.state
+                        ?.toLowerCase()
+                        .replaceAll("_", " ") ?? "connecting")}
+                </strong>
+                <small>
+                  {isAegis
+                    ? `${aegis.state?.data_status === "LIVE" ? "Live pool data" : dataStatusLabel(aegis.state)} · ${aegis.state?.mode === "testnet" ? "TESTNET" : "PAPER"}`
+                    : status?.research.enabled
+                      ? "Research provider configured"
+                      : "LLM research unconfigured"}
+                </small>
+              </div>
+            </div>
+          </div>
+        </aside>
+        {sidebar && (
+          <button
+            className="sidebar-backdrop"
+            onClick={() => setSidebar(false)}
+            aria-label="Close navigation"
+          />
+        )}
+        <main>
+          {connectionError && page !== "platform" && !isAegis && (
+            <div className="connection-warning" role="alert">
+              Backend connection interrupted: {connectionError}.{" "}
+              {data
+                ? "Showing the last loaded records; actions require a current backend connection."
+                : "Start the backend to load the workspace."}
+              <button onClick={() => void reload()}>Retry</button>
+            </div>
+          )}
+          {(isAegis ? aegis.state?.emergency : data?.scheduler.emergency) && (
+            <div className="emergency-banner" role="alert">
+              <ShieldOff size={18} />
+              <strong>EMERGENCY STOP ACTIVE</strong>
+              <span>
+                {isAegis
+                  ? "Entries are blocked. Bounded stable exits require fresh quotes and risk approval."
+                  : "New executions are blocked. Positions are held for review."}
+              </span>
+              <button onClick={() => navigate("risk")}>
+                Review incident
+                <ArrowRight size={13} />
+              </button>
+            </div>
+          )}
+          <section
+            className={`workspace-intro ${isHome ? "home-hero" : !isAegis && page === "strategies" ? "discovery-intro" : ""}`}
+          >
+            {!isAegis && page === "strategies" && (
               <div className="hero-art" aria-hidden="true">
                 <img
                   src="/art/krono-orbit.webp"
                   alt=""
-                  fetchPriority="high"
                   width="720"
                   height="720"
                 />
@@ -884,15 +915,24 @@ function AppContent({
             )}
             <div className="page-heading">
               <div>
-                <div className="eyebrow page-kicker">
-                  {page === "overview"
-                    ? "KRONO / WORKSPACE 01"
-                    : `KRONO / WORKSPACE ${String(NAV.findIndex((n) => n.id === page) + 1).padStart(2, "0")}`}
-                </div>
+                {isHome && (
+                  <div className="home-kicker">
+                    <span className="data-dot" />
+                    Research workspace
+                  </div>
+                )}
                 <h1>{titles[0]}</h1>
                 <p>{titles[1]}</p>
               </div>
               <div className="page-actions">
+                {isHome && (
+                  <button
+                    className="button primary"
+                    onClick={() => navigate("desk")}
+                  >
+                    Open trading desk <ArrowRight size={16} />
+                  </button>
+                )}
                 {page === "platform" && (
                   <button
                     className="button secondary assistant-shortcut"
@@ -926,38 +966,16 @@ function AppContent({
                 )}
               </div>
             </div>
-            {data &&
-              !isAegis &&
-              (page === "overview" || page === "strategies") && (
-                <WorkspaceHighlights data={data} page={page} />
-              )}
-            {data && !isAegis && page === "overview" && (
-              <PortfolioMetrics data={data} />
+            {isHome && <HomeOrbit />}
+            {data && !isAegis && page === "strategies" && (
+              <WorkspaceHighlights data={data} page={page} />
             )}
           </section>
-          {connectionError && page !== "platform" && !isAegis && (
-            <div className="connection-warning" role="alert">
-              Backend connection interrupted: {connectionError}.{" "}
-              {data
-                ? "Showing the last loaded records; actions require a current backend connection."
-                : "Start the backend to load the workspace."}
-              <button onClick={() => void reload()}>Retry</button>
-            </div>
-          )}
-          {(isAegis ? aegis.state?.emergency : data?.scheduler.emergency) && (
-            <div className="emergency-banner" role="alert">
-              <ShieldOff size={18} />
-              <strong>EMERGENCY STOP ACTIVE</strong>
-              <span>
-                {isAegis
-                  ? "Entries are blocked. Bounded stable exits require fresh quotes and risk approval."
-                  : "New executions are blocked. Positions are held for review."}
-              </span>
-              <button onClick={() => navigate("risk")}>
-                Review incident
-                <ArrowRight size={13} />
-              </button>
-            </div>
+          {data && isHome && (
+            <section className="home-summary" aria-label="Workspace summary">
+              <PortfolioMetrics data={data} />
+              <WorkspaceHighlights data={data} page="overview" />
+            </section>
           )}
           {page === "settings" && !CLOUD_PLATFORM && (
             <Panel

@@ -501,15 +501,6 @@ main {
   align-items: center;
   gap: 24px;
 }
-.page-kicker {
-  color: var(--text);
-  font-size: 11px;
-  letter-spacing: 1.4px;
-  margin-bottom: 12px;
-}
-.page-kicker::before {
-  background: var(--border-strong);
-}
 h1 {
   font-family: var(--font-sans);
   font-size: 35px;
@@ -620,54 +611,6 @@ h1 {
 .coverage-foot {
   font-size: 12px;
   color: var(--text);
-}
-.discovery-intro .metrics {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  position: relative;
-  z-index: 2;
-  margin: 29px 0 0;
-  gap: 0;
-  background: transparent;
-  border: 0;
-}
-.discovery-intro .metric {
-  display: flex;
-  flex-direction: column;
-  padding: 7px 18px 8px;
-  background: transparent;
-  border: 0;
-  border-left: 1px solid var(--border-strong);
-  border-radius: 0;
-}
-.discovery-intro .metric:first-child {
-  border: 0;
-  padding-left: 0;
-  background: transparent;
-}
-.discovery-intro .metric:last-child {
-  border-right: 0;
-}
-.discovery-intro .metric-label {
-  order: 2;
-  color: var(--text);
-  margin-top: 8px;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.1px;
-}
-.discovery-intro .metric-value {
-  order: 1;
-  margin: 0;
-  font-size: 28px;
-  font-weight: 450;
-  letter-spacing: -0.9px;
-}
-.discovery-intro .metric p {
-  order: 3;
-  font-size: 12px;
-  line-height: 1.55;
-  color: var(--muted);
-  margin-top: 5px;
 }
 .metric {
   background: var(--panel);
@@ -1463,13 +1406,6 @@ td > small {
   .strategy-toolbar > h2 {
     font-size: 21px;
   }
-  .discovery-intro .metric-value {
-    font-size: 25px;
-  }
-  .discovery-intro .metric {
-    padding-left: 13px;
-    padding-right: 13px;
-  }
 }
 @media (max-width: 1180px) {
   .network-pill {
@@ -1507,23 +1443,6 @@ td > small {
   }
   .coverage-review {
     width: 65%;
-  }
-  .discovery-intro .metrics {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 20px 0;
-  }
-  .discovery-intro .metric:nth-child(4) {
-    border-left: 0;
-    padding-left: 0;
-  }
-  .discovery-intro .metric:nth-child(3),
-  .discovery-intro .metric:nth-child(-n + 3) {
-    border-top: 0;
-    border-bottom: 0;
-    border-right: 0;
-  }
-  .discovery-intro .metric:first-child {
-    border-left: 0;
   }
 }
 @media (max-width: 900px) {
@@ -1648,10 +1567,6 @@ td > small {
     align-items: stretch;
     gap: 19px;
   }
-  .page-kicker {
-    font-size: 11px;
-    letter-spacing: 1.1px;
-  }
   h1 {
     font-size: 31px;
     letter-spacing: -0.9px;
@@ -1708,38 +1623,6 @@ td > small {
   }
   .coverage-track {
     height: 8px;
-  }
-  .discovery-intro .metrics {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 23px 0;
-    margin-top: 28px;
-  }
-  .discovery-intro .metric {
-    padding: 0 12px 0 14px;
-    border-left: 1px solid var(--border-strong);
-    border-top: 0;
-    border-right: 0;
-    border-bottom: 0;
-  }
-  .discovery-intro .metric:nth-child(odd) {
-    border-left: 0;
-    padding-left: 0;
-  }
-  .discovery-intro .metric:nth-child(4) {
-    border-left: 1px solid var(--border-strong);
-    padding-left: 14px;
-  }
-  .discovery-intro .metric-label {
-    font-size: 12px;
-    letter-spacing: 0.1px;
-    line-height: 1.6;
-  }
-  .discovery-intro .metric-value {
-    font-size: 24px;
-  }
-  .discovery-intro .metric p {
-    font-size: 12px;
-    line-height: 1.65;
   }
   .discovery-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1882,9 +1765,6 @@ td > small {
   }
   .discovery-intro {
     padding: 22px 17px;
-  }
-  .discovery-intro .metric-value {
-    font-size: 21px;
   }
   .strategy-toolbar > h2 {
     font-size: 20px;

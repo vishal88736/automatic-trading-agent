@@ -5,6 +5,7 @@ import "@fontsource-variable/inter/wght.css";
 import "./styles.css";
 import "./theme.css";
 import "./palette.css";
+import "./workspace.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

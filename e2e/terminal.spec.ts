@@ -291,10 +291,23 @@ test("Krono branding and bundled fonts stay readable across desktop and mobile",
     await page.setViewportSize({ width, height: 982 });
     await expect(
       page.getByRole("link", { name: "Krono home" }).filter({ visible: true }),
-    ).toHaveCount(width > 760 ? 2 : 1);
+    ).toHaveCount(1);
     if (width > 760) {
-      const rail = await page.locator(".sidebar").boundingBox();
-      expect(rail!.width, `Icon rail at ${width}px`).toBeLessThanOrEqual(112);
+      const navigation = page.getByRole("navigation", {
+        name: "Main navigation",
+      });
+      await expect(
+        navigation.getByText("Overview", { exact: true }),
+      ).toBeVisible();
+      const [overview, desk] = await Promise.all(
+        ["Overview", "Trading Desk"].map((name) =>
+          navigation.getByRole("button", { name, exact: true }).boundingBox(),
+        ),
+      );
+      expect(desk!.x, `Horizontal navigation at ${width}px`).toBeGreaterThan(
+        overview!.x,
+      );
+      expect(desk!.y).toBe(overview!.y);
     } else {
       await expect(
         page.getByRole("navigation", { name: "Main navigation" }),

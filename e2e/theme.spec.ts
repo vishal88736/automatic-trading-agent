@@ -40,3 +40,36 @@ test("theme follows the system, persists a choice and styles existing workspaces
     page.getByRole("button", { name: "Emergency stop", exact: true }),
   ).toBeVisible();
 });
+
+test("the home orbit rotates, respects reduced motion, and leaves the desk action available", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto("/");
+  const rotor = page.locator(".orbit-rotor");
+  await expect(rotor).toHaveCSS("animation-name", "orbit-turn");
+  await page.getByRole("button", { name: "Pause orbit animation" }).click();
+  await expect(rotor).toHaveCSS("animation-play-state", "paused");
+  await page.getByRole("button", { name: "Play orbit animation" }).click();
+  await expect(rotor).toHaveCSS("animation-play-state", "running");
+  const turns = await rotor.evaluate(async (node) => {
+    const [orbit] = node.getAnimations();
+    orbit.pause();
+    await orbit.ready;
+    orbit.currentTime = 0;
+    const start = getComputedStyle(node).transform;
+    orbit.currentTime = 11500;
+    return start !== getComputedStyle(node).transform;
+  });
+  expect(turns).toBe(true);
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(rotor).toHaveCSS("animation-name", "none");
+  await expect(
+    page.getByRole("button", { name: "Pause orbit animation" }),
+  ).toBeHidden();
+  await page.getByRole("button", { name: "Open trading desk" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Trading desk", exact: true }),
+  ).toBeVisible();
+});

@@ -2676,22 +2676,6 @@ main {
   gap: 24px;
   align-items: center;
 }
-.page-kicker {
-  font-size: 11px;
-  letter-spacing: 1.4px;
-  color: var(--muted);
-  margin-bottom: 12px;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-}
-.page-kicker::before {
-  content: "";
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--accent);
-}
 h1 {
   font-family: var(--font-editorial);
   font-size: 48px;
@@ -3438,10 +3422,6 @@ select {
     align-items: stretch;
     gap: 20px;
     margin-bottom: 22px;
-  }
-  .page-kicker {
-    font-size: 11px;
-    margin-bottom: 11px;
   }
   .page-heading p {
     font-size: 14px;
