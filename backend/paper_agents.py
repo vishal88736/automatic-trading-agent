@@ -8,7 +8,7 @@ from uuid import UUID, uuid4
 
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from backend.models import Model
 from backend.paper_execution import (
@@ -27,12 +27,24 @@ from backend.strategy_rules import Name
 class AgentStart(Model):
     request_key: UUID = Field(default_factory=uuid4)
     name: Name
-    report_id: UUID
+    report_id: UUID | None = None
+    strategy_id: UUID | None = None
+    strategy_version: int | None = Field(default=None, ge=1, le=2**31 - 1)
     epoch: int = Field(ge=1)
     capital: Annotated[Decimal, Field(gt=0, le=100000, decimal_places=6)]
     interval_seconds: int = Field(default=60, ge=10, le=3600)
     max_drawdown: Annotated[Decimal, Field(gt=0, le=Decimal("0.10"))] = Decimal("0.10")
     max_daily_loss: Annotated[Decimal, Field(gt=0, le=Decimal("0.03"))] = Decimal("0.03")
+
+    @model_validator(mode="after")
+    def select_validation_source(self):
+        if self.report_id is not None:
+            valid = self.strategy_id is None and self.strategy_version is None
+        else:
+            valid = self.strategy_id is not None and self.strategy_version is not None
+        if not valid:
+            raise ValueError("Choose a report or one saved strategy version")
+        return self
 
 
 class AgentCommand(Model):
@@ -52,7 +64,7 @@ def list_agents(db, owner: UUID):
             """
             SELECT a.id, a.name, a.status, a.stage, a.heartbeat, a.next_run, a.capital, a.failures,
               a.strategy_id, a.strategy_version, a.report_id, a.epoch, a.interval_seconds,
-              a.last_candle, a.last_quote, v.document->'definition'->>'asset' AS asset,
+              a.last_candle, a.last_quote, a.next_review_at, v.document->'definition'->>'asset' AS asset,
               totals.fills, totals.realized_pnl, totals.quantity AS open_quantity,
               CASE WHEN totals.quantity = 0 THEN 0
                    WHEN a.last_quote >= now() - make_interval(secs => a.interval_seconds * 2 + 20)
@@ -101,7 +113,9 @@ def start_agent(db, owner: UUID, request: AgentStart):
         account, stopped = lock_account(db, owner)
         previous = db.execute(
             """
-            SELECT name, report_id, epoch, capital, interval_seconds, max_drawdown, max_daily_loss
+            SELECT name, initial_report_id, epoch, capital, interval_seconds, max_drawdown, max_daily_loss,
+                CASE WHEN initial_report_id IS NULL THEN strategy_id END,
+                CASE WHEN initial_report_id IS NULL THEN strategy_version END
             FROM paper_agents WHERE owner_id = %s AND id = %s
             """,
             (owner, request.request_key),
@@ -115,30 +129,44 @@ def start_agent(db, owner: UUID, request: AgentStart):
                 request.interval_seconds,
                 request.max_drawdown,
                 request.max_daily_loss,
+                request.strategy_id,
+                request.strategy_version,
             ):
                 raise ValueError("Agent key already belongs to a different request")
             return request.request_key
         if stopped or account.epoch != request.epoch:
             raise ValueError("Paper account cannot start agents in this state")
-        report = db.execute(
-            """
-            SELECT b.strategy_id, b.strategy_version FROM platform_backtests b
-            JOIN platform_strategies s
-              ON (s.owner_id, s.id) = (b.owner_id, b.strategy_id)
-            WHERE b.owner_id = %s AND b.id = %s AND s.archived_at IS NULL
-            """,
-            (owner, request.report_id),
-        ).fetchone()
-        if report is None:
-            raise LookupError("Backtest is unavailable")
+        if request.report_id is not None:
+            strategy = db.execute(
+                """
+                SELECT b.strategy_id, b.strategy_version FROM platform_backtests b
+                JOIN platform_strategies s
+                  ON (s.owner_id, s.id) = (b.owner_id, b.strategy_id)
+                WHERE b.owner_id = %s AND b.id = %s AND s.archived_at IS NULL
+                """,
+                (owner, request.report_id),
+            ).fetchone()
+        else:
+            strategy = db.execute(
+                """
+                SELECT v.strategy_id, v.version FROM platform_strategy_versions v
+                JOIN platform_strategies s
+                  ON (s.owner_id, s.id) = (v.owner_id, v.strategy_id)
+                WHERE v.owner_id = %s AND v.strategy_id = %s AND v.version = %s
+                  AND s.archived_at IS NULL
+                """,
+                (owner, request.strategy_id, request.strategy_version),
+            ).fetchone()
+        if strategy is None:
+            raise LookupError("Strategy or report is unavailable")
         _validate_allocation(db, owner, account.epoch, account.cash, request.capital)
         ident = request.request_key
         db.execute(
             """
             INSERT INTO paper_agents (id, owner_id, account_id, epoch, name, strategy_id,
                 strategy_version, report_id, capital, max_drawdown, max_daily_loss, interval_seconds,
-                status, stage)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'RUNNING', 'VALIDATE')
+                initial_report_id, status, stage)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'RUNNING', 'VALIDATE')
             """,
             (
                 ident,
@@ -146,17 +174,25 @@ def start_agent(db, owner: UUID, request: AgentStart):
                 account.id,
                 account.epoch,
                 request.name,
-                report[0],
-                report[1],
+                strategy[0],
+                strategy[1],
                 request.report_id,
                 request.capital,
                 request.max_drawdown,
                 request.max_daily_loss,
                 request.interval_seconds,
+                request.report_id,
             ),
         )
         event(
-            db, owner, ident, "QUEUED", {"report_id": str(request.report_id), "version": report[1]}
+            db,
+            owner,
+            ident,
+            "QUEUED",
+            {
+                "report_id": str(request.report_id) if request.report_id else None,
+                "version": strategy[1],
+            },
         )
         return ident
 

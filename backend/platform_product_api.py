@@ -320,7 +320,7 @@ def create_product_api(
         try:
             agent = start_agent(db, subject, request)
         except LookupError:
-            raise ProductError(404, "NOT_FOUND", "Backtest is unavailable") from None
+            raise ProductError(404, "NOT_FOUND", "Strategy or backtest is unavailable") from None
         except ValueError as exc:
             raise ProductError(409, "AGENT_START_REJECTED", str(exc)) from None
         return {"id": agent}

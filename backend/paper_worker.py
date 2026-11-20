@@ -8,6 +8,7 @@ import os
 import signal
 import socket
 import time
+from datetime import datetime, timedelta, timezone
 from decimal import ROUND_DOWN, Decimal
 from threading import Event
 from typing import TypedDict
@@ -15,8 +16,8 @@ from uuid import uuid5
 
 from langgraph.graph import END, START, StateGraph
 
-from backend.backtest_repository import get_replay
-from backend.historical_data import load_candles
+from backend.backtest_repository import get_replay, save_replay
+from backend.historical_data import HistoricalBacktestRequest, load_candles
 from backend.models import Market, RiskConfig, now
 from backend.paper_agents import checkpoint, claim_agent, event, fence, mark_agent
 from backend.paper_execution import (
@@ -37,6 +38,7 @@ from backend.strategy_repository import get_strategy
 from backend.strategy_rules import StrategyDefinition, rule_signal
 
 log = logging.getLogger(__name__)
+REVIEW_INTERVAL = timedelta(days=7)
 
 
 class Tick(TypedDict, total=False):
@@ -122,8 +124,13 @@ class PaperWorker:
                 max_drawdown=work["max_drawdown"], max_daily_loss=work["max_daily_loss"]
             )
         )
-        if work["stage"] == "VALIDATE":
-            self._activate(db, work, strategy, terms)
+        revalidation = (
+            work["stage"] == "MONITOR"
+            and work["next_review_at"] is not None
+            and self.clock() >= work["next_review_at"]
+        )
+        if work["stage"] == "VALIDATE" or revalidation:
+            self._validate(db, work, strategy, terms, revalidation=revalidation)
             return
 
         end = self.market_clock().replace(minute=0, second=0, microsecond=0)
@@ -244,42 +251,69 @@ class PaperWorker:
             portfolio(db, owner, quotes, clock=lambda: now_at)
             checkpoint(db, work, candle=candle_at, quote=quote.observed_at, peak=peak)
 
-    def _activate(self, db, work, strategy, terms):
+    def _validate(self, db, work, strategy, terms, *, revalidation):
         owner, agent = work["owner_id"], work["id"]
-        report = get_replay(db, owner, work["report_id"], include_dataset=False)
-        if (
-            report is None
-            or report["strategy_version"] != strategy.version
-            or report["strategy_id"] != str(strategy.id)
-        ):
-            raise ValueError("Replay does not match the pinned strategy")
-        review = self.activation.invoke(
-            {"report": report, "terms": terms, "allow_fixture": self.allow_fixture}
-        )
-        reasons = review["reasons"]
+        report = None
+        if work["report_id"] is not None:
+            report = get_replay(db, owner, work["report_id"], include_dataset=False)
+            if (
+                report is None
+                or report["strategy_version"] != strategy.version
+                or report["strategy_id"] != str(strategy.id)
+            ):
+                raise ValueError("Replay does not match the pinned strategy")
+
+        study = None
+        if report is None or revalidation:
+            end = self.clock().astimezone(timezone.utc).replace(minute=0, second=0, microsecond=0)
+            start = end - REVIEW_INTERVAL
+            if report and start < datetime.fromisoformat(report["request"]["end"]):
+                raise ValueError("Independent re-evaluation window is unavailable")
+            study = HistoricalBacktestRequest(
+                version=strategy.version,
+                start=start,
+                end=end,
+                initial_equity=work["capital"],
+                fee_bps=terms.fee_bps,
+                slippage_bps=terms.slippage_bps,
+                risk=terms.risk,
+            )
+            market = self.history(strategy.document.definition.asset, start, end)
+
         with db.transaction():
             account, stopped = lock_account(db, owner)
             if not fence(db, work) or stopped or account.epoch != work["epoch"]:
                 return
+            if study is not None:
+                report = save_replay(db, owner, strategy, study, market)
+            review = self.activation.invoke(
+                {"report": report, "terms": terms, "allow_fixture": self.allow_fixture}
+            )
+            reasons = review["reasons"]
             event(
                 db,
                 owner,
                 agent,
-                "VALIDATION",
+                "REVALIDATION" if revalidation else "VALIDATION",
                 {
-                    "report_id": str(work["report_id"]),
+                    "report_id": report["id"],
                     **review["evidence"],
                     "approved": not reasons,
                     "reasons": reasons,
                     "suggestion": review["suggestion"],
                 },
             )
+            db.execute(
+                "UPDATE paper_agents SET report_id = %s, next_review_at = %s WHERE id = %s",
+                (report["id"], self.clock() + REVIEW_INTERVAL, agent),
+            )
             checkpoint(
                 db,
                 work,
-                stage="VALIDATE" if reasons else "MONITOR",
+                stage=work["stage"] if reasons else "MONITOR",
                 status="FAILED" if reasons else "RUNNING",
                 delay=0,
+                peak=work["peak_price"],
             )
 
 

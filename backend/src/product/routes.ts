@@ -21,6 +21,30 @@ const draftSchema = z
   })
   .strict();
 
+const marketEvidence = z.object({
+  market: z.object({
+    source: z.string(),
+    status: z.string(),
+    as_of: z.string().nullable(),
+    price: z.union([z.string(), z.number()]).nullable(),
+    price_at: z.string().nullable(),
+  }),
+  indicators: z
+    .object({
+      rsi: z.union([z.string(), z.number()]).nullish(),
+      atr: z.union([z.string(), z.number()]).nullish(),
+      macd: z.union([z.string(), z.number()]).nullish(),
+      regime: z.string().nullish(),
+    })
+    .nullable(),
+});
+const insightSchema = z
+  .object({
+    observations: z.string().max(1000),
+    uncertainty: z.string().max(600),
+  })
+  .strict();
+
 export function registerProductRoutes(
   app: FastifyInstance,
   config: Config,
@@ -67,6 +91,79 @@ export function registerProductRoutes(
       signal: AbortSignal.timeout(timeout),
     });
   }
+
+  app.post("/platform/market-insights/:asset", async (req) => {
+    const { asset } = z
+      .object({ asset: z.enum(["BTC", "ETH", "SOL"]) })
+      .parse(req.params);
+    const response = await forward(
+      req.principal.userId,
+      "GET",
+      `/platform/paper-market/${asset}`,
+      undefined,
+      22000,
+    );
+    const evidence = response.ok
+      ? marketEvidence.safeParse(await response.json())
+      : null;
+    if (
+      !evidence?.success ||
+      !evidence.data.indicators ||
+      evidence.data.market.price === null ||
+      !evidence.data.market.as_of ||
+      !(
+        evidence.data.market.status === "AVAILABLE" ||
+        (config.NODE_ENV === "test" &&
+          evidence.data.market.status === "FIXTURE")
+      )
+    ) {
+      throw new PlatformError(
+        "MARKET_UNAVAILABLE",
+        "Current market evidence is unavailable",
+        503,
+      );
+    }
+    const result = await llm.converse({
+      context: {
+        userId: req.principal.userId,
+        sessionId: "market-insights",
+        requestId: req.id,
+      },
+      system:
+        "Summarize only the supplied market observations and their uncertainty. Never add market facts, forecasts, trade instructions or promises of returns. Give a short description and explain what the indicators cannot establish.",
+      messages: [
+        {
+          role: "user",
+          content: [{ text: JSON.stringify({ asset, ...evidence.data }) }],
+        },
+      ],
+      outputSchema: {
+        name: "paper_market_insight",
+        schema: bedrockSchema(insightSchema),
+      },
+    });
+    const output = result.message.content
+      .flatMap((entry) => ("text" in entry ? [entry.text] : []))
+      .join("");
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(output);
+    } catch {
+      throw new PlatformError(
+        "INVALID_MODEL_OUTPUT",
+        "The model did not return a valid insight",
+        422,
+      );
+    }
+    return {
+      ...validateOutput(insightSchema, parsed),
+      asset,
+      source: evidence.data.market.source,
+      status: evidence.data.market.status,
+      asOf: evidence.data.market.as_of,
+      model: result.modelId,
+    };
+  });
 
   app.post("/platform/strategy-authoring/generate", async (req) => {
     const { objective } = objectiveSchema.parse(req.body);

@@ -1,0 +1,312 @@
+import { lazy, Suspense, useEffect, useState } from "react";
+import { ArrowRight, LogOut, ShieldCheck } from "lucide-react";
+import { KronoMark } from "../brand";
+import { HomeOrbit } from "../HomeOrbit";
+import { ThemeToggle } from "../ThemeToggle";
+import { Auth } from "./Auth";
+import { platform, PlatformRequestError } from "./client";
+import { modules, readRoute, workspaceHref } from "./navigation";
+import "./platform.css";
+
+const BacktestingLab = lazy(() => import("./BacktestingLab"));
+const MarketResearch = lazy(() => import("./MarketResearch"));
+const PaperAgents = lazy(() => import("./PaperAgents"));
+const PaperAccount = lazy(() => import("./PaperTrading"));
+const Strategies = lazy(() => import("./Strategies"));
+
+interface Session {
+  userId: string;
+  email: string;
+}
+type Authentication =
+  | { state: "loading" | "signed-out" }
+  | { state: "signed-in"; session: Session; available: boolean }
+  | { state: "error"; message: string };
+
+function DashboardAgents() {
+  const [summary, setSummary] = useState<{
+    worker_online: boolean;
+    items: { status: string; stage: string }[];
+  }>();
+  const [error, setError] = useState(false);
+  useEffect(() => {
+    let mounted = true;
+    platform<NonNullable<typeof summary>>("/paper-agents")
+      .then((result) => mounted && setSummary(result))
+      .catch(() => mounted && setError(true));
+    return () => {
+      mounted = false;
+    };
+  }, []);
+  return (
+    <section className="platform-product-panel dashboard-agents">
+      <h2>Agent activity</h2>
+      {error && <p role="alert">Agent status is unavailable.</p>}
+      {!summary && !error && <p role="status">Checking worker status…</p>}
+      {summary && (
+        <>
+          <p>
+            {summary.worker_online
+              ? "Worker online"
+              : "Worker heartbeat unavailable"}
+          </p>
+          <p>
+            {
+              summary.items.filter(
+                (agent) =>
+                  agent.status === "RUNNING" &&
+                  agent.stage === "MONITOR" &&
+                  summary.worker_online,
+              ).length
+            }{" "}
+            agents monitoring
+          </p>
+        </>
+      )}
+      <a href={workspaceHref("agents")}>
+        Manage agents <ArrowRight size={15} />
+      </a>
+    </section>
+  );
+}
+
+export function Workspace() {
+  const [route, setRoute] = useState(readRoute);
+  const [auth, setAuth] = useState<Authentication>({ state: "loading" });
+  const [accountError, setAccountError] = useState("");
+  const [accountReady, setAccountReady] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+
+  useEffect(() => {
+    function sync() {
+      const next = readRoute();
+      if (location.hash !== next.href)
+        history.replaceState(null, "", next.href);
+      setRoute(next);
+    }
+    sync();
+    window.addEventListener("hashchange", sync);
+    return () => window.removeEventListener("hashchange", sync);
+  }, []);
+
+  async function check() {
+    setAuth({ state: "loading" });
+    setAccountError("");
+    setAccountReady(false);
+    try {
+      const health = await platform<{ productConfigured: boolean }>("/health");
+      const session = await platform<Session>("/auth/session");
+      setAuth({
+        state: "signed-in",
+        session,
+        available: health.productConfigured,
+      });
+      if (health.productConfigured) {
+        try {
+          await platform("/paper-account", "POST");
+          setAccountReady(true);
+        } catch (error) {
+          setAccountError((error as Error).message);
+        }
+      }
+    } catch (error) {
+      if (error instanceof PlatformRequestError && error.status === 401) {
+        setAuth({ state: "signed-out" });
+      } else {
+        setAuth({ state: "error", message: (error as Error).message });
+      }
+    }
+  }
+
+  useEffect(() => {
+    void check();
+  }, []);
+
+  async function signOut() {
+    setSigningOut(true);
+    setAccountError("");
+    try {
+      await platform("/auth/logout", "POST", {});
+      setAuth({ state: "signed-out" });
+      setAccountReady(false);
+    } catch (error) {
+      setAccountError((error as Error).message);
+    } finally {
+      setSigningOut(false);
+    }
+  }
+
+  const { page, reportId } = route;
+  const title = modules.find(([id]) => id === page)![1];
+  const session = auth.state === "signed-in" ? auth.session : null;
+  return (
+    <div className="app-shell rail-shell unified-workspace">
+      <div className="workspace">
+        <header className="topbar">
+          <a
+            className="mobile-brand"
+            href={workspaceHref("dashboard")}
+            aria-label="Krono home"
+          >
+            <KronoMark />
+            <span>Krono.</span>
+          </a>
+          <div className="header-controls">
+            <span className="mode-label">
+              <ShieldCheck size={14} /> Paper trading
+            </span>
+            <ThemeToggle />
+            {session && (
+              <button
+                className="button secondary sign-out"
+                disabled={signingOut}
+                onClick={() => void signOut()}
+              >
+                <LogOut size={15} /> Sign out
+              </button>
+            )}
+          </div>
+        </header>
+        {session && (
+          <nav className="unified-nav" aria-label="Main navigation">
+            {modules.map(([id, label]) => (
+              <a
+                key={id}
+                href={workspaceHref(id)}
+                aria-current={page === id ? "page" : undefined}
+              >
+                {label}
+              </a>
+            ))}
+          </nav>
+        )}
+        <main className="platform-workspace">
+          {auth.state === "signed-out" && (
+            <>
+              {page === "dashboard" && (
+                <section className="workspace-intro home-hero">
+                  <div className="page-heading">
+                    <div>
+                      <span className="home-kicker">
+                        Autonomous crypto research
+                      </span>
+                      <h1>Trade with Krono.</h1>
+                      <p>
+                        Build and backtest strategies. Run autonomous agents
+                        with virtual funds.
+                      </p>
+                    </div>
+                    <div className="page-actions">
+                      <a
+                        className="button primary"
+                        href="#sign-in"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          document
+                            .querySelector<HTMLInputElement>("#sign-in input")
+                            ?.focus();
+                        }}
+                      >
+                        Get started <ArrowRight size={16} />
+                      </a>
+                    </div>
+                  </div>
+                  <HomeOrbit />
+                </section>
+              )}
+              <div id="sign-in">
+                <Auth done={() => void check()} />
+              </div>
+            </>
+          )}
+          {auth.state === "loading" && (
+            <p className="platform-loading" role="status">
+              Connecting to Krono…
+            </p>
+          )}
+          {auth.state === "error" && (
+            <section className="workspace-intro">
+              <h1>Krono is unavailable</h1>
+              <p role="alert">{auth.message}</p>
+              <button onClick={() => void check()}>Retry connection</button>
+            </section>
+          )}
+          {auth.state === "signed-in" && (
+            <>
+              <section className="workspace-intro">
+                <div className="page-heading">
+                  <div>
+                    <h1>{title}</h1>
+                    {page === "dashboard" && (
+                      <p>Your strategies, agents, and virtual portfolio.</p>
+                    )}
+                    {page === "settings" && <p>{session?.email}</p>}
+                  </div>
+                  {page === "strategies" && (
+                    <a
+                      className="button primary"
+                      href={workspaceHref("builder")}
+                    >
+                      Open strategy builder <ArrowRight size={15} />
+                    </a>
+                  )}
+                </div>
+              </section>
+              {accountError && (
+                <p className="platform-error" role="alert">
+                  {accountError}
+                </p>
+              )}
+              {!auth.available ? (
+                <section className="platform-product-panel">
+                  <h2>Paper trading service unavailable</h2>
+                  <p>
+                    The account and strategy service is currently unavailable.
+                  </p>
+                  <button onClick={() => void check()}>Retry connection</button>
+                </section>
+              ) : !accountReady ? (
+                accountError ? (
+                  <button onClick={() => void check()}>Retry connection</button>
+                ) : (
+                  <p role="status">Opening your virtual account…</p>
+                )
+              ) : (
+                <Suspense
+                  fallback={<p role="status">Loading {title}…</p>}
+                  key={session?.userId}
+                >
+                  {page === "dashboard" && (
+                    <div className="unified-dashboard">
+                      <PaperAccount view="dashboard" />
+                      <DashboardAgents />
+                    </div>
+                  )}
+                  {page === "agents" && <PaperAgents key={route.href} />}
+                  {page === "strategies" && <Strategies key="strategies" />}
+                  {page === "builder" && <Strategies key="builder" builder />}
+                  {page === "backtests" && (
+                    <BacktestingLab
+                      key={reportId ?? "new"}
+                      reportId={reportId}
+                    />
+                  )}
+                  {page === "paper" && <PaperAccount key="paper" />}
+                  {page === "portfolio" && (
+                    <PaperAccount key="portfolio" view="portfolio" />
+                  )}
+                  {page === "settings" && (
+                    <PaperAccount key="settings" view="settings" />
+                  )}
+                  {(page === "markets" || page === "news") && (
+                    <MarketResearch news={page === "news"} key={page} />
+                  )}
+                </Suspense>
+              )}
+            </>
+          )}
+        </main>
+      </div>
+    </div>
+  );
+}

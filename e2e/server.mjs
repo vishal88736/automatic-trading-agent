@@ -28,6 +28,7 @@ const child = spawn("node", ["scripts/dev.mjs"], {
     TERMINAL_API_TOKEN: "",
     TERMINAL_PORT: "8791",
     TERMINAL_UI_PORT: "5179",
+    VITE_KRONO_LEGACY_FIXTURES: "true",
     TERMINAL_BACKEND_URL: "http://127.0.0.1:8791",
     KRONO_PLATFORM_URL: "http://127.0.0.1:8792",
   },

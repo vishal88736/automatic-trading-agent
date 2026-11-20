@@ -45,6 +45,26 @@ const auth = {
 };
 const llm: LLMProvider = {
   converse: async (request) => {
+    if (request.outputSchema?.name === "paper_market_insight") {
+      return {
+        message: {
+          role: "assistant",
+          content: [
+            {
+              text: JSON.stringify({
+                observations:
+                  "The fixture combines momentum and volatility indicators.",
+                uncertainty: "This snapshot cannot establish future returns.",
+              }),
+            },
+          ],
+        },
+        modelId: "FIXTURE",
+        usage: { inputTokens: 0, outputTokens: 0 },
+        durationMs: 0,
+        stopReason: "end_turn",
+      };
+    }
     if (request.outputSchema?.name === "paper_strategy_draft") {
       const strategy = {
         name: "Fixture RSI draft",

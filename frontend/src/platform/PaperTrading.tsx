@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { EquityChart } from "../charts";
 import { money, percent, timestamp } from "../ui";
 import { platform } from "./client";
+import { legacyFixture } from "./navigation";
 
 interface Account {
   id: string;
@@ -30,6 +31,7 @@ interface Portfolio {
 interface Order {
   id: string;
   epoch: number;
+  agent_id?: string | null;
   status: string;
   reason: string | null;
   created_at: string;
@@ -43,19 +45,26 @@ interface Order {
     limit_price: string | null;
   };
 }
-async function fetchPaper() {
+async function fetchPaper(includeOrders: boolean) {
   const { account } = await platform<{ account: Account | null }>(
     "/paper-account",
   );
   if (!account) return { account, value: null, orders: [] };
   const [value, { items }] = await Promise.all([
     platform<Portfolio>("/paper-portfolio"),
-    platform<{ items: Order[] }>("/paper-orders"),
+    includeOrders
+      ? platform<{ items: Order[] }>("/paper-orders")
+      : { items: [] },
   ]);
   return { account, value, orders: items };
 }
 
-export default function PaperAccount() {
+export default function PaperAccount({
+  view = "trade",
+}: {
+  view?: "dashboard" | "portfolio" | "trade" | "settings";
+}) {
+  const includeOrders = view === "trade" || view === "portfolio";
   const [data, setData] = useState<Awaited<ReturnType<typeof fetchPaper>>>();
   const [busy, setBusy] = useState(true);
   const [message, setMessage] = useState("");
@@ -65,7 +74,7 @@ export default function PaperAccount() {
   const retry = useRef<{ input: string; key: string } | null>(null);
   useEffect(() => {
     let mounted = true;
-    fetchPaper()
+    fetchPaper(includeOrders)
       .then((next) => {
         if (mounted) setData(next);
       })
@@ -78,7 +87,7 @@ export default function PaperAccount() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [includeOrders]);
 
   async function act(action?: () => Promise<void>) {
     setError("");
@@ -86,7 +95,7 @@ export default function PaperAccount() {
     setBusy(true);
     try {
       await action?.();
-      setData(await fetchPaper());
+      setData(await fetchPaper(includeOrders));
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -162,7 +171,7 @@ export default function PaperAccount() {
           </p>
         )}
         <p role="status">{busy ? "Updating paper account…" : message}</p>
-        {value && (
+        {value && view !== "settings" && (
           <>
             {value.equity === null && (
               <p>
@@ -196,7 +205,7 @@ export default function PaperAccount() {
                 <dd>{percent(value.drawdown)}</dd>
               </div>
             </dl>
-            {value.history.length > 1 && (
+            {view !== "trade" && value.history.length > 1 && (
               <EquityChart
                 rows={value.history}
                 baseline={Number(value.history[0].equity)}
@@ -219,141 +228,156 @@ export default function PaperAccount() {
           </>
         )}
       </section>
-      {account && value && (
-        <>
-          <form className="platform-product-panel" onSubmit={submit}>
-            <h3>Place a paper order</h3>
-            <div className="platform-backtest-fields">
+      {account && value && view === "trade" && (
+        <form className="platform-product-panel" onSubmit={submit}>
+          <h3>Place a paper order</h3>
+          <div className="platform-backtest-fields">
+            <label>
+              Asset
+              <select name="asset">
+                <option>BTC</option>
+                <option>ETH</option>
+                <option>SOL</option>
+              </select>
+            </label>
+            <label>
+              Side
+              <select name="side">
+                <option>BUY</option>
+                <option>SELL</option>
+              </select>
+            </label>
+            <label>
+              Order type
+              <select
+                value={kind}
+                onChange={(event) => setKind(event.target.value)}
+              >
+                <option value="market">Market</option>
+                <option value="limit">Limit</option>
+              </select>
+            </label>
+            <label>
+              Quantity
+              <input
+                name="quantity"
+                type="number"
+                min="0.000000000001"
+                step="0.000000000001"
+                required
+              />
+            </label>
+            {kind === "limit" && (
               <label>
-                Asset
-                <select name="asset">
-                  <option>BTC</option>
-                  <option>ETH</option>
-                  <option>SOL</option>
-                </select>
-              </label>
-              <label>
-                Side
-                <select name="side">
-                  <option>BUY</option>
-                  <option>SELL</option>
-                </select>
-              </label>
-              <label>
-                Order type
-                <select
-                  value={kind}
-                  onChange={(event) => setKind(event.target.value)}
-                >
-                  <option value="market">Market</option>
-                  <option value="limit">Limit</option>
-                </select>
-              </label>
-              <label>
-                Quantity
+                Limit price
                 <input
-                  name="quantity"
+                  name="limit"
                   type="number"
                   min="0.000000000001"
                   step="0.000000000001"
                   required
                 />
               </label>
-              {kind === "limit" && (
-                <label>
-                  Limit price
-                  <input
-                    name="limit"
-                    type="number"
-                    min="0.000000000001"
-                    step="0.000000000001"
-                    required
-                  />
-                </label>
-              )}
-            </div>
-            <button
-              type="submit"
-              className="primary"
-              disabled={busy || value.emergency_stop}
-            >
-              Submit paper order
-            </button>
-          </form>
-          <section className="platform-product-panel">
-            <h3>Order history</h3>
-            {data.orders.length ? (
-              <div className="platform-backtest-table">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Time</th>
-                      <th>Order</th>
-                      <th>Status</th>
-                      <th>Fill</th>
-                      <th>Fee</th>
-                      <th>Realized P&amp;L</th>
-                      <th>Actions</th>
+            )}
+          </div>
+          <button
+            type="submit"
+            className="primary"
+            disabled={busy || value.emergency_stop}
+          >
+            Submit paper order
+          </button>
+        </form>
+      )}
+      {account && value && includeOrders && (
+        <section className="platform-product-panel">
+          <h3>Order history</h3>
+          {data.orders.length ? (
+            <div className="platform-backtest-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Order</th>
+                    <th>Source</th>
+                    <th>Status</th>
+                    <th>Fill</th>
+                    <th>Fee</th>
+                    <th>Realized P&amp;L</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.orders.map((order) => (
+                    <tr key={order.id}>
+                      <td>{timestamp(order.created_at)}</td>
+                      <td>
+                        {order.request.side} {order.request.quantity}{" "}
+                        {order.request.asset}
+                        {order.request.limit_price &&
+                          ` @ ${order.request.limit_price}`}{" "}
+                        · Epoch {order.epoch}
+                      </td>
+                      <td>{order.agent_id ? "Agent" : "Manual"}</td>
+                      <td>
+                        {order.status}
+                        {order.reason &&
+                          ` · ${order.reason.replaceAll("_", " ")}`}
+                      </td>
+                      <td>{money(order.fill_price)}</td>
+                      <td>{money(order.fee)}</td>
+                      <td>{money(order.realized_pnl)}</td>
+                      <td>
+                        {order.status === "OPEN" && (
+                          <div className="platform-product-actions">
+                            <button
+                              disabled={busy}
+                              onClick={() =>
+                                void act(async () => {
+                                  await platform(
+                                    `/paper-orders/${order.id}/evaluate`,
+                                    "POST",
+                                  );
+                                })
+                              }
+                            >
+                              Check limit
+                            </button>
+                            <button
+                              disabled={busy}
+                              onClick={() =>
+                                void act(async () => {
+                                  await platform(
+                                    `/paper-orders/${order.id}/cancel`,
+                                    "POST",
+                                  );
+                                })
+                              }
+                            >
+                              Cancel order
+                            </button>
+                          </div>
+                        )}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {data.orders.map((order) => (
-                      <tr key={order.id}>
-                        <td>{timestamp(order.created_at)}</td>
-                        <td>
-                          {order.request.side} {order.request.quantity}{" "}
-                          {order.request.asset}
-                          {order.request.limit_price &&
-                            ` @ ${order.request.limit_price}`}{" "}
-                          · Epoch {order.epoch}
-                        </td>
-                        <td>
-                          {order.status}
-                          {order.reason &&
-                            ` · ${order.reason.replaceAll("_", " ")}`}
-                        </td>
-                        <td>{money(order.fill_price)}</td>
-                        <td>{money(order.fee)}</td>
-                        <td>{money(order.realized_pnl)}</td>
-                        <td>
-                          {order.status === "OPEN" && (
-                            <div className="platform-product-actions">
-                              <button
-                                disabled={busy}
-                                onClick={() =>
-                                  void act(async () => {
-                                    await platform(
-                                      `/paper-orders/${order.id}/evaluate`,
-                                      "POST",
-                                    );
-                                  })
-                                }
-                              >
-                                Check limit
-                              </button>
-                              <button
-                                disabled={busy}
-                                onClick={() =>
-                                  void act(async () => {
-                                    await platform(
-                                      `/paper-orders/${order.id}/cancel`,
-                                      "POST",
-                                    );
-                                  })
-                                }
-                              >
-                                Cancel order
-                              </button>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p>No paper orders.</p>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p>No paper orders.</p>
+          )}
+        </section>
+      )}
+      {account &&
+        value &&
+        (view === "settings" || (view === "trade" && legacyFixture)) && (
+          <section className="platform-product-panel">
+            <h3>Paper trading controls</h3>
+            {value.emergency_stop && (
+              <p role="alert">
+                Emergency stop active. Clearing it keeps agents paused.
+              </p>
             )}
             <div className="platform-product-actions">
               <button
@@ -400,8 +424,7 @@ export default function PaperAccount() {
               </div>
             )}
           </section>
-        </>
-      )}
+        )}
     </div>
   );
 }

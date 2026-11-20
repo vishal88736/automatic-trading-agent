@@ -67,13 +67,15 @@ export function StrategyAuthoring({
   disabled,
   onChange,
   onTemplate,
+  initialMode = "json",
 }: {
+  initialMode?: "json" | "visual" | "natural";
   draft: string;
   disabled: boolean;
   onChange: (draft: string) => void;
   onTemplate: (draft: string) => void;
 }) {
-  const [mode, setMode] = useState<"json" | "visual" | "natural">("json");
+  const [mode, setMode] = useState<"json" | "visual" | "natural">(initialMode);
   const [options, setOptions] = useState<Options>();
   const [objective, setObjective] = useState("");
   const [error, setError] = useState("");

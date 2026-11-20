@@ -545,3 +545,65 @@ def test_activation_critic_rejects_unrealistic_holdout_before_trading():
     assert review["evidence"]["development_trades"] == 3
     assert review["evidence"]["holdout_trades"] == 0
     assert "independent evaluation window" in review["suggestion"]
+
+
+def test_worker_backtests_saved_version_then_revalidates_on_independent_history(
+    database, strategy_draft
+):
+    from datetime import timedelta
+
+    from backend.backtest_repository import get_replay
+    from backend.models import now
+    from backend.paper_agents import AgentStart, claim_agent, list_agents, start_agent, timeline
+    from backend.paper_execution import order_history
+    from backend.paper_worker import PaperWorker
+    from e2e.product_api import history, quotes
+
+    owner, other = uuid4(), uuid4()
+    draft = strategy_draft.model_dump(mode="json")
+    condition = {"indicator": "price", "operator": "gt", "threshold": "1"}
+    for group in ("entry", "exit"):
+        draft["definition"][group]["conditions"] = [condition]
+    at = now() - timedelta(days=9)
+    worker = PaperWorker(history, quotes, allow_fixture=True, clock=lambda: at)
+    with database() as db:
+        migrate(db)
+        ensure_account(db, owner)
+        ensure_account(db, other)
+        strategy = create_strategy(db, owner, StrategyDraft.model_validate(draft))
+        start = AgentStart(
+            name="Automatic replay",
+            strategy_id=strategy.id,
+            strategy_version=strategy.version,
+            epoch=1,
+            capital="1000",
+        )
+        with pytest.raises(LookupError):
+            start_agent(db, other, start)
+        agent = start_agent(db, owner, start)
+        initial = claim_agent(db)
+        assert initial["report_id"] is None and initial["stage"] == "VALIDATE"
+        worker.tick(db, initial)
+        [running] = list_agents(db, owner)
+        assert running["status"] == "RUNNING" and running["stage"] == "MONITOR"
+        assert order_history(db, owner) == []
+        assert start_agent(db, owner, start) == agent
+
+        first_report = get_replay(db, owner, running["report_id"], include_dataset=True)
+        assert first_report["market_data"]["candles"]
+        assert get_replay(db, other, running["report_id"], include_dataset=False) is None
+
+        at += timedelta(days=7)
+        review = claim_agent(db)
+        worker.tick(db, review)
+        # Replaying the same leased job must not persist a second report.
+        worker.tick(db, review)
+        [reviewed] = list_agents(db, owner)
+        assert reviewed["report_id"] != running["report_id"]
+        second_report = get_replay(db, owner, reviewed["report_id"], include_dataset=False)
+        assert first_report["request"]["end"] == second_report["request"]["start"]
+        assert first_report["strategy_version"] == second_report["strategy_version"] == 1
+        events = [e["detail"] for e in timeline(db, owner, agent) if e["kind"] == "REVALIDATION"]
+        assert len(events) == 1 and events[0]["approved"]
+        assert start_agent(db, owner, start) == agent
+        assert order_history(db, owner) == []

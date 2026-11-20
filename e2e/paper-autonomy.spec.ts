@@ -97,7 +97,7 @@ test("paper agent continues without a browser and survives API and worker restar
   async function browserSession() {
     const context = await browser.newContext({ baseURL });
     const page = await context.newPage();
-    await page.goto("/#/platform/strategies");
+    await page.goto("/workspace#/strategies");
     await page.getByLabel("Email", { exact: true }).fill("alice@fixture.test");
     await page.getByLabel("Password", { exact: true }).fill("fixture");
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
@@ -111,6 +111,32 @@ test("paper agent continues without a browser and survives API and worker restar
     let service = await api();
     let worker = launch(["-m", "e2e.paper_worker_fixture"]);
     const { page, context } = await browserSession();
+    const nav = page.getByRole("navigation", { name: "Main navigation" });
+    await expect(nav.getByRole("link")).toHaveCount(10);
+    await expect(nav).not.toContainText(/aegis|hskswap/i);
+    await nav.getByRole("link", { name: "Dashboard", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "Virtual balance" }),
+    ).toBeVisible();
+    await nav.getByRole("link", { name: "Portfolio", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "Order history" }),
+    ).toBeVisible();
+    await page.goto("/workspace#/aegis/markets");
+    await expect(page).toHaveURL(/#\/markets$/);
+    await page
+      .getByRole("button", { name: "Generate insight for BTC" })
+      .click();
+    await expect(
+      page.getByText("This snapshot cannot establish future returns."),
+    ).toBeVisible();
+    await nav
+      .getByRole("link", { name: "Custom Strategy Builder", exact: true })
+      .click();
+    await expect(
+      page.getByRole("button", { name: "Visual builder" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Structured JSON" }).click();
     const editor = page.getByLabel("Strategy JSON");
     await expect(editor).toBeEnabled();
     const draft = JSON.parse(await editor.inputValue());
@@ -135,6 +161,10 @@ test("paper agent continues without a browser and survives API and worker restar
     await page
       .getByRole("link", { name: "Use report for a paper agent" })
       .click();
+    await page.getByLabel("Validation source").selectOption("strategy");
+    await page
+      .getByLabel("Saved strategy")
+      .selectOption({ label: "Durable fixture strategy · BTC · v1" });
     await page.getByLabel("Agent name").fill("Independent fixture agent");
     await page.getByLabel("Evaluation interval (seconds)").fill("10");
     const startResponse = page.waitForResponse(
@@ -180,7 +210,7 @@ test("paper agent continues without a browser and survives API and worker restar
       response.url().endsWith(`/paper-agents/${id}/stream`),
     );
     await reopened.page
-      .getByRole("link", { name: "Paper Agents", exact: true })
+      .getByRole("link", { name: "AI Trading Agents", exact: true })
       .click();
     await expect(
       reopened.page.getByRole("heading", { name: /Independent fixture agent/ }),

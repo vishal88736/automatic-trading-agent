@@ -90,7 +90,7 @@ export function createPlatform(
     trustProxy: "uniquelocal",
   });
   app.register(cookie);
-  if (c.KRONO_ANALYSIS_QUEUE_URL && !overrides) {
+  if (c.NODE_ENV === "test" && c.KRONO_ANALYSIS_QUEUE_URL && !overrides) {
     let close: (() => Promise<void>) | undefined;
     app.addHook("onReady", async () => {
       close = consumeAnalysis(
@@ -266,6 +266,10 @@ export function createPlatform(
     await profiles.get(req.principal);
     return { ready: true };
   });
+  registerProductRoutes(app, c, llm);
+  const gateway = { app, agents, profiles, store, conversations, tools };
+  if (c.NODE_ENV !== "test") return gateway;
+
   app.get(
     "/platform/emergency",
     (req) =>
@@ -526,8 +530,7 @@ export function createPlatform(
       },
     ],
   }));
-  registerProductRoutes(app, c, llm);
-  return { app, agents, profiles, store, conversations, tools };
+  return gateway;
 }
 if (
   process.argv[1] &&

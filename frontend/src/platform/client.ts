@@ -1,4 +1,13 @@
 let csrf = "";
+
+export class PlatformRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+  }
+}
 export async function platform<T>(
   path: string,
   method = "GET",
@@ -17,11 +26,14 @@ export async function platform<T>(
   if (response.status === 204) return undefined as T;
   const result = await response.json().catch(() => ({
     error: {
-      message:
-        "The AWS control plane is not configured or available. See the AWS setup guide.",
+      message: "The Krono service is unavailable.",
     },
   }));
-  if (response.status === 401 && retry && !path.startsWith("/auth/")) {
+  if (
+    response.status === 401 &&
+    retry &&
+    (!path.startsWith("/auth/") || path === "/auth/session")
+  ) {
     const refresh = await fetch("/platform/auth/refresh", {
       method: "POST",
       credentials: "same-origin",
@@ -36,7 +48,10 @@ export async function platform<T>(
     }
   }
   if (!response.ok)
-    throw Error(result.error?.message ?? "Platform request failed");
+    throw new PlatformRequestError(
+      result.error?.message ?? "Krono request failed",
+      response.status,
+    );
   if (result.csrf) csrf = result.csrf;
   return result as T;
 }

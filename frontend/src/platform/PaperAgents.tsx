@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { money, timestamp } from "../ui";
 import { platform } from "./client";
+import { legacyFixture, workspaceHref } from "./navigation";
 
 type AgentStatus = "RUNNING" | "PAUSED" | "STOPPED" | "FAILED";
 interface Agent {
@@ -8,7 +9,8 @@ interface Agent {
   name: string;
   asset: string;
   strategy_version: number;
-  report_id: string;
+  report_id: string | null;
+  next_review_at: string | null;
   capital: string;
   value: string | null;
   realized_pnl: string;
@@ -42,7 +44,7 @@ function eventText(entry: TimelineEvent) {
       .filter(Boolean)
       .join(" · ");
   }
-  if (entry.kind === "VALIDATION") {
+  if (entry.kind === "VALIDATION" || entry.kind === "REVALIDATION") {
     return detail.approved
       ? `Replay approved · ${detail.holdout_trades} closed holdout trades`
       : `Replay rejected · ${(detail.reasons as string[]).join(", ")}${detail.suggestion ? ` · ${detail.suggestion}` : ""}`;
@@ -54,6 +56,12 @@ function eventText(entry: TimelineEvent) {
   if (entry.kind === "RECOVERED")
     return `Recovered checkpoint · ${detail.stage}`;
   return String(detail.reason ?? detail.action ?? detail.error ?? entry.kind);
+}
+
+interface StrategyOption {
+  id: string;
+  version: number;
+  document: { name: string; definition: { asset: string } };
 }
 
 export default function PaperAgents() {
@@ -69,6 +77,40 @@ export default function PaperAgents() {
   const retry = useRef<{ input: string; key: string } | null>(null);
   const report =
     new URLSearchParams(location.hash.split("?")[1] ?? "").get("report") ?? "";
+  const [source, setSource] = useState(
+    report || legacyFixture ? "report" : "strategy",
+  );
+  const [strategies, setStrategies] = useState<StrategyOption[]>([]);
+  const [strategyError, setStrategyError] = useState("");
+
+  useEffect(() => {
+    if (legacyFixture || source !== "strategy") return;
+    let active = true;
+    async function loadStrategies() {
+      try {
+        const loaded: StrategyOption[] = [];
+        let after = "";
+        do {
+          const { items } = await platform<{ items: StrategyOption[] }>(
+            "/custom-strategies?limit=100" + (after ? `&after=${after}` : ""),
+          );
+          loaded.push(...items);
+          after = items.length === 100 ? items[99].id : "";
+        } while (active && after);
+        if (active) {
+          setStrategies(loaded);
+          setStrategyError("");
+        }
+      } catch (error) {
+        if (active) setStrategyError((error as Error).message);
+      }
+    }
+    void loadStrategies();
+    return () => {
+      active = false;
+    };
+  }, [source]);
+
   useEffect(() => {
     let active = true;
     async function refresh() {
@@ -159,10 +201,17 @@ export default function PaperAgents() {
     event.preventDefault();
     if (!account) return;
     const form = new FormData(event.currentTarget);
+    const strategy = strategies.find(
+      (item) => item.id === form.get("strategy"),
+    );
+    if (source === "strategy" && !strategy) return;
+    const validation = strategy
+      ? { strategy_id: strategy.id, strategy_version: strategy.version }
+      : { report_id: form.get("report") };
     const payload = {
+      ...validation,
       epoch: account.epoch,
       name: form.get("name"),
-      report_id: form.get("report"),
       capital: form.get("capital"),
       interval_seconds: Number(form.get("interval")),
       max_drawdown: form.get("drawdown"),
@@ -192,13 +241,13 @@ export default function PaperAgents() {
           <p role="status">Waiting for a paper worker heartbeat.</p>
         )}
         <p>
-          Choose a saved backtest report. The worker reviews the pinned strategy
-          version and can continue when you sign out or close the browser.
+          The worker validates the pinned strategy before any simulated order
+          and continues when you sign out or close the browser.
         </p>
         {account === null && (
           <p>
-            <a href="#/platform/paper">Open a paper account</a> before starting
-            an agent.
+            <a href={workspaceHref("paper")}>Open a paper account</a> before
+            starting an agent.
           </p>
         )}
         {error && (
@@ -217,10 +266,41 @@ export default function PaperAgents() {
               Agent name
               <input name="name" maxLength={120} required />
             </label>
-            <label>
-              Backtest report ID
-              <input name="report" defaultValue={report} required />
-            </label>
+            {!legacyFixture && (
+              <label>
+                Validation source
+                <select
+                  value={source}
+                  onChange={(event) => setSource(event.target.value)}
+                >
+                  <option value="strategy">Backtest a saved strategy</option>
+                  <option value="report">Use a saved backtest report</option>
+                </select>
+              </label>
+            )}
+            {source === "report" ? (
+              <label>
+                Backtest report ID
+                <input name="report" defaultValue={report} required />
+              </label>
+            ) : (
+              <label>
+                Saved strategy
+                <select name="strategy" required defaultValue="">
+                  <option value="">Choose a saved strategy version</option>
+                  {strategies.map((item) => (
+                    <option value={item.id} key={item.id}>
+                      {item.document.name} · {item.document.definition.asset} ·
+                      v{item.version}
+                    </option>
+                  ))}
+                </select>
+                {strategyError && <span role="alert">{strategyError}</span>}
+                {!strategies.length && !strategyError && (
+                  <a href={workspaceHref("builder")}>Create a strategy</a>
+                )}
+              </label>
+            )}
             <label>
               Allocated virtual USDT
               <input
@@ -334,11 +414,16 @@ export default function PaperAgents() {
                   </dd>
                 </div>
               </dl>
-              <p>
-                <a href={`#/platform/backtests/${agent.report_id}`}>
-                  Backtest for strategy v{agent.strategy_version}
-                </a>
-              </p>
+              {agent.report_id && (
+                <p>
+                  <a href={workspaceHref("backtests", `/${agent.report_id}`)}>
+                    Backtest for strategy v{agent.strategy_version}
+                  </a>
+                </p>
+              )}
+              {agent.status === "RUNNING" && agent.next_review_at && (
+                <p>Next strategy review · {timestamp(agent.next_review_at)}</p>
+              )}
               {lastDecision && <p>Last decision · {eventText(lastDecision)}</p>}
               <div className="platform-product-actions">
                 {(["pause", "resume", "stop"] as const).map((action) => (

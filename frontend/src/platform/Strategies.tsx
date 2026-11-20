@@ -43,7 +43,7 @@ const example = JSON.stringify(
   2,
 );
 
-export default function Strategies() {
+export default function Strategies({ builder = false }: { builder?: boolean }) {
   const [records, setRecords] = useState<Revision[]>([]);
   const [active, setActive] = useState<Revision | null>(null);
   const [history, setHistory] = useState<Revision[]>([]);
@@ -171,8 +171,11 @@ export default function Strategies() {
         className="platform-product-panel"
         aria-labelledby="structured-heading"
       >
-        <h3 id="structured-heading">Strategy editor</h3>
+        <h3 id="structured-heading">
+          {builder ? "Build a strategy" : "Strategy editor"}
+        </h3>
         <StrategyAuthoring
+          initialMode={builder ? "visual" : "json"}
           draft={draft}
           disabled={busy}
           onChange={setDraft}

@@ -167,3 +167,7 @@ Paths for new modules are proposed. Re-evaluate extraction names against the exi
 | Deployment              | `deploy/paper` contains the local PostgreSQL, migration, private API and worker configuration. Existing Vite and Fastify deployment components remain the frontend and authenticated gateway.                                                                                                                                                        |
 
 The worker activates a user-selected saved version using its pinned historical report. Its critic recommends bounded changes when a report fails validation. Automated periodic strategy optimization and hosted validation remain open.
+
+## Unified Krono product direction
+
+The website now targets a single authenticated paper-trading workspace. See the [route, component and service inventory and migration map](docs/CONSOLIDATION.md) for the PostgreSQL execution boundary, retired navigation, and criteria for removing legacy code.

@@ -3,6 +3,7 @@ import { CandleChart, EquityChart, type ChartViewport } from "../charts";
 import type { Candle } from "../types";
 import { money, percent, timestamp } from "../ui";
 import { platform } from "./client";
+import { workspaceHref } from "./navigation";
 
 interface SavedStrategy {
   id: string;
@@ -95,7 +96,10 @@ function ReportView({ report }: { report: Report }) {
     <section className="platform-product-panel">
       <h3>Replay report</h3>
       <a
-        href={`#/platform/paper-agents?report=${encodeURIComponent(report.id)}`}
+        href={workspaceHref(
+          "agents",
+          `?report=${encodeURIComponent(report.id)}`,
+        )}
       >
         Use report for a paper agent
       </a>
@@ -282,7 +286,7 @@ export default function BacktestingLab({ reportId }: { reportId?: string }) {
           slippage_bps: Number(fields.get("slippage")),
         },
       );
-      window.location.hash = `/platform/backtests/${saved.id}`;
+      window.location.hash = workspaceHref("backtests", `/${saved.id}`);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -293,7 +297,7 @@ export default function BacktestingLab({ reportId }: { reportId?: string }) {
   const finalizedDate = new Date().toISOString().slice(0, 10);
   return (
     <div className="platform-backtest">
-      {reportId && <a href="#/platform/backtests">New backtest</a>}
+      {reportId && <a href={workspaceHref("backtests")}>New backtest</a>}
       {error && (
         <p role="alert" className="platform-error">
           {error}
@@ -384,8 +388,9 @@ export default function BacktestingLab({ reportId }: { reportId?: string }) {
       )}
       {!reportId && !busy && !error && !strategies.length && (
         <p>
-          Save a strategy in <a href="#/platform/strategies">Strategies</a> to
-          run a backtest.
+          Save a strategy in{" "}
+          <a href={workspaceHref("strategies")}>Strategies</a> to run a
+          backtest.
         </p>
       )}
     </div>

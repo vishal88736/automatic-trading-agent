@@ -96,6 +96,65 @@ function News() {
   );
 }
 
+interface Insight {
+  observations: string;
+  uncertainty: string;
+  source: string;
+  status: string;
+  asOf: string;
+  model: string;
+}
+
+function MarketInsight({
+  asset,
+  available,
+}: {
+  asset: Asset;
+  available: boolean;
+}) {
+  const [result, setResult] = useState<Insight>();
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function analyze() {
+    setBusy(true);
+    setResult(undefined);
+    setError("");
+    try {
+      setResult(await platform<Insight>(`/market-insights/${asset}`, "POST"));
+    } catch (error) {
+      setError((error as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="market-insight">
+      <h4>AI market insight</h4>
+      <button
+        type="button"
+        disabled={!available || busy}
+        onClick={() => void analyze()}
+      >
+        Generate insight for {asset}
+      </button>
+      {busy && <p role="status">Summarizing market observations…</p>}
+      {error && <p role="alert">{error}</p>}
+      {result && (
+        <>
+          <p>{result.observations}</p>
+          <p>{result.uncertainty}</p>
+          <p>
+            Model-generated · {result.model} · {result.source} · {result.status}{" "}
+            · {timestamp(result.asOf)}
+          </p>
+        </>
+      )}
+    </section>
+  );
+}
+
 function Markets() {
   const [asset, setAsset] = useState<Asset>("BTC");
   const [search, setSearch] = useState("");
@@ -255,6 +314,14 @@ function Markets() {
             )}
           </>
         )}
+        <MarketInsight
+          key={asset}
+          asset={asset}
+          available={
+            Boolean(metrics) &&
+            (market?.status === "AVAILABLE" || market?.status === "FIXTURE")
+          }
+        />
       </section>
     </div>
   );
