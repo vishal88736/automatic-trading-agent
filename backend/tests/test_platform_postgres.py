@@ -607,3 +607,42 @@ def test_worker_backtests_saved_version_then_revalidates_on_independent_history(
         assert len(events) == 1 and events[0]["approved"]
         assert start_agent(db, owner, start) == agent
         assert order_history(db, owner) == []
+
+
+def test_shared_paper_entry_frequency_counts_exits_without_blocking_exit(database):
+    from datetime import timedelta
+
+    from aegis.risk.policy import CAPS
+    from backend.models import now
+    from backend.paper_execution import OrderRequest, PaperQuote, PaperTerms, submit_order
+
+    owner = uuid4()
+    at = now().replace(hour=12, minute=0, second=0, microsecond=0)
+
+    def submit(db, side, offset_seconds):
+        instant = at + timedelta(seconds=offset_seconds)
+        quote = PaperQuote(asset="BTC", price="50000", observed_at=instant, source="fixture")
+        order = OrderRequest(request_key=uuid4(), epoch=1, asset="BTC", side=side, quantity="0.001")
+        return submit_order(db, owner, order, {"BTC": quote}, PaperTerms(), clock=lambda: instant)
+
+    with database() as db:
+        migrate(db)
+        ensure_account(db, owner)
+        assert submit(db, "BUY", 0)["status"] == "FILLED"
+        assert submit(db, "SELL", 1)["status"] == "FILLED"
+        assert submit(db, "BUY", 60)["reason"] == "FREQUENCY"
+        for index in range(2, CAPS["max_trades_per_hour"], 2):
+            minute = index * 60
+            assert submit(db, "BUY", minute)["status"] == "FILLED"
+            assert submit(db, "SELL", minute + 1)["status"] == "FILLED"
+        assert submit(db, "BUY", 8 * 60)["reason"] == "FREQUENCY"
+        # Repeat in separate hours until the daily cap independently rejects a buy.
+        completed_fills = CAPS["max_trades_per_hour"]
+        n = 0
+        while completed_fills < CAPS["max_trades_per_day"]:
+            instant = (1 + n // 3) * 3600 + (n % 3) * 120
+            assert submit(db, "BUY", instant)["status"] == "FILLED"
+            assert submit(db, "SELL", instant + 1)["status"] == "FILLED"
+            completed_fills += 2
+            n += 1
+        assert submit(db, "BUY", 6 * 3600)["reason"] == "FREQUENCY"

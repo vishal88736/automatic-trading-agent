@@ -12,6 +12,7 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from pydantic import AwareDatetime, Field, model_validator
 
+from aegis.risk.policy import CAPS as REVIEWED_TRADE_CAPS
 from backend.models import Model, RiskConfig, now
 from backend.paper_accounts import PaperAccount, get_account
 
@@ -21,7 +22,6 @@ Price = Annotated[Decimal, Field(gt=0, le=100000000, decimal_places=12)]
 USDT = Decimal("0.000001")
 PX = Decimal("0.000000000001")
 BPS = Decimal(10000)
-MAX_BUYS_PER_HOUR = 10
 
 
 class OrderRequest(Model):
@@ -190,17 +190,23 @@ def _buy_risk(db, owner, account, asset, gross, fee, held, quotes, at, terms):
         return "DAILY_LOSS"
     if equity <= peak * (1 - risk.max_drawdown):
         return "DRAWDOWN"
-    last, count = db.execute(
+    recent_hour = at - timedelta(hours=1)
+    cooldown = timedelta(seconds=risk.cooldown_seconds)
+    last, hourly, daily = db.execute(
         """
-        SELECT max(o.updated_at), count(*) FILTER (WHERE o.updated_at > %s)
-        FROM paper_orders o JOIN paper_ledger_entries l ON l.order_id = o.id
-        WHERE o.owner_id = %s AND o.epoch = %s AND l.kind = 'BUY'
+        SELECT max(o.updated_at), count(*) FILTER (WHERE o.updated_at > %s),
+            count(*) FILTER (WHERE o.updated_at >= %s)
+        FROM paper_orders o
+        WHERE o.owner_id = %s AND o.epoch = %s AND o.status = 'FILLED'
+            AND o.updated_at >= %s
         """,
-        (at - timedelta(hours=1), owner, account.epoch),
+        (recent_hour, midnight, owner, account.epoch, min(recent_hour, midnight, at - cooldown)),
     ).fetchone()
     if (
-        last and at - last < timedelta(seconds=risk.cooldown_seconds)
-    ) or count >= MAX_BUYS_PER_HOUR:
+        (last and at - last < cooldown)
+        or hourly >= REVIEWED_TRADE_CAPS["max_trades_per_hour"]
+        or daily >= REVIEWED_TRADE_CAPS["max_trades_per_day"]
+    ):
         return "FREQUENCY"
     return None
 
