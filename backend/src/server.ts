@@ -257,6 +257,9 @@ export function createPlatform(
     model: c.BEDROCK_MODEL_ID,
     region: c.AWS_REGION,
     liveEnabled: false,
+    productConfigured: Boolean(
+      c.KRONO_PRODUCT_API_URL && c.KRONO_PRODUCT_API_KEY,
+    ),
     validationMode: c.NODE_ENV === "test" ? "FIXTURE" : null,
   }));
   app.get("/platform/ready", async (req) => {

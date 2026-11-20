@@ -113,3 +113,11 @@ Set the same key and `KRONO_PRODUCT_API_URL=http://127.0.0.1:8794` in the Fastif
 | POST `/platform/custom-strategies/{id}/archive` | Archive with `expected_version`; existing version history remains available.                                                                            |
 
 The APIs provide the account opening credit and strategy storage. Custom-strategy backtesting and paper order execution are later integration steps.
+
+With the gateway configured, sign in and open **Strategies** or **Paper Trading** from the Agent Platform workspace. Strategies supports JSON editing, copies, revision comparison and archiving. Paper Trading displays the backend balance after opening a virtual account.
+
+The isolated browser test uses the same PostgreSQL-backed service with fixture identities. Start the private API against a disposable database, set `KRONO_E2E_PRODUCT_API_URL` and `KRONO_E2E_PRODUCT_API_KEY` in the shell to match the private API, and run:
+
+```bash
+npm run test:e2e -- e2e/platform-strategy.spec.ts
+```

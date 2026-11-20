@@ -14,6 +14,7 @@ export async function platform<T>(
     },
     body: body ? JSON.stringify(body) : undefined,
   });
+  if (response.status === 204) return undefined as T;
   const result = await response.json().catch(() => ({
     error: {
       message:

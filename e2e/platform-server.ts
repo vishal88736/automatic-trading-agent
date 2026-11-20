@@ -75,7 +75,12 @@ const llm: LLMProvider = {
   },
 };
 const { app } = createPlatform(
-  { ...config, KRONO_PUBLIC_ORIGIN: "http://127.0.0.1:5179" },
+  {
+    ...config,
+    KRONO_PUBLIC_ORIGIN: "http://127.0.0.1:5179",
+    KRONO_PRODUCT_API_URL: process.env.KRONO_E2E_PRODUCT_API_URL,
+    KRONO_PRODUCT_API_KEY: process.env.KRONO_E2E_PRODUCT_API_KEY,
+  },
   { store, runtime, auth, llm },
 );
 app.post("/platform/auth/login", async (req, reply) => {

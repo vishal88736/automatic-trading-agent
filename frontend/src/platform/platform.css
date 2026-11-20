@@ -687,3 +687,73 @@
   color: #ffbfcc;
   background: #3b2730;
 }
+
+.platform-product-nav,
+.platform-product-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-block: 12px;
+}
+.platform-product-nav a {
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  text-decoration: none;
+}
+.platform-product-nav a[aria-current="page"] {
+  color: var(--text);
+  border-color: currentColor;
+}
+.platform-product-editor {
+  display: grid;
+  grid-template-columns: minmax(170px, 1fr) minmax(0, 3fr);
+  align-items: start;
+  gap: 16px;
+}
+.platform-product-panel {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.platform-product-panel textarea,
+.platform-product-panel pre {
+  box-sizing: border-box;
+  width: 100%;
+  margin-block: 8px;
+  padding: 8px;
+  overflow: auto;
+  white-space: pre;
+  font-family: var(--mono, monospace);
+}
+.platform-product-panel textarea {
+  resize: vertical;
+}
+.platform-product-panel label {
+  display: block;
+  margin-block: 8px;
+}
+.platform-strategy-list {
+  display: grid;
+  gap: 6px;
+  padding: 0;
+  list-style: none;
+}
+.platform-strategy-list button {
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.platform-strategy-list button[aria-pressed="true"] {
+  border-color: currentColor;
+}
+.platform-product-balance strong {
+  font-size: 28px;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 700px) {
+  .platform-product-editor {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

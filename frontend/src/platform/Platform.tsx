@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import {
   ArrowRight,
   Bot,
@@ -22,6 +28,7 @@ import {
 import { JsonDetails, money, timestamp } from "../ui";
 import { KronoMark } from "../brand";
 import { platform, type AgentRow, type Preview, type Runtime } from "./client";
+import { PaperAccount, Strategies } from "./Strategies";
 import "./platform.css";
 
 type Message = {
@@ -231,7 +238,20 @@ function Auth({ done }: { done: () => void }) {
   );
 }
 
+function subscribeToHash(callback: () => void) {
+  window.addEventListener("hashchange", callback);
+  return () => window.removeEventListener("hashchange", callback);
+}
+
+function currentHash() {
+  return window.location.hash.split("?")[0];
+}
+
 export function PlatformWorkspace() {
+  const route = useSyncExternalStore(subscribeToHash, currentHash);
+  const strategies = route === "#/platform/strategies";
+  const paper = route === "#/platform/paper";
+  const showingAgents = !strategies && !paper;
   const [session, setSession] = useState<{
       userId: string;
       email: string;
@@ -242,6 +262,7 @@ export function PlatformWorkspace() {
       model: string;
       region: string;
       validationMode?: string;
+      productConfigured?: boolean;
     } | null>(null),
     [agents, setAgents] = useState<AgentRow[]>([]),
     [selected, setSelected] = useState<string | null>(null),
@@ -327,7 +348,8 @@ export function PlatformWorkspace() {
     void check();
   }, [check]);
   const refresh = useCallback(async () => {
-    if (!session) return;
+    if (!session || !showingAgents || tenantRef.current !== session.userId)
+      return;
     const [a, p, u, emergencyPolicy, history] = await Promise.all([
       platform<{ items: AgentRow[] }>("/agents"),
       platform<{ version: number; data: Record<string, unknown> }>("/profile"),
@@ -345,18 +367,18 @@ export function PlatformWorkspace() {
     setConversations(
       history.items.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     );
-  }, [session]);
+  }, [session, showingAgents]);
   useEffect(() => {
-    if (!session) return;
+    if (!session || !showingAgents) return;
     void refresh().catch((e) => setError(e.message));
     const timer = setInterval(
       () => void refresh().catch((e) => setError(e.message)),
       10000,
     );
     return () => clearInterval(timer);
-  }, [session, refresh]);
+  }, [session, refresh, showingAgents]);
   useEffect(() => {
-    if (!session || !selected) return;
+    if (!session || !selected || !showingAgents) return;
     let live = true;
     async function poll() {
       try {
@@ -379,9 +401,9 @@ export function PlatformWorkspace() {
       live = false;
       clearInterval(timer);
     };
-  }, [selected, session]);
+  }, [selected, session, showingAgents]);
   useEffect(() => {
-    if (!session || !selected) return;
+    if (!session || !selected || !showingAgents) return;
     let alive = true;
     const poll = async () => {
       try {
@@ -405,7 +427,7 @@ export function PlatformWorkspace() {
       alive = false;
       clearInterval(timer);
     };
-  }, [session, selected, tab]);
+  }, [session, selected, tab, showingAgents]);
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [messages]);
@@ -499,8 +521,8 @@ export function PlatformWorkspace() {
       </div>
     );
   if (!session) return <Auth done={() => void check()} />;
-  return (
-    <div className="platform-workspace">
+  const header = (
+    <>
       {health.validationMode === "FIXTURE" && (
         <div className="platform-error">
           ISOLATED TEST FIXTURE · No Cognito, Bedrock or ECS request is sent by
@@ -510,7 +532,13 @@ export function PlatformWorkspace() {
       <div className="platform-topline">
         <div>
           <span className="eyebrow">YOUR AGENT OPERATING PLATFORM</span>
-          <h2>One workspace. Every agent.</h2>
+          <h2>
+            {strategies
+              ? "Strategies"
+              : paper
+                ? "Paper Trading"
+                : "One workspace. Every agent."}
+          </h2>
           <p>
             {session.email} · Bedrock / {health.model} · {health.region}
           </p>
@@ -540,11 +568,51 @@ export function PlatformWorkspace() {
           <LogOut size={15} /> Sign out
         </button>
       </div>
+      {(health.productConfigured || strategies || paper) && (
+        <nav className="platform-product-nav" aria-label="Platform workspaces">
+          <a
+            href="#/platform"
+            aria-current={!strategies && !paper ? "page" : undefined}
+          >
+            AI Agents
+          </a>
+          <a
+            href="#/platform/strategies"
+            aria-current={strategies ? "page" : undefined}
+          >
+            Strategies
+          </a>
+          <a href="#/platform/paper" aria-current={paper ? "page" : undefined}>
+            Paper Trading
+          </a>
+        </nav>
+      )}
       {error && (
         <div className="platform-error" role="alert">
           {error}
         </div>
       )}
+    </>
+  );
+  if (strategies || paper) {
+    return (
+      <div className="platform-workspace">
+        {header}
+        {!health.productConfigured ? (
+          <p role="status">
+            The paper account and strategy service is unavailable.
+          </p>
+        ) : strategies ? (
+          <Strategies key={session.userId} />
+        ) : (
+          <PaperAccount key={session.userId} />
+        )}
+      </div>
+    );
+  }
+  return (
+    <div className="platform-workspace">
+      {header}
       {emergency?.emergency && (
         <div className="platform-error" role="alert">
           <strong>EMERGENCY STOP ACTIVE</strong>

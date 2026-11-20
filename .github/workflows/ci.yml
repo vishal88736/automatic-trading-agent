@@ -12,7 +12,7 @@ permissions:
 jobs:
   postgres:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     services:
       postgres:
         image: postgres:18
@@ -39,6 +39,24 @@ jobs:
           enable-cache: false
       - run: uv sync --frozen --extra platform --python 3.12
       - run: .venv/bin/python -m pytest -q backend/tests/test_platform_postgres.py
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: "22"
+          package-manager-cache: false
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Browser to API to PostgreSQL
+        run: |
+          export KRONO_DATABASE_DSN="$KRONO_TEST_DATABASE_DSN"
+          export KRONO_PRODUCT_API_KEY="$(openssl rand -hex 32)"
+          export KRONO_E2E_PRODUCT_API_KEY="$KRONO_PRODUCT_API_KEY"
+          export KRONO_E2E_PRODUCT_API_URL="http://127.0.0.1:8794"
+          .venv/bin/python -m scripts.platform_database
+          .venv/bin/python -m uvicorn backend.platform_product_api:app_from_environment --factory --host 127.0.0.1 --port 8794 &
+          product_pid=$!
+          trap 'kill "$product_pid" 2>/dev/null || true' EXIT
+          curl --silent --show-error --retry 10 --retry-connrefused --retry-delay 1 --output /dev/null "$KRONO_E2E_PRODUCT_API_URL/platform/paper-account"
+          npm run test:e2e -- e2e/platform-strategy.spec.ts
 
   validate:
     runs-on: ubuntu-latest
