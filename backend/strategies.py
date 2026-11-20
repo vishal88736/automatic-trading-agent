@@ -14,6 +14,7 @@ from tradingagents.risk.position_sizing import compute_atr
 REGISTRY = {
     "momentum_v1": {
         "name": "Momentum Trading",
+        "backtest_supported": True,
         "description": "EMA alignment with MACD, RSI and participation confirmation.",
         "regime": "Trending",
         "required_data": ["80 consecutive closed hourly candles", "volume"],
@@ -23,6 +24,7 @@ REGISTRY = {
     },
     "mean_reversion_v1": {
         "name": "Mean reversion",
+        "backtest_supported": True,
         "description": "Bollinger displacement and RSI extremes in a constrained range.",
         "regime": "Ranging",
         "required_data": ["80 consecutive closed hourly candles"],
@@ -32,6 +34,7 @@ REGISTRY = {
     },
     "trend_following_v1": {
         "name": "Trend Following",
+        "backtest_supported": True,
         "description": "Persistent EMA slope, long moving-average alignment and ATR invalidation.",
         "regime": "Persistent directional market",
         "required_data": ["80 consecutive closed hourly candles", "volume"],
@@ -41,6 +44,7 @@ REGISTRY = {
     },
     "breakout_v1": {
         "name": "Breakout Trading",
+        "backtest_supported": True,
         "description": "Past-only Donchian breakout with ATR buffer and participation confirmation.",
         "regime": "Confirmed expansion",
         "required_data": ["80 consecutive closed hourly candles", "volume"],
@@ -50,6 +54,7 @@ REGISTRY = {
     },
     "spread_research_v1": {
         "name": "Arbitrage Detection",
+        "backtest_supported": False,
         "description": "Requires compatible fresh two-leg executable routes and all-in net costs.",
         "regime": "Cross-venue research",
         "required_data": ["two compatible executable quotes", "fees", "gas", "settlement model"],
@@ -64,10 +69,9 @@ def indicators(market: Market) -> dict:
     bars = market.candles
     if len(bars) < 80:
         raise ValueError("At least 80 valid closed candles are required")
-    if any(
-        b.timestamp >= a.timestamp or abs((a.timestamp - b.timestamp).total_seconds() - 3600) > 1
-        for b, a in zip(bars, bars[1:])
-    ):
+    if any(bar.closed_at - bar.timestamp != timedelta(hours=1) for bar in bars):
+        raise ValueError("Candles must close one hour after opening")
+    if any(previous.closed_at != current.timestamp for previous, current in zip(bars, bars[1:])):
         raise ValueError("Candles must be unique and consecutive hourly bars")
     frame = pd.DataFrame(
         [

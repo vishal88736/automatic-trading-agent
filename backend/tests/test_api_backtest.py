@@ -261,6 +261,39 @@ def test_backtest_is_reproducible_costed_and_chronological():
     assert no_future_news["out_of_sample"]["fill_count"] == 0
 
 
+async def test_backtest_catalog_rejects_unregistered_strategy_before_loading_data(
+    client, monkeypatch
+):
+    catalog = (await client.get("/api/strategies", headers=HEADERS)).json()["items"]
+    assert {item["id"] for item in catalog if item["backtest_supported"]} == {
+        "momentum_v1",
+        "mean_reversion_v1",
+        "trend_following_v1",
+        "breakout_v1",
+    }
+
+    async def unexpected_fetch(*args, **kwargs):
+        pytest.fail("Unsupported backtests must not fetch provider data")
+
+    monkeypatch.setattr(client._transport.app.state.engine.providers, "market", unexpected_fetch)
+    result = await client.post(
+        "/api/backtests", headers=HEADERS, json={"strategy_id": "news_aware_v1"}
+    )
+    assert result.status_code == 409
+    assert (
+        result.json()["error"]["message"]
+        == "Selected strategy is unavailable for historical backtesting"
+    )
+
+
+def test_backtest_rejects_candle_that_closes_after_next_open():
+    market = fixture_market("BTC")
+    market.candles[79].closed_at += timedelta(seconds=1)
+
+    with pytest.raises(ValueError, match="Candles must close one hour after opening"):
+        backtest(market, fixture_news(), BacktestRequest(), StrategyConfig(), RiskConfig())
+
+
 async def test_risk_bounds_are_served_from_the_model(client):
     from aegis.data import field_bounds
 

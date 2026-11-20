@@ -179,6 +179,7 @@ export interface StrategyConfig {
 export interface Strategy {
   id: string;
   name: string;
+  backtest_supported: boolean;
   description: string;
   regime: string;
   required_data: string[];

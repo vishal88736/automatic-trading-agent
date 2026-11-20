@@ -90,9 +90,9 @@ test("trade preview shows total cash debit and refuses confirmation after saved 
   await expect(
     dialog.getByRole("button", { name: "Confirm buy", exact: true }),
   ).toBeDisabled();
-  await expect(dialog.getByRole("alert")).toContainText(
-    "Trading settings changed",
-  );
+  await expect(
+    dialog.getByRole("alert").filter({ hasText: "Trading settings changed" }),
+  ).toBeVisible();
   const refused = await page.request.post("/api/aegis/control", {
     headers: { "X-Terminal-CSRF": csrf },
     data: { action: "trade_confirm", confirmation: answer.data.confirmation },

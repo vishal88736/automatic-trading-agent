@@ -17,6 +17,9 @@ from backend.trade_history import research_history
 
 
 async def run_backtest(engine, body: BacktestRequest):
+    strategy = REGISTRY.get(body.strategy_id)
+    if not strategy or not strategy["backtest_supported"]:
+        raise ValueError("Selected strategy is unavailable for historical backtesting")
     market, feed = await asyncio.gather(
         engine.providers.market(body.symbol), engine.providers.news()
     )

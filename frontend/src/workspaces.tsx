@@ -1394,7 +1394,7 @@ export function Strategies({
                   <button
                     className="icon-button"
                     aria-label={`Backtest ${s.name}`}
-                    disabled={busy || s.id === "spread_research_v1"}
+                    disabled={busy || !s.backtest_supported}
                     onClick={() => runBacktest(s.id)}
                   >
                     <FlaskConical size={16} />
@@ -1432,7 +1432,7 @@ export function Strategies({
               </thead>
               <tbody>
                 {data.strategies
-                  .filter((s) => s.id !== "spread_research_v1")
+                  .filter((s) => s.backtest_supported)
                   .map((s) => {
                     const r = results[s.id];
                     const m = r?.out_of_sample;

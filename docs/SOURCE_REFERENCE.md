@@ -216,7 +216,7 @@ Cognito access-token identity and tenant-aware repositories protect application 
 ### backend/assistant_tools.py
 
 - [run_backtest](../backend/assistant_tools.py#L19) — `async run_backtest(engine, body: BacktestRequest)`
-- [execute](../backend/assistant_tools.py#L57) — `async execute(engine, name: str, arguments: dict, *, save_strategy)`
+- [execute](../backend/assistant_tools.py#L60) — `async execute(engine, name: str, arguments: dict, *, save_strategy)`
 
 ### backend/backtesting.py
 
@@ -465,8 +465,8 @@ Cognito access-token identity and tenant-aware repositories protect application 
 
 ### backend/strategies.py
 
-- [indicators](../backend/strategies.py#L63) — `indicators(market: Market)`
-- [evaluate](../backend/strategies.py#L134) — `evaluate(strategy_id: str, market: Market, news: NewsFeed, config: StrategyConfig, holding=False, clock=None)`
+- [indicators](../backend/strategies.py#L68) — `indicators(market: Market)`
+- [evaluate](../backend/strategies.py#L138) — `evaluate(strategy_id: str, market: Market, news: NewsFeed, config: StrategyConfig, holding=False, clock=None)`
 
 ### backend/strategy_registry.py
 
