@@ -1,4 +1,16 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+async function stubSignedOutSession(page: Page) {
+  await page.route("**/platform/health", (route) =>
+    route.fulfill({ json: { productConfigured: true } }),
+  );
+  await page.route("**/platform/auth/session", (route) =>
+    route.fulfill({ status: 401, json: {} }),
+  );
+  await page.route("**/platform/auth/refresh", (route) =>
+    route.fulfill({ status: 401, json: {} }),
+  );
+}
 
 test("theme follows the system, persists a choice and styles existing workspaces", async ({
   page,
@@ -74,90 +86,131 @@ test("the home orbit rotates, respects reduced motion, and leaves the desk actio
   ).toBeVisible();
 });
 
-test("the unified landing fits the full ring and opens a separate sign-in screen", async ({
+test("the unified landing fills the viewport and opens a separate sign-in screen without WebGL", async ({
   page,
 }) => {
-  await page.route("**/platform/health", (route) =>
-    route.fulfill({ json: { productConfigured: true } }),
-  );
-  await page.route("**/platform/auth/session", (route) =>
-    route.fulfill({ status: 401, json: {} }),
-  );
-  await page.route("**/platform/auth/refresh", (route) =>
-    route.fulfill({ status: 401, json: {} }),
-  );
-  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await stubSignedOutSession(page);
+  await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
+  await page.addInitScript(() => {
+    const getContext = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (
+      this: HTMLCanvasElement,
+      type: string,
+      options?: unknown,
+    ) {
+      return type === "webgl2"
+        ? null
+        : Reflect.apply(getContext, this, [type, options]);
+    } as typeof getContext;
+  });
+  const darkPoster = page.waitForResponse("**/art/krono-studio-dark.webp");
   await page.goto("/workspace#/dashboard");
   const hero = page.getByRole("heading", {
     name: "Trade with Krono.",
     exact: true,
   });
   await expect(hero).toBeVisible();
+  expect((await darkPoster).ok()).toBe(true);
+
+  const scene = page.locator(".landing-scene");
+  const start = page.getByRole("link", { name: "Get started" });
+  await expect(scene.locator("canvas")).toHaveAttribute("data-ready", "false");
+  await expect(page.locator(".landing-motion")).toHaveCount(0);
 
   for (const [width, height] of [
     [1502, 726],
     [1366, 600],
     [390, 844],
+    [365, 720],
     [320, 568],
   ]) {
     await page.setViewportSize({ width, height });
-    const bounds = await page.evaluate(() => {
-      const workspace = document
-        .querySelector(".unified-workspace .workspace")!
-        .getBoundingClientRect();
-      const { left, top, right, bottom } = document
-        .querySelector(".orbit-plane")!
-        .getBoundingClientRect();
-      return {
-        left,
-        top,
-        right,
-        bottom,
-        workspaceLeft: workspace.left,
-        workspaceRight: workspace.right,
-        scrollWidth: document.documentElement.scrollWidth,
-      };
-    });
-    expect(bounds.workspaceLeft).toBe(0);
-    expect(bounds.workspaceRight).toBe(width);
-    expect(bounds.scrollWidth).toBe(width);
-    expect(bounds.left).toBeGreaterThan(0);
-    expect(bounds.right).toBeLessThan(width);
-    expect(bounds.top).toBeGreaterThan(0);
-    expect(bounds.bottom).toBeLessThan(height);
+    expect(await scene.boundingBox()).toEqual({ x: 0, y: 0, width, height });
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBe(width);
+    await expect(start).toBeInViewport({ ratio: 1 });
   }
-  const coins = page.locator(".orbit-satellite");
-  await expect(coins).toHaveCount(3);
-  const moved = await coins.first().evaluate(async (coin) => {
-    const [motion] = coin.getAnimations();
-    motion.pause();
-    await motion.ready;
-    motion.currentTime = 0;
-    const initial = coin.getBoundingClientRect();
-    motion.currentTime = 6000;
-    const latest = coin.getBoundingClientRect();
-    return Math.hypot(latest.x - initial.x, latest.y - initial.y) > 10;
-  });
-  expect(moved).toBe(true);
-  await page.getByRole("button", { name: "Pause orbit animation" }).click();
-  await expect(coins.last()).toHaveCSS("animation-play-state", "paused");
-  await expect(coins.last().locator(".coin")).toHaveCSS(
-    "animation-play-state",
-    "paused",
+  const lightPoster = page.waitForResponse(
+    "**/art/krono-studio-light-portrait.webp",
   );
-  await page.getByRole("button", { name: "Play orbit animation" }).click();
-  await expect(coins.last()).toHaveCSS("animation-play-state", "running");
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  await expect(coins.last()).toHaveCSS("animation-name", "none");
+  await page.getByRole("button", { name: "Switch to light theme" }).click();
+  expect((await lightPoster).ok()).toBe(true);
+  await expect
+    .poll(() =>
+      scene.evaluate(
+        (node) => getComputedStyle(node, "::before").backgroundImage,
+      ),
+    )
+    .toContain("krono-studio-light-portrait.webp");
   await expect(page.getByLabel("Email", { exact: true })).toHaveCount(0);
-  await page.getByRole("link", { name: "Get started" }).click();
+  await start.click();
   await expect(page).toHaveURL(/#\/sign-in$/);
   await expect(
     page.getByRole("heading", { name: "Welcome to your workspace" }),
   ).toBeVisible();
   await expect(page.getByLabel("Email", { exact: true })).toBeFocused();
   await expect(hero).toHaveCount(0);
-  await expect(page.locator(".home-orbit")).toHaveCount(0);
+  await expect(scene).toHaveCount(0);
   await page.goBack();
   await expect(hero).toBeVisible();
+});
+
+test("the landing coin pauses, resumes, and respects reduced motion", async ({
+  playwright,
+  baseURL,
+}, testInfo) => {
+  const options = testInfo.project.use.launchOptions;
+  const browser = await playwright.chromium.launch({
+    ...options,
+    args: [
+      ...(options?.args ?? []),
+      "--use-gl=angle",
+      "--use-angle=swiftshader",
+      "--enable-unsafe-swiftshader",
+    ],
+  });
+  try {
+    const page = await browser.newPage({
+      baseURL,
+      viewport: { width: 900, height: 640 },
+      colorScheme: "dark",
+      reducedMotion: "no-preference",
+    });
+    await stubSignedOutSession(page);
+    await page.goto("/workspace#/dashboard");
+    await expect(page.locator(".landing-scene canvas")).toHaveAttribute(
+      "data-ready",
+      "true",
+    );
+    const capture = () =>
+      page.screenshot({ clip: { x: 275, y: 100, width: 470, height: 350 } });
+    const nextPaint = () =>
+      page.evaluate(
+        () =>
+          new Promise<void>((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+          ),
+      );
+    const pause = page.getByRole("button", { name: "Pause landing animation" });
+    const play = page.getByRole("button", { name: "Play landing animation" });
+    await pause.click();
+    await expect(play).toBeVisible();
+    await nextPaint();
+    const paused = await capture();
+    await nextPaint();
+    expect((await capture()).equals(paused)).toBe(true);
+
+    await play.click();
+    await expect.poll(async () => (await capture()).equals(paused)).toBe(false);
+
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expect(pause).toHaveCount(0);
+    await nextPaint();
+    const reduced = await capture();
+    await nextPaint();
+    expect((await capture()).equals(reduced)).toBe(true);
+  } finally {
+    await browser.close();
+  }
 });

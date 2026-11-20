@@ -1,4 +1,4 @@
-/* Product surfaces stay scoped to the authenticated workspace and sign-in. */
+/* Shared styles for the Krono workspace, sign-in and landing. */
 .unified-workspace {
   --bg: light-dark(#f9f9fc, #0c0e10);
   --panel: light-dark(#ffffff, #171b20);
@@ -37,8 +37,8 @@
   max-width: none;
 }
 
-.rail-shell.unified-workspace main:has(> .home-hero) {
-  padding-bottom: 0;
+.rail-shell.unified-workspace main:has(> .krono-landing) {
+  padding: 0;
 }
 
 .rail-shell.unified-workspace .topbar {
@@ -109,193 +109,243 @@
   margin-top: 7px;
 }
 
-.rail-shell.unified-workspace .home-hero {
-  --orbit-width: min(96vw, 1880px);
-  --orbit-height: clamp(225px, 69svh, 730px);
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  min-height: calc(100svh - 66px);
-  margin: 0 calc(-1 * var(--workspace-gutter));
-  padding: clamp(25px, 7svh, 82px) 16px 18px;
-  border: 0;
-  border-radius: 0;
-  background:
-    radial-gradient(
-      ellipse at 50% 100%,
-      light-dark(#e5e8e3, #1a1e1b),
-      transparent 68%
-    ),
-    light-dark(#f5f6f4, #090a0c);
+.unified-workspace[data-landing="true"] {
+  --landing-capsule: color-mix(in srgb, var(--panel) 78%, transparent);
+  --landing-border: color-mix(in srgb, var(--border-strong) 72%, transparent);
+  --landing-gutter: clamp(20px, 4.2vw, 74px);
 }
 
-.rail-shell.unified-workspace .home-hero h1 {
-  font-size: clamp(43px, min(7.4vw, 12svh), 112px);
-}
-
-.rail-shell.unified-workspace .home-hero .button.primary {
-  background: light-dark(#874a31, #f4ad86);
-  border-color: light-dark(#874a31, #f4ad86);
-  color: light-dark(#fff9f4, #2c180f);
-}
-
-.rail-shell.unified-workspace .home-hero .button.primary:hover {
-  background: light-dark(#693725, #ffbf9b);
-  border-color: light-dark(#693725, #ffbf9b);
-}
-
-.unified-workspace .home-hero .page-heading {
-  gap: clamp(12px, 3svh, 24px);
-  z-index: 2;
-}
-
-.unified-workspace .home-kicker {
-  margin-bottom: clamp(7px, 2svh, 20px);
-}
-
-.unified-workspace .home-orbit {
-  inset: auto 0 7px;
-  height: var(--orbit-height);
-  mask-image: none;
-  background: none;
-}
-
-.unified-workspace .home-orbit::before {
+.rail-shell.unified-workspace[data-landing="true"] .topbar {
   position: absolute;
-  inset: -25% 0 0;
-  mask-image: radial-gradient(ellipse at 50% 71%, #000, transparent 74%);
-  background:
-    linear-gradient(to right, var(--border) 1px, transparent 1px) 50% / 90px
-      90px,
-    linear-gradient(to bottom, var(--border) 1px, transparent 1px) 50% / 90px
-      90px;
-  opacity: 0.34;
+  inset: 0 0 auto;
+  min-height: 80px;
+  padding-inline: var(--landing-gutter);
+  border: 0;
+}
+
+.rail-shell.unified-workspace[data-landing="true"] .mobile-brand {
+  min-height: 44px;
+  gap: 9px;
+  padding: 6px 14px 6px 7px;
+  border: 1px solid var(--landing-border);
+  border-radius: 999px;
+  background: var(--landing-capsule);
+  backdrop-filter: blur(12px);
+}
+
+.rail-shell.unified-workspace[data-landing="true"] .theme-toggle {
+  border-color: var(--landing-border);
+  background: var(--landing-capsule);
+  color: var(--text);
+  backdrop-filter: blur(12px);
+}
+
+.rail-shell.unified-workspace[data-landing="true"] .landing-start {
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 1px solid var(--accent-strong);
+  border-radius: 999px;
+  background: var(--accent-strong);
+  color: var(--on-accent);
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.rail-shell.unified-workspace[data-landing="true"] .landing-start:hover {
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
+  color: var(--on-accent);
+}
+
+.krono-landing {
+  position: relative;
+  isolation: isolate;
+  overflow: clip;
+  display: grid;
+  align-items: end;
+  min-height: 100svh;
+  padding: 100px var(--landing-gutter) clamp(28px, 6.5vh, 78px);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.landing-scene {
+  --studio-poster: url("/art/krono-studio-dark.webp");
+  --studio-ratio: 1.66667;
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background: linear-gradient(
+    light-dark(#e8eaed, #23262b) 23%,
+    light-dark(#d6d8dc, #383c45) 70%,
+    var(--bg)
+  );
+}
+
+:root[data-theme="light"] .landing-scene {
+  --studio-poster: url("/art/krono-studio-light.webp");
+}
+
+.landing-scene::before {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  width: min(100%, calc(100svh * var(--studio-ratio)));
+  aspect-ratio: var(--studio-ratio);
+  transform: translate(-50%, -50%);
+  background: var(--studio-poster) center / 100% 100% no-repeat;
+  mask-image:
+    linear-gradient(to right, transparent, #000 5% 95%, transparent),
+    linear-gradient(transparent, #000 8% 87%, transparent);
+  mask-composite: intersect;
   content: "";
 }
 
-.unified-workspace .orbit-plane {
-  top: 51%;
-  width: var(--orbit-width);
-  height: 94%;
-  aspect-ratio: auto;
-  transform: translate(-50%, -50%);
-}
-
-.unified-workspace .orbit-coins {
-  position: absolute;
-  top: 63%;
-  left: 50%;
-  width: var(--orbit-width);
-  height: 65%;
-  translate: -50% -50%;
-}
-
-@property --orbit-angle {
-  syntax: "<angle>";
-  inherits: false;
-  initial-value: 0deg;
-}
-
-.unified-workspace .orbit-satellite {
-  position: absolute;
-  --orbit-angle: var(--orbit-start);
-  left: calc(50% + cos(var(--orbit-angle)) * var(--orbit-x, 43%));
-  top: calc(50% + sin(var(--orbit-angle)) * var(--orbit-y, 40%));
-  translate: -50% -50%;
-  display: grid;
-  place-items: center;
-  width: clamp(23px, 3.5vw, 46px);
-  aspect-ratio: 1;
-  animation: orbit-coin-travel var(--orbit-time, 24s) linear infinite;
-}
-
-.unified-workspace .orbit-satellite[data-coin="BTC"] {
-  --coin-rim: #ad661f;
-  --coin-light: #ead2a0;
-  --coin-mid: #c09654;
-  --coin-shadow: #8c602f;
-  --coin-text: #512900;
-  --orbit-start: 20deg;
-}
-
-.unified-workspace .orbit-satellite[data-coin="ETH"] {
-  --coin-rim: #7c848f;
-  --coin-light: #e7e9eb;
-  --coin-mid: #adb3bd;
-  --coin-shadow: #757e8e;
-  --coin-text: #343b49;
-  --orbit-start: 190deg;
-  --orbit-x: 37%;
-  --orbit-y: 36%;
-  --orbit-time: 29s;
-}
-
-.unified-workspace .orbit-satellite[data-coin="SOL"] {
-  --coin-rim: #51816e;
-  --coin-light: #cdeada;
-  --coin-mid: #8dbfa9;
-  --coin-shadow: #79768c;
-  --coin-text: #214338;
-  --orbit-start: 310deg;
-  --orbit-x: 30%;
-  --orbit-y: 31%;
-  --orbit-time: 34s;
-}
-
-.unified-workspace .orbit-satellite .coin {
+.landing-scene canvas {
+  position: relative;
+  display: block;
   width: 100%;
   height: 100%;
-  border: 1px solid var(--coin-rim);
-  border-radius: 50%;
-  font-size: clamp(14px, 1.8vw, 23px);
-  font-weight: 700;
-  color: var(--coin-text);
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.landing-scene canvas[data-ready="true"] {
+  opacity: 1;
+}
+
+.krono-landing::after {
+  position: absolute;
+  z-index: -1;
+  inset: auto 0 0;
+  height: 40%;
   background: linear-gradient(
-    142deg,
-    var(--coin-light),
-    var(--coin-mid) 53%,
-    var(--coin-shadow)
+    to top,
+    color-mix(in srgb, var(--bg) 91%, transparent),
+    transparent
   );
-  box-shadow:
-    inset 0 0 0 3px var(--coin-mid),
-    inset 0 0 0 4px var(--coin-rim),
-    0 3px 0 var(--coin-rim),
-    0 8px 19px color-mix(in srgb, var(--coin-rim) 43%, transparent);
-  animation: orbit-coin-tilt 5s ease-in-out infinite alternate;
+  pointer-events: none;
+  content: "";
 }
 
-@keyframes orbit-coin-travel {
-  to {
-    --orbit-angle: calc(var(--orbit-start) + 360deg);
+.landing-copy {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(230px, 295px);
+  align-items: end;
+  gap: clamp(18px, 5vw, 72px);
+}
+
+.landing-eyebrow {
+  margin: 0 0 13px;
+  color: var(--accent);
+  font-size: 12px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.rail-shell .krono-landing h1 {
+  margin: 0;
+  font-family: "Instrument Serif", Georgia, serif;
+  font-size: clamp(66px, 8.2vw, 129px);
+  line-height: 0.8;
+  letter-spacing: -0.027em;
+  font-weight: 400;
+}
+
+.landing-copy h1 span {
+  display: block;
+  margin-left: clamp(18px, 3vw, 46px);
+}
+
+.landing-description {
+  position: relative;
+  padding-bottom: 3px;
+  padding-inline-end: 50px;
+  color: var(--text);
+}
+
+.landing-description p {
+  max-width: 26ch;
+  margin: 0;
+  font-size: clamp(14px, 1.24vw, 18px);
+  line-height: 1.52;
+}
+
+.unified-workspace .platform-workspace .landing-motion {
+  position: absolute;
+  inset: auto 0 0 auto;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--landing-border);
+  border-radius: 50%;
+  background: var(--landing-capsule);
+  color: var(--text);
+}
+
+@media (max-aspect-ratio: 11/10) {
+  .landing-scene {
+    --studio-poster: url("/art/krono-studio-dark-portrait.webp");
+    --studio-ratio: 0.6;
+  }
+
+  :root[data-theme="light"] .landing-scene {
+    --studio-poster: url("/art/krono-studio-light-portrait.webp");
   }
 }
 
-@keyframes orbit-coin-tilt {
-  from {
-    transform: rotate(-8deg) rotateY(-19deg) translateY(-2px);
+@media (max-width: 660px) {
+  .rail-shell.unified-workspace[data-landing="true"] .topbar {
+    min-height: 66px;
+    padding-inline: 12px;
   }
-  to {
-    transform: rotate(9deg) rotateY(23deg) translateY(2px);
+
+  .rail-shell.unified-workspace[data-landing="true"] .mobile-brand {
+    gap: 6px;
+    padding-right: 8px;
+    font-size: 18px;
+  }
+
+  .rail-shell.unified-workspace[data-landing="true"] .mode-label {
+    padding-inline: 8px;
+    font-size: 11px;
+    letter-spacing: 0;
+    white-space: nowrap;
+  }
+
+  .rail-shell.unified-workspace[data-landing="true"] .landing-start {
+    min-height: 38px;
+    padding-inline: 10px;
+  }
+
+  .landing-start svg {
+    display: none;
+  }
+
+  .krono-landing::after {
+    height: 45%;
+  }
+
+  .landing-copy {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .rail-shell .krono-landing h1 {
+    font-size: clamp(57px, 12.5vw, 86px);
   }
 }
 
-.unified-workspace .home-orbit[data-paused="true"] .orbit-satellite,
-.unified-workspace .home-orbit[data-paused="true"] .orbit-satellite .coin {
-  animation-play-state: paused;
+@media (max-width: 380px) {
+  .rail-shell.unified-workspace[data-landing="true"] .mode-label svg {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .unified-workspace .orbit-satellite,
-  .unified-workspace .orbit-satellite .coin {
-    animation: none;
-  }
-}
-
-@media (max-width: 760px) {
-  .rail-shell.unified-workspace .home-hero {
-    --orbit-width: 93vw;
-    --orbit-height: clamp(172px, 47svh, 365px);
-    padding-top: clamp(20px, 5svh, 45px);
+  .landing-scene canvas {
+    transition: none;
   }
 }
 

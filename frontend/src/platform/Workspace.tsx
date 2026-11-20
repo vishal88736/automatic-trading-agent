@@ -18,7 +18,7 @@ import {
   WandSparkles,
 } from "lucide-react";
 import { KronoMark } from "../brand";
-import { HomeOrbit } from "../HomeOrbit";
+import { Landing } from "./Landing";
 import { ThemeToggle } from "../ThemeToggle";
 import { Auth } from "./Auth";
 import { platform, PlatformRequestError } from "./client";
@@ -213,8 +213,14 @@ export function Workspace() {
   const { page, reportId } = route;
   const title = modules.find(([id]) => id === page)![1];
   const session = auth.state === "signed-in" ? auth.session : null;
+  const showLanding =
+    auth.state === "signed-out" && page === "dashboard" && !route.signIn;
   return (
-    <div className="app-shell rail-shell unified-workspace" data-page={page}>
+    <div
+      className="app-shell rail-shell unified-workspace"
+      data-page={page}
+      data-landing={showLanding || undefined}
+    >
       <div className="workspace">
         <header className="topbar">
           {session && (
@@ -241,6 +247,11 @@ export function Workspace() {
               <ShieldCheck size={14} /> Paper trading
             </span>
             <ThemeToggle />
+            {showLanding && (
+              <a className="button primary landing-start" href={signInHref}>
+                Get started <ArrowRight size={15} aria-hidden />
+              </a>
+            )}
             {session && (
               <button
                 className="button secondary sign-out"
@@ -277,34 +288,13 @@ export function Workspace() {
           </nav>
         )}
         <main className="platform-workspace">
-          {auth.state === "signed-out" &&
-            (page === "dashboard" && !route.signIn ? (
-              <section className="workspace-intro home-hero">
-                <div className="page-heading">
-                  <div>
-                    <span className="home-kicker">
-                      Autonomous crypto research
-                    </span>
-                    <h1>Trade with Krono.</h1>
-                    <p>
-                      Build and backtest strategies. Run autonomous agents with
-                      virtual funds.
-                    </p>
-                  </div>
-                  <div className="page-actions">
-                    <a className="button primary" href={signInHref}>
-                      Get started <ArrowRight size={16} />
-                    </a>
-                  </div>
-                </div>
-                <HomeOrbit movingCoins />
-              </section>
-            ) : (
-              <section className="product-auth-page">
-                <h1 className="visually-hidden">Sign in to Krono</h1>
-                <Auth done={() => void check()} focusEmail={route.signIn} />
-              </section>
-            ))}
+          {showLanding && <Landing />}
+          {auth.state === "signed-out" && !showLanding && (
+            <section className="product-auth-page">
+              <h1 className="visually-hidden">Sign in to Krono</h1>
+              <Auth done={() => void check()} focusEmail={route.signIn} />
+            </section>
+          )}
           {auth.state === "loading" && (
             <p className="platform-loading" role="status">
               Connecting to Krono…
