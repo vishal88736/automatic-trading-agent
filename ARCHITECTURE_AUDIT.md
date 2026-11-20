@@ -1,0 +1,142 @@
+# Krono architecture audit and migration plan
+
+Baseline: `2dfe39027c2e0a3d06344381df795fd976bdc733` on `main`, matched against GitHub on 2026-11-20. The checkout was clean and no application process was listening on the default local ports at the start. The review covered the tracked tree, active entry points, frontend routes, both API surfaces, storage and execution paths, deployment definitions, and the retained legacy and contract trees. [Connected AEGIS flow](docs/AEGIS_FLOWS.md), [current architecture](docs/ARCHITECTURE.md), [development guide](docs/DEVELOPMENT.md), [API and source index](docs/SOURCE_REFERENCE.md), [AWS setup](docs/AWS_SETUP.md), [security boundaries](SECURITY.md).
+
+Krexa's public site presents a natural-language idea → historical test → continuous paper agent flow. That flow is the product reference. Krono should retain its own interface and restrict the new platform to personal research and paper trading. Public rankings, competitions, showdowns, points, copy trading, and pooled funds are outside the product scope. [Krexa public product page](https://krexa.xyz/)
+
+## 1. Current architecture
+
+| Runtime | Entry point and UI | Processing and storage |
+| --- | --- | --- |
+| Local research | `scripts/dev.mjs` starts Vite and `backend/api.py`; `frontend/src/App.tsx`, `workspaces.tsx`, and `TradingDesk.tsx` render the research workspace | FastAPI lifespan refreshes providers and starts `backend/engine.py`. A compiled LangGraph runs sequential research stages. `backend/storage.py` uses SQLite with decimal text in typed JSON, WAL, savepoints, unique intent/fill linkage, and audit records. |
+| Local AEGIS | Same FastAPI and React app under `/#/aegis`; `frontend/src/aegis/context.tsx` shares state across routes | `agent/aegis/service.py` runs one thread-affine runtime. Mainnet RPC and V3 pool checks feed deterministic signals; paper gateway rechecks quote, policy, and controls. `PaperLedger` records exact raw quantities, accounting, risk state, observations and idempotent fills in a separate SQLite file. Restart preserves the ledger and pauses entry. |
+| AWS agent platform | `backend/src/server.ts` is Fastify; `frontend/src/platform/Platform.tsx` and `client.ts` supply the authenticated workspace and cloud build | Cognito principal and tenant-derived DynamoDB keys. CDK provisions CloudFront/S3, API ECS service, Fargate agent tasks, Step Functions deployment, SQS analysis jobs and CloudWatch. `backend/cloud_worker.py` uses the research engine and persists runtime state/events with lease fencing. Capital and accounting are per agent. |
+| Signed HashKey tools | `scripts/testnet_server.py`, `agent/aegis/testnet/`, CLI and wallet operations | Explicit opt-in, contract registry and distinct signing/journal/receipt path. Historical public receipts exist. Keep signed execution isolated from the product paper worker and credentials. |
+| Retained upstream | `tradingagents/`, `webui/`, `cli/`, legacy tests and root Dash launchers | Separate stock/Alpaca-oriented research and Backtrader replay. Reuse proven pure code where appropriate. The optional Dash dependency set is outside the main environment. |
+
+### Auth and storage boundaries
+
+- Local `/api/session` creates an operator session in process memory. Trusted hosts, origin checks and CSRF protect that local boundary, but every local session addresses the same databases. The optional local bearer token also grants operator authority. Keep this service loopback-only.
+- Cloud `/platform/*` uses Cognito token verification, secure cookies in production, CSRF, per-process request throttling and tenant-keyed storage. Cross-tenant probes in the platform tests use injected services. Live Cognito delivery, IAM and cloud runtime behavior require staging acceptance.
+- The local terminal and AEGIS create tables at startup. `scripts/local_database.py` provides operator utilities. No shared relational migration history or managed PostgreSQL schema is present. DynamoDB stores tenant objects and runtime state separately from the local SQLite stores.
+
+## 2. Feature and gap inventory
+
+**WORKING** means verified in the stated scope. **PARTIAL** means an implementation exists but has gaps or awaits the necessary environment. **BROKEN** means a specific failing path is confirmed. **MISSING** means absent from the integrated product. **DUPLICATED** marks overlap that must be resolved before introducing a shared authority.
+
+| Requirement | Status | Current evidence and remaining gap |
+| --- | --- | --- |
+| React application and navigation | WORKING | TypeScript/Vite production build passes. Existing research, AEGIS and platform workspaces use hash routing. Nine product sections and agent detail deep links remain a routing and integration task. |
+| Personal dashboard, P&L and positions | PARTIAL | Research and AEGIS expose persisted accounting and positions. Cloud aggregates separate agent ledgers with heartbeat/freshness gating. Shared tenant buying power, full history and dashboard analytics remain open. |
+| Account registration, login, refresh, logout and isolation | PARTIAL | Cognito handlers and tenant isolation pass platform tests with injected dependencies. Local FastAPI operator sessions have no user identity. Hosted sign-up and delivery need staging verification. |
+| Watch markets and technical indicators | PARTIAL | Coinbase BTC/ETH/SOL reference data, HSKSwap verified reads, freshness and cache status, fixed-regime indicators and existing charts. Search is bounded by supported assets; multiple-interval chart views do not imply multiple native execution timeframes. Persistent personal watchlists and a streaming provider are missing. |
+| Crypto news | WORKING | Existing `Providers.news` and normalization implement source URLs, timestamp/availability, deduplication, asset tags, caching and limited/stale status. Research UI has feed selection, filtering, detail and retry. Preserve this path and reuse it for tenant views. Production provider entitlement and live availability are operational dependencies. |
+| Built-in strategy catalog | PARTIAL | `backend/strategies.py` supports momentum, Bollinger/RSI mean reversion, trend and breakout; the spread entry is research-only. AEGIS owns native pool rules and bridges eligible research signals. Dedicated RSI, moving-average/MACD crossover, Bollinger and DCA presets need explicit shared rule semantics. |
+| Plain-English strategy generation | PARTIAL | AEGIS tools change bounded configuration; Claude is optional. Cloud LLM tools create persisted agent-spec drafts. A standalone versioned strategy document with validated entry/exit expressions, sizing and protections is missing. |
+| Visual rules, structured editor, save/clone/delete, version compare | MISSING | Existing config and cloud agent versioning can inform this feature. They do not persist user-defined strategy rules and their immutable versions. |
+| Chronological backtesting | WORKING | `backend/backtesting.py` uses prior-bar signals, next-open fills, gap-aware ATR stops, fee/slippage, independent chronological segments, a benchmark and decimal accounting. Tests verify repeatability and future-news exclusion in controlled data. |
+| Backtest catalog contract | BROKEN | API accepts `news_aware_v1`, but the engine seeds only registry entries and that ID is absent. The service passes a missing configuration to Pydantic. Spread research has no supported historical execution model. |
+| Full Backtesting Lab and reproducibility | PARTIAL | Request has fixed assets and strategy IDs and uses the provider's recent hourly window. It returns trades/equity and several metrics; Sharpe is null. Explicit date/source/timeframe selection, durable exact dataset and result, drawdown series, Sortino, exposure, trade duration, sensitivity and walk-forward remain open. Legacy Backtrader walk-forward is separate. |
+| Shared virtual wallet, manual/autonomous execution | DUPLICATED | Local simulation manual orders, AEGIS paper fills and per-agent AWS simulation write distinct ledgers. Local atomic accounting and AEGIS idempotency are useful reference implementations. A tenant account funded once, budget reservations, shared manual and automated order handling, account reset, optional limit orders and canonical portfolio are missing. |
+| Trade preview browser regression test | BROKEN | The stale-preview guard disables confirmation as expected. The test uses a single-alert selector, which fails when a legitimate warm-up alert is also present. |
+| Trade preview browser regression test | BROKEN | The stale-preview guard disables confirmation as expected. The test uses a single-alert selector, which fails when a legitimate warm-up alert is also present. |
+| Backend monitoring while browser is closed | WORKING | FastAPI owns local scheduled loops, and browser polling reads backend state. Local process lifetime still governs both loops. Cloud design runs independent tasks; new platform browser-close plus worker-loss acceptance remains pending. |
+| Resilient worker, job queue and recovery | PARTIAL | Local deliberately pauses on restart. Cloud has desired/observed state, DynamoDB leases, heartbeats, error events, runtime recovery and analysis queue controls. There is no unified checkpoint/job model for strategy creation, backtest, critic, activation, and ongoing paper execution. |
+| Supervisor and eight roles | PARTIAL | Existing LangGraph research, AEGIS monitor/signals/risk/execution, and cloud strategy analysis are reusable. No graph connects bounded strategy generation, candidate evaluation, sealed holdout, deterministic eligibility and version-pinned activation. |
+| Agent lifecycle and observability | PARTIAL | Local controls, AEGIS sessions, cloud agent spec versions/events/logs/metrics and pause/resume/stop exist. Product timeline needs authoritative backtest IDs, selected version, run stage, agent orders and recovery/incident data. |
+| Deterministic risk and emergency stop | WORKING | Both existing local execution paths enforce deterministic gates and recovery behavior in tests. AEGIS paper checks fresh executable quotes and latches emergency; FastAPI smoke verifies simulation restart persistence. A common tenant policy, capital reservations and consistent manual/agent enforcement are missing. |
+| External integration and production readiness | PARTIAL | CI runs Python, contract, frontend, platform, container and browser checks. AWS infrastructure is defined. Platform deployment, account-bound provider coverage and end-to-end hosted recovery lack current acceptance evidence. |
+| Acceptance scenario | MISSING | No existing single user journey links registration, shared wallet, editable plain-English strategy, exact historical report, backend-only agent lifecycle, and isolated orders on return. |
+
+## 3. Reusable components and debt
+
+| Reuse | Boundary and debt |
+| --- | --- |
+| `backend/strategies.py`, `strategy_registry.py`, `selection.py`, upstream regime and ATR | Keep current evaluator and turn built-ins into adapters for one versioned interface. Validate closed-bar timing as well as interval continuity. Research-only and backtestable entries need explicit eligibility. |
+| `backend/backtesting.py` and `assistant_tools.py::run_backtest` | Extend the active engine in place. Current backtests recompute indicators on successively longer prefixes and only cache latest summary metrics. Add exact dataset capture, immutable results and limits before expanding history. |
+| `backend/data.py`, `analytics.py`, and `exchanges.py`; `agent/aegis/data.py` and V3 adapters | Share source/freshness and candle contracts. Provider-specific data and quote semantics stay behind adapters. Verify cached and unknown data never authorize a paper order as fresh. |
+| `backend/risk.py`, `execution.py`, `portfolio.py`; AEGIS risk/gateway/ledger | Reuse deterministic calculations, atomic fill and idempotency patterns. Establish one product paper ledger with explicit new/existing account ownership and venue adapters. Keep local legacy balances addressable in their present workspace. |
+| Cognito, Fastify tenant store, cloud worker, CDK | Keep working authenticated identity and deployment components. The Python domain API can sit behind the same authenticated host boundary. Avoid adding a second identity provider, scheduler authority or analysis queue by default. |
+| `frontend/src/ui.tsx`, `theme.css`, `charts.tsx`, `workspaces.tsx`, AEGIS views and platform client | Reuse UI primitives, data displays and workspace controls. Split the largest route components as their data contracts migrate. Preserve local and AEGIS deep links. |
+
+## 4. Proposed modular architecture
+
+- Keep React/Vite. The frontend renders tenant-scoped records and polls a cursor or subscribes to events. Durable scheduling and state transitions run independently of browser activity.
+- Keep Cognito/Fastify for existing identity and AWS operations. Add a private FastAPI product API for strategy, backtest, paper account and workflow endpoints. Forward a short-lived audience-bound verified identity over internal transport. Ignore caller-supplied tenant headers. Derive owner from the authenticated principal and authorize ownership at every data lookup.
+- Use PostgreSQL for new authoritative product state. Start with a PostgreSQL job table and transactional outbox for claims and events. Add Redis only if measured throughput or streaming requirements need a cache/broker; existing SQS can deliver cloud notifications. The DB remains the authority for locks, deduplication and jobs.
+- Package the Python API, scheduler and worker as independently restartable processes with health endpoints or health commands. Workers share the domain modules and current market/news adapters. Keep model tools limited to drafts and evidence reads. Paper execution exposes an explicit deterministic-only command interface.
+- Keep existing simulation, AEGIS paper and signed paths available at their current boundaries during migration. The product paper account has its own single authoritative ledger. Migrate legacy balances only when ownership, currency, lineage and reconciliation can be proven.
+
+## 5. Database migration plan
+
+1. Add schema migrations and staging backup/restore before creating product records. Establish `users` keyed by Cognito subject, `user_preferences`, `risk_policies`, `trading_accounts` and account epochs. Insert the configurable opening credit once with a unique provisioning key. Use PostgreSQL `NUMERIC` with explicit instrument precision and Decimal/decimal strings across API boundaries.
+2. Add `strategies`, immutable `strategy_versions`, `datasets`, `market_candles`, `backtest_runs`, `backtest_trades` and `backtest_metrics`. Index candle uniqueness by dataset and open timestamp. Record provider, market, timeframe, data digest, decision time, schema/engine version, full execution assumptions and train/final holdout splits.
+3. Add `account_balances`, `capital_reservations`, `positions`, `orders`, `fills`, append-only `ledger_entries` and valuation snapshots. Use account/owner-qualified foreign keys; unique account/idempotency key plus payload hash; one transaction for risk, available funds, fill, position, ledger and outbox. A reset starts a new epoch after agent and pending order shutdown and keeps the prior audit trail.
+4. Add `agent_configs`, `agent_runs`, `workflow_checkpoints`, `agent_events`, `risk_incidents`, `jobs` and `outbox`. Index runnable jobs by `(status, available_at)` and tenant timelines by `(owner_id, run_id, sequence)`. Enforce one active run per agent and compare the command generation/fencing token before committing a fill. Store versioned risk state and heartbeat.
+5. Test upgrade from the previous schema, rollback of each transactional change, and reconciliation against ledger replay. Expose legacy history via read-only adapters while comparing output. Explicit, owner-verified imports use checksums and idempotent source record IDs; never infer owners for shared local files. Switch one tenant feature flag at a time after acceptance. Restore from backup or revert the route flag if cutover fails.
+
+## 6. Orchestration design
+
+`REQUESTED → OBSERVE → LOAD_OR_DRAFT → VALIDATE → BACKTEST → EVALUATE → RISK_GATE → ACTIVE`
+
+- Supervisor advances through typed, versioned checkpoints. Market intelligence supplies validated closed candles, freshness and regime provenance. Strategy generation proposes typed allowlisted rules. Backtesting invokes the same deterministic evaluator used on closed bars by the paper worker.
+- Critic compares a benchmark and development-window candidate evidence. Bound revisions, trials, runtime and token budgets. Open the final holdout once after choosing a candidate; a failure ends the activation attempt. Risk stage independently checks authenticated caps, account buying power, policy, eligible inputs and pinned strategy version.
+- Paper worker claims due ticks with a lease and fencing token, loops through risk-reducing exits before entries, validates fresh quotes and executes idempotently. A decision key binds account, agent run, strategy version, market event and order role. Commit the fill and checkpoint/event together or replay the same decision key on recovery.
+- Monitoring records skipped inputs, last successful tick, degraded state, retry counts, expired leases, breach and emergency events. Bounded retries use jitter and exhausted jobs become observable failures. Re-evaluation produces a candidate version and repeats validation before replacement. Open positions keep pinned exit rules until handled by an explicit policy.
+- Persist desired and observed state separately. `PAUSING` and `STOPPING` remain visible until the worker acknowledges the fence. Document permitted protective exits under pause and stop. Expose stale heartbeat independently of data freshness and browser connectivity.
+
+## 7. Frontend routes and components
+
+| Route under authenticated platform | Reuse and extension |
+| --- | --- |
+| `/platform/dashboard` | Reuse portfolio metrics, charts and alert components; add active agent and persisted account summaries. |
+| `/platform/agents`, `/platform/agents/:id` | Reuse platform controls, AEGIS pipeline/status and Sessions timeline; add orders, incidents, strategy version and reports. |
+| `/platform/strategies`, `/platform/strategies/:id` | Extract existing strategy cards and parameters; add shared typed draft, rule builder, JSON editor and version diff. |
+| `/platform/backtests`, `/platform/backtests/:id` | Reuse report and chart components; add date/source assumptions, results, markers, curves, benchmark and holdout comparison. |
+| `/platform/paper`, `/platform/portfolio` | Reuse Trading Desk order preview and trade archive, portfolio charts and positions. Query canonical account; show simulated currency and freshness. |
+| `/platform/markets`, `/platform/markets/:symbol` | Reuse market chart, indicators, search and alerts; add tenant watchlists and strategy shortcut. |
+| `/platform/news`, `/platform/settings` | Reuse news list/detail, filters and provider settings. Add tenant risk, account preferences and agent operating schedules. |
+
+Use the existing hash router during migration, including cloud-mode deep links. Retain current local cohorts and route aliases. Verify keyboard navigation, accessible status messages, mobile layout and stale/disconnected states with Chromium.
+
+## 8. Prioritized file-level roadmap
+
+| Phase | Modify or create | Exit evidence |
+| --- | --- | --- |
+| 1. Audit | Create `ARCHITECTURE_AUDIT.md`; retain runtime modules, existing data, and contracts | Current code and execution inventory, baseline suites and reproduction of catalog failure. |
+| 2. Consolidation | Modify `backend/assistant_tools.py`, `backend/strategies.py`, `backend/models.py` and `backend/tests/test_api_backtest.py` as required for shared eligibility and closed-bar contracts; add `backend/platform_db.py` and `migrations/env.py` with revision scripts in `migrations/versions/` | Eligible catalog and API agree; upgrade and rollback succeed in staging DB. |
+| 3. Strategies | Add `backend/strategy_rules.py`, `backend/strategy_repository.py`, `backend/platform_strategies_api.py` and `frontend/src/platform/Strategies.tsx`; adapt `backend/strategy_registry.py` and cloud model tool schemas | Same schema across three authoring methods, immutable versions, deterministic rules and cross-user denial. |
+| 4. Backtesting | Extend `backend/backtesting.py` and `backend/data.py`; add `backend/backtest_repository.py`, `backend/platform_backtests_api.py` and `frontend/src/platform/BacktestingLab.tsx` | Exact input replay, gap and future-data rejection, persistence and detailed charts. |
+| 5. Paper | Extract reusable accounting from `backend/portfolio.py` and guards from `backend/risk.py` / `backend/execution.py`; add `backend/paper_accounts.py`, `backend/paper_execution.py`, `backend/platform_paper_api.py`, `frontend/src/platform/PaperTrading.tsx` | One tenant ledger, concurrent spend/idempotency tests, consistent manual/agent rules, balances reconcile. |
+| 6. Orchestration | Add `backend/platform_workflow.py` and `backend/platform_agent_api.py`; reuse `backend/engine.py` graph patterns, existing model tool contracts and provider bridges | Bounded generation/evaluation workflow, holdout integrity, rejected risk activation and recorded decisions. |
+| 7. Durability | Add `backend/platform_worker.py` and `backend/platform_scheduler.py`; extract reusable lease/recovery contracts from `backend/cloud_worker.py`; integrate existing control plane in `backend/src/server.ts` | Crash before/after fill, stale worker rejection, retry exhaustion, control races and independent progress. |
+| 8. Product UI | Modify `frontend/src/platform/Platform.tsx`, `client.ts`, `frontend/src/aegis/navigation.ts`; create `frontend/src/platform/AgentDetail.tsx`, `Dashboard.tsx` and remaining route components as needed | Authenticated UI exercises equivalent API flows, mobile, reconnect, no private record leakage. |
+| 9. Hardening | Add `e2e/paper-agent-lifecycle.spec.ts` and Python integration/failure tests under `backend/tests/`; extend `.github/workflows/ci.yml` | Register, fund, draft, edit, backtest, close browser, advance controlled feed, return, pause/resume/stop and verify two tenants. |
+| 10. Deploy | Extend `infra/stack.ts`, `deploy/aws/Dockerfile.agent`, `deploy/aws/.env.example`, `docs/AWS_SETUP.md` and `docs/VERIFICATION.md`; add `compose.yaml` and `deploy/Dockerfile.platform-api` for local integration | Staging deployment, durable migration, liveness and external-provider checks, browser-independent lifecycle. |
+
+Paths for new modules are proposed. Re-evaluate extraction names against the existing code when implementing each phase. Only switch a product route or worker implementation when tests cover equivalent behavior and a deployment can roll back.
+
+## 9. Risks and dependencies
+
+| Risk or dependency | Treatment |
+| --- | --- |
+| Mixing account ownership and amounts | Use owner-qualified relations, isolated existing ledgers and explicit provenance for imports. Accept deterministic precision and concurrency testing before tenant availability. |
+| Duplicate fills on timeout, retry or competing workers | DB constraints, payload-bound idempotency, row locks, fencing on control and fill, same-transaction ledger and acknowledgement. |
+| Look-ahead and misleading analysis | Validate bar close boundaries, timestamp article availability, retain exact input snapshots, bound optimization and seal final holdout. |
+| Stale prices, low exchange coverage, upstream rate limits | Price-time, venue and source checks; reject stale entries, apply backoff and expose degradation; keep risk exits pending when quotes fail. |
+| Prompt injection or model drift | Closed typed schema, bounded tokens and iterations, allowlisted interpreters, no order/credential tool and no model override of deterministic controls. |
+| Session hijack and resource abuse | Reuse verified Cognito principals, same-origin CSRF, short-lived authenticated service handoff and multi-instance throttling. Set quotas for studies, agents and feeds before public deployment. |
+| Rollout dependencies | Staging requires project-approved provider settings, PostgreSQL, Cognito email and AWS permissions/budget. Verify tenancy, persistence and failover on the actual deployed environment. |
+| Legacy contracts and reconciliation | Keep testnet and signed tools separate. No signing credentials or vault actions in the new paper product. |
+
+## 10. Validation at the baseline
+
+- Python CI-equivalent selection: 568 passed, 1 skipped, 10 subtests passed. The skipped live integration was outside the controlled baseline.
+- Fastify platform and CDK tests: 20 passed using local fixtures/mocks and synthesis assertions.
+- React TypeScript check and Vite production build passed.
+- Built-app HTTP smoke served the frontend, reconciled one simulated fill, restarted the server against the same disposable database, retained cash/equity and the single fill, and recovered with scheduler state `PAUSED`.
+- Historical live RPC, public-testnet and prior browser artifacts under `docs/evidence/` retain their original verification scope. This audit does not promote them to new provider, deployment or live-trading acceptance.
+- Focused Chromium baseline: 20 passed and one failed on an ambiguous trade-preview alert selector. The rendered dialog showed the expected stale-settings rejection and a separate market warm-up alert.
+- Direct isolated API probe returned 200 for momentum, 409 with a missing-config validation error for `news_aware_v1`, and 422 for the research-only spread ID. Publication-path and credential-pattern scan reported zero issues.
+- Focused Chromium baseline: 20 passed and one failed on an ambiguous trade-preview alert selector. The rendered dialog showed the expected stale-settings rejection and a separate market warm-up alert.
+- Direct isolated API probe returned 200 for momentum, 409 with a missing-config validation error for `news_aware_v1`, and 422 for the research-only spread ID. Publication-path and credential-pattern scan reported zero issues.
