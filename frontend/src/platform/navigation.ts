@@ -15,6 +15,7 @@ export type Module = (typeof modules)[number][0];
 
 export const landingSections = [
   ["workflow", "How it works"],
+  ["agents", "AI agents"],
   ["tools", "Workspace tools"],
 ] as const;
 

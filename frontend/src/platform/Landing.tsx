@@ -1,23 +1,16 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import {
-  Activity,
   ArrowDown,
   ArrowUpRight,
   Bot,
   ChartNoAxesColumn,
-  FlaskConical,
   LayoutDashboard,
   Library,
-  Newspaper,
-  Pause,
-  Play,
   ShieldCheck,
-  Wallet,
-  WandSparkles,
+  SlidersHorizontal,
 } from "lucide-react";
 import { KronoMark } from "../brand";
 import { Coin } from "../ui";
-import type { createLandingScene } from "./LandingScene";
 import { marketAssets, marketNames } from "./market-assets";
 import {
   landingSectionHref,
@@ -28,68 +21,77 @@ import {
 
 const workflow = [
   {
-    module: "builder",
-    title: "Build your rules",
-    description:
-      "Start in plain English, a visual builder, or the structured editor.",
-    Icon: WandSparkles,
+    section: "workflow",
+    title: "From strategy to paper trading",
+    description: [
+      "Describe an idea in plain English, build it with visual rules, or edit the structured strategy directly.",
+      "Replay the strategy on historical candles and review equity, drawdown, and simulated fills before you run it.",
+    ],
+    art: "krono-sapphire-research.webp",
+    primary: [workspaceHref("backtests"), "Backtest a strategy"],
+    secondary: [workspaceHref("builder"), "Build your rules"],
   },
   {
-    module: "backtests",
-    title: "Backtest a strategy",
-    description:
-      "Replay historical candles and review returns, drawdown, and simulated fills.",
-    Icon: ChartNoAxesColumn,
+    section: "agents",
+    title: "Run an agent while you’re away",
+    description: [
+      "Assign a strategy and virtual capital. Krono’s backend worker can keep monitoring the market and placing simulated orders after you close the browser.",
+      "Check decisions and order history when you return. Pause, resume, or stop the agent from your workspace.",
+    ],
+    art: "krono-sapphire-agents.webp",
+    primary: [workspaceHref("agents"), "Explore AI agents"],
+    secondary: [signInHref, "Open dashboard"],
+  },
+] as const;
+
+const controls = [
+  {
+    href: workspaceHref("strategies"),
+    title: "Track strategy versions",
+    description: "Customize prebuilt rules and compare your saved versions.",
+    Icon: Library,
   },
   {
-    module: "agents",
-    title: "Run an agent",
+    href: workspaceHref("agents"),
+    title: "Set trading limits",
     description:
-      "Set risk limits and let a backend worker paper trade while you’re away.",
-    Icon: Bot,
+      "Choose an agent’s virtual capital allocation, exposure limits, and maximum daily loss.",
+    Icon: SlidersHorizontal,
+  },
+  {
+    href: signInHref,
+    title: "Monitor your workspace",
+    description:
+      "See agent activity, portfolio equity, and market watch on the dashboard.",
+    Icon: LayoutDashboard,
+  },
+  {
+    href: workspaceHref("settings"),
+    title: "Manage your paper account",
+    description:
+      "Stop new simulated orders or reset virtual funds in Settings.",
+    Icon: ShieldCheck,
   },
 ] as const;
 
 const tools = [
   {
-    module: "strategies",
-    title: "Strategy library",
-    description: "Customize prebuilt strategies and compare saved versions.",
-    Icon: Library,
-  },
-  {
-    module: "paper",
-    title: "Paper trading",
+    title: "Markets and news",
     description:
-      "Place simulated orders and review fills, fees, and available funds.",
-    Icon: FlaskConical,
+      "Explore crypto prices, indicators, and AI insights. Follow recent coverage with publication dates and original sources.",
+    art: "krono-sapphire-markets.webp",
+    artHeight: 676,
+    primary: ["markets", "Explore markets"],
+    secondary: ["news", "Read crypto news"],
   },
   {
-    module: "portfolio",
-    title: "Portfolio",
+    title: "Paper orders and portfolio",
     description:
-      "Track holdings, equity, and profit or loss across your virtual account.",
-    Icon: Wallet,
-  },
-  {
-    module: "markets",
-    title: "Market analysis",
-    description: "Explore crypto prices, charts, indicators, and AI insights.",
-    Icon: Activity,
-  },
-  {
-    module: "news",
-    title: "Crypto news",
-    description:
-      "Follow recent headlines with publication dates and original sources.",
-    Icon: Newspaper,
-  },
-  {
-    module: "dashboard",
-    title: "Dashboard",
-    description:
-      "Check your virtual portfolio, agent activity, and market watch in one place.",
-    Icon: LayoutDashboard,
+      "Place orders with virtual USDT and review fills, holdings, fees, and profit or loss.",
+    art: "krono-sapphire-portfolio.webp",
+    artHeight: 614,
+    primary: ["paper", "Paper trading"],
+    secondary: ["portfolio", "View portfolio"],
   },
 ] as const;
 
@@ -131,78 +133,6 @@ export function LandingSectionLink({
   );
 }
 
-function LandingArt() {
-  const canvas = useRef<HTMLCanvasElement>(null);
-  const scene = useRef<ReturnType<typeof createLandingScene>>(null);
-  const [ready, setReady] = useState(false);
-  const [paused, setPaused] = useState(false);
-  const [visible, setVisible] = useState(true);
-  const [reduced, setReduced] = useState(
-    () => matchMedia("(prefers-reduced-motion: reduce)").matches,
-  );
-
-  useEffect(() => {
-    const preference = matchMedia("(prefers-reduced-motion: reduce)");
-    function update() {
-      setReduced(preference.matches);
-      if (preference.matches) scene.current?.setPaused(true);
-    }
-    preference.addEventListener("change", update);
-    return () => preference.removeEventListener("change", update);
-  }, []);
-
-  useEffect(() => {
-    const surface = canvas.current;
-    if (!surface) return;
-    let active = true;
-    const observer = new IntersectionObserver(([entry]) =>
-      setVisible(entry.isIntersecting),
-    );
-    observer.observe(surface);
-    void import("./LandingScene")
-      .then(({ createLandingScene: mount }) => {
-        if (active) scene.current = mount(surface, setReady);
-      })
-      .catch(() => {
-        if (active) setReady(false);
-      });
-    return () => {
-      active = false;
-      observer.disconnect();
-      scene.current?.destroy();
-      scene.current = null;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (ready) scene.current?.setPaused(paused || reduced || !visible);
-  }, [paused, ready, reduced, visible]);
-
-  return (
-    <div className="landing-art">
-      <div className="landing-scene" aria-hidden="true">
-        <canvas ref={canvas} data-ready={ready} />
-      </div>
-      {ready && !reduced && (
-        <button
-          className="landing-motion"
-          type="button"
-          aria-label={
-            paused ? "Play landing animation" : "Pause landing animation"
-          }
-          onClick={() => setPaused((value) => !value)}
-        >
-          {paused ? (
-            <Play size={16} aria-hidden />
-          ) : (
-            <Pause size={16} aria-hidden />
-          )}
-        </button>
-      )}
-    </div>
-  );
-}
-
 export function Landing({ section }: { section?: LandingSection }) {
   useEffect(() => {
     if (section) revealSection(section);
@@ -214,9 +144,6 @@ export function Landing({ section }: { section?: LandingSection }) {
       <section className="landing-hero" aria-labelledby="landing-title">
         <div className="landing-wrap landing-hero-grid">
           <div className="landing-copy">
-            <p className="landing-mode">
-              <ShieldCheck size={17} aria-hidden /> Paper trading workspace
-            </p>
             <h1 id="landing-title">
               Build and test <span>crypto strategies.</span>
             </h1>
@@ -235,8 +162,37 @@ export function Landing({ section }: { section?: LandingSection }) {
                 See how it works <ArrowDown size={16} aria-hidden />
               </LandingSectionLink>
             </div>
+            <nav
+              className="landing-hero-tools"
+              aria-label="Featured workspace tools"
+            >
+              <a href={workspaceHref("backtests")}>
+                <ChartNoAxesColumn size={20} aria-hidden />
+                <span>
+                  <strong>Backtesting Lab</strong>
+                  <small>Historical replay</small>
+                </span>
+                <ArrowUpRight size={14} aria-hidden />
+              </a>
+              <a href={workspaceHref("agents")}>
+                <Bot size={20} aria-hidden />
+                <span>
+                  <strong>AI Trading Agents</strong>
+                  <small>Paper execution</small>
+                </span>
+                <ArrowUpRight size={14} aria-hidden />
+              </a>
+            </nav>
           </div>
-          <LandingArt />
+          <div className="landing-art">
+            <img
+              src="/art/krono-sapphire-terminal.webp"
+              alt=""
+              width={1440}
+              height={810}
+              fetchPriority="high"
+            />
+          </div>
         </div>
       </section>
 
@@ -264,37 +220,72 @@ export function Landing({ section }: { section?: LandingSection }) {
         </div>
       </section>
 
+      {workflow.map(
+        ({ section, title, description, art, primary, secondary }) => (
+          <section
+            key={section}
+            className="landing-feature"
+            id={`landing-${section}`}
+            aria-labelledby={`landing-${section}-title`}
+            tabIndex={-1}
+          >
+            <div className="landing-wrap landing-feature-inner">
+              <div className="landing-feature-copy">
+                <h2 id={`landing-${section}-title`}>{title}</h2>
+                {description.map((line) => (
+                  <p key={line}>{line}</p>
+                ))}
+                <div className="landing-actions">
+                  <a className="button primary landing-cta" href={primary[0]}>
+                    {primary[1]} <ArrowUpRight size={18} aria-hidden />
+                  </a>
+                  <a className="landing-text-button" href={secondary[0]}>
+                    {secondary[1]} <ArrowUpRight size={16} aria-hidden />
+                  </a>
+                </div>
+              </div>
+              <div className="landing-feature-art">
+                <img
+                  src={`/art/${art}`}
+                  alt=""
+                  width={1200}
+                  height={800}
+                  loading="lazy"
+                />
+              </div>
+            </div>
+          </section>
+        ),
+      )}
+
       <section
-        className="landing-wrap landing-workflow"
-        id="landing-workflow"
-        aria-labelledby="landing-workflow-title"
-        tabIndex={-1}
+        className="landing-controls"
+        aria-labelledby="landing-controls-title"
       >
-        <div className="landing-research-art">
-          <img
-            src="/art/krono-sapphire-research.webp"
-            alt=""
-            width={1200}
-            height={800}
-            loading="lazy"
-          />
-        </div>
-        <div>
-          <h2 id="landing-workflow-title">From strategy to paper trading</h2>
-          <ol className="landing-workflow-list">
-            {workflow.map(({ module, title, description, Icon }) => (
-              <li key={module}>
-                <a href={workspaceHref(module)}>
-                  <Icon size={21} aria-hidden />
-                  <span>
-                    <strong>{title}</strong>
-                    <small>{description}</small>
+        <div className="landing-wrap">
+          <div className="landing-controls-intro">
+            <h2 id="landing-controls-title">Control how your strategy runs</h2>
+            <p>
+              Set the rules, check what your agents did, and manage your virtual
+              account in one workspace.
+            </p>
+          </div>
+          <ul className="landing-control-grid">
+            {controls.map(({ href, title, description, Icon }) => (
+              <li key={title}>
+                <a href={href}>
+                  <span className="landing-control-icons">
+                    <span>
+                      <Icon size={23} aria-hidden />
+                    </span>
+                    <ArrowUpRight size={17} aria-hidden />
                   </span>
-                  <ArrowUpRight size={16} aria-hidden />
+                  <h3>{title}</h3>
+                  <p>{description}</p>
                 </a>
               </li>
             ))}
-          </ol>
+          </ul>
         </div>
       </section>
 
@@ -306,26 +297,41 @@ export function Landing({ section }: { section?: LandingSection }) {
       >
         <div className="landing-wrap landing-tools-inner">
           <h2 id="landing-tools-title">Explore the workspace</h2>
-          <ul className="landing-tool-grid">
-            {tools.map(({ module, title, description, Icon }) => (
-              <li key={module}>
-                <a
-                  href={
-                    module === "dashboard" ? signInHref : workspaceHref(module)
-                  }
-                >
-                  <div className="landing-tool-icons">
-                    <span className="landing-tool-icon">
-                      <Icon size={24} aria-hidden />
-                    </span>
-                    <ArrowUpRight size={18} aria-hidden />
+          <div className="landing-tool-grid">
+            {tools.map(
+              ({ title, description, art, artHeight, primary, secondary }) => (
+                <article key={title} className="landing-tool-card">
+                  <div className="landing-tool-art">
+                    <img
+                      src={`/art/${art}`}
+                      alt=""
+                      width={1200}
+                      height={artHeight}
+                      loading="lazy"
+                    />
                   </div>
-                  <h3>{title}</h3>
-                  <p>{description}</p>
-                </a>
-              </li>
-            ))}
-          </ul>
+                  <div className="landing-tool-copy">
+                    <h3>{title}</h3>
+                    <p>{description}</p>
+                    <div className="landing-actions">
+                      <a
+                        className="button primary landing-cta"
+                        href={workspaceHref(primary[0])}
+                      >
+                        {primary[1]} <ArrowUpRight size={17} aria-hidden />
+                      </a>
+                      <a
+                        className="landing-text-button"
+                        href={workspaceHref(secondary[0])}
+                      >
+                        {secondary[1]} <ArrowUpRight size={16} aria-hidden />
+                      </a>
+                    </div>
+                  </div>
+                </article>
+              ),
+            )}
+          </div>
         </div>
       </section>
 
@@ -355,15 +361,32 @@ export function Landing({ section }: { section?: LandingSection }) {
           >
             <KronoMark /> Krono.
           </a>
-          <nav aria-label="Krono links">
-            <LandingSectionLink section="workflow">
-              How it works
-            </LandingSectionLink>
-            <LandingSectionLink section="tools">
-              Workspace tools
-            </LandingSectionLink>
-            <a href={workspaceHref("settings")}>Account settings</a>
-          </nav>
+          <div className="landing-footer-links">
+            <nav aria-label="Krono links">
+              <h3>Explore</h3>
+              <LandingSectionLink section="workflow">
+                How it works
+              </LandingSectionLink>
+              <LandingSectionLink section="agents">
+                AI agents
+              </LandingSectionLink>
+              <LandingSectionLink section="tools">
+                Workspace tools
+              </LandingSectionLink>
+            </nav>
+            <nav aria-label="Research tools">
+              <h3>Research</h3>
+              <a href={workspaceHref("strategies")}>Strategies</a>
+              <a href={workspaceHref("backtests")}>Backtesting Lab</a>
+              <a href={workspaceHref("markets")}>Market analysis</a>
+            </nav>
+            <nav aria-label="Account links">
+              <h3>Account</h3>
+              <a href={signInHref}>Sign in</a>
+              <a href={workspaceHref("portfolio")}>Portfolio</a>
+              <a href={workspaceHref("settings")}>Account settings</a>
+            </nav>
+          </div>
         </div>
       </footer>
     </div>
