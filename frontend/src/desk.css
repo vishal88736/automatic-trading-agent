@@ -1,17 +1,17 @@
 .trading-desk {
   --ticket-width: 330px;
   min-width: 0;
-  border: 1px solid #3e3948;
+  border: 1px solid var(--border);
   border-radius: 18px;
-  background: #1b1b1e;
+  background: var(--surface-inset);
   overflow: hidden;
   container: research-desk / inline-size;
 }
 .desk-ticker {
   display: flex;
   overflow: auto;
-  border-bottom: 1px solid #3b3644;
-  background: #25232a;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
 }
 .desk-ticker > button {
   display: flex;
@@ -23,12 +23,12 @@
   padding: 14px 20px;
   flex: 1;
   min-width: max-content;
-  border-right: 1px solid #3b3644;
+  border-right: 1px solid var(--border);
   font-size: 12px;
 }
 .desk-ticker small {
   font-size: 11px;
-  color: #b3a8c2;
+  color: var(--muted);
 }
 .desk-surface {
   display: grid;
@@ -36,8 +36,8 @@
   align-items: start;
 }
 .desk-watchlist {
-  border-right: 1px solid #3b3644;
-  background: #1e1d22;
+  border-right: 1px solid var(--border);
+  background: var(--surface-inset);
   min-width: 0;
 }
 .desk-panel-title {
@@ -49,14 +49,14 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  border-bottom: 1px solid #3b3644;
+  border-bottom: 1px solid var(--border);
 }
 .desk-search {
   display: flex;
   align-items: center;
   gap: 6px;
   margin: 12px;
-  background: #28252f;
+  background: var(--panel);
   padding: 7px;
   border-radius: 7px;
 }
@@ -80,8 +80,8 @@
   font-size: 12px;
 }
 .desk-watchlist > button.selected {
-  background: #332c41;
-  border-left-color: #c2a3ff;
+  background: var(--raised);
+  border-left-color: var(--accent-strong);
 }
 .desk-watchlist > button > span:first-child {
   display: flex;
@@ -95,7 +95,7 @@
 }
 .desk-market-notes {
   padding: 20px 12px;
-  color: #b7adca;
+  color: var(--muted);
   font-size: 12px;
   overflow-wrap: anywhere;
   line-height: 1.8;
@@ -129,7 +129,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 13px;
-  border-bottom: 1px solid #3b3644;
+  border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
   gap: 12px;
 }
@@ -154,7 +154,7 @@
   gap: 5px;
   flex-wrap: wrap;
   padding: 8px;
-  border-bottom: 1px solid #37323f;
+  border-bottom: 1px solid var(--border);
 }
 .desk-chart-tools button {
   font-size: 12px;
@@ -162,13 +162,13 @@
   min-height: 36px;
   border-radius: 6px;
   background: transparent;
-  color: #b8afc9;
+  color: var(--muted);
   border: 1px solid transparent;
 }
 .desk-chart-tools button.active {
-  color: #d2baff;
-  background: #393041;
-  border-color: #51425e;
+  color: var(--accent);
+  background: var(--raised);
+  border-color: var(--border);
 }
 .desk-chart-panel .candle-wrap {
   padding: 6px 0;
@@ -185,25 +185,25 @@
   justify-content: space-between;
   gap: 12px;
   padding: 9px 12px;
-  color: #b8aec6;
+  color: var(--muted);
   font-size: 12px;
   flex-wrap: wrap;
   line-height: 1.6;
-  border-bottom: 1px solid #3b3644;
+  border-bottom: 1px solid var(--border);
 }
 .desk-dock-tabs {
   display: flex;
   gap: 4px;
   padding: 10px 12px;
   flex-wrap: wrap;
-  border-bottom: 1px solid #3b3644;
+  border-bottom: 1px solid var(--border);
 }
 .desk-dock-tabs button {
   background: transparent;
   border: 0;
   border-radius: 8px 8px 0 0;
   font-size: 12px;
-  color: #afa5bd;
+  color: var(--muted);
   padding: 10px 12px;
   min-height: 40px;
   flex: 0 0 auto;
@@ -212,9 +212,9 @@
   border-bottom: 2px solid transparent;
 }
 .desk-dock-tabs button.active {
-  border-bottom-color: #c7a6ff;
-  color: #dcc7ff;
-  background: #393041;
+  border-bottom-color: var(--accent-strong);
+  color: var(--accent);
+  background: var(--raised);
 }
 .desk-dock-content {
   min-height: 180px;
@@ -249,14 +249,14 @@
   padding: 12px;
   border: 0;
   border-radius: 0;
-  border-bottom: 1px solid #35303c;
+  border-bottom: 1px solid var(--border);
   background: transparent;
   font-size: 12px;
   text-align: left;
 }
 .desk-activity-row small {
   font-size: 12px;
-  color: #afa5bd;
+  color: var(--muted);
 }
 .desk-activity-row strong {
   font-size: 12px;
@@ -278,9 +278,9 @@
   padding: 8px;
 }
 .desk-ticket {
-  border-left: 1px solid #3b3644;
+  border-left: 1px solid var(--border);
   min-width: 0;
-  background: #211f27;
+  background: var(--surface-inset);
 }
 .desk-ticket-form {
   padding: 16px;
@@ -294,16 +294,16 @@
   gap: 8px;
   font-size: 12px;
   min-width: 0;
-  color: #c9bdd7;
+  color: var(--accent);
 }
 .desk-ticket-form input,
 .desk-ticket-form select {
   font-size: 14px;
   border-radius: 9px;
   padding: 13px;
-  background: #17151d;
-  color: #fff;
-  border: 1px solid #51455f;
+  background: var(--surface-inset);
+  color: var(--text);
+  border: 1px solid var(--border);
   width: 100%;
 }
 .desk-ticket-form input {
@@ -314,7 +314,7 @@
 .desk-ticket-form p {
   font-size: 12px;
   line-height: 1.9;
-  color: #b5a9c4;
+  color: var(--muted);
   margin: 0;
 }
 .desk-ticket-form > button {
@@ -330,8 +330,8 @@
   flex: 1;
   font-size: 12px;
   padding: 6px;
-  background: #37303f;
-  border: 1px solid #51445e;
+  background: var(--raised);
+  border: 1px solid var(--border);
 }
 .desk-ticket-preview {
   padding: 0 8px;
@@ -385,7 +385,7 @@
 .desk-layout {
   margin: 18px;
   font-size: 12px;
-  color: #c4b5d4;
+  color: var(--accent);
 }
 .desk-layout summary {
   cursor: pointer;
@@ -398,16 +398,16 @@
 }
 .trading-desk:fullscreen {
   overflow: auto;
-  background: #1b1b1e;
+  background: var(--surface-inset);
   padding: 14px;
 }
 .chart-indicator-note {
   font-size: 12px;
   padding: 8px 12px;
-  color: #b7acca;
+  color: var(--muted);
 }
 .interactive-candles .candles:focus-visible {
-  outline: 2px solid #c6a7fc;
+  outline: 2px solid var(--accent-strong);
   outline-offset: -2px;
 }
 @container research-desk (max-width: 1050px) {
@@ -417,7 +417,7 @@
   .desk-ticket {
     grid-column: 1/-1;
     border-left: 0;
-    border-top: 1px solid #3b3644;
+    border-top: 1px solid var(--border);
   }
   .desk-ticket-form {
     display: grid;
@@ -493,16 +493,16 @@
   gap: 7px;
   min-height: 30px;
   padding: 7px 10px;
-  border: 1px solid #4d435b;
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background: #302a39;
-  color: #eee8f7;
+  background: var(--raised);
+  color: var(--text);
   font-size: 11px;
 }
 .trading-desk button.primary {
-  background: #bfa7f7;
-  border-color: #bfa7f7;
-  color: #20162c;
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+  color: var(--on-accent);
 }
 .trading-desk button:disabled {
   opacity: 0.5;

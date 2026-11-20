@@ -296,9 +296,9 @@
   height: 42px;
   padding: 0 18px;
   border-radius: 12px;
-  border-color: #c85d67;
-  background: #8a283340;
-  color: #ffb8bf;
+  border-color: var(--negative-border);
+  background: color-mix(in srgb, var(--negative-bg) 25%, transparent);
+  color: var(--negative);
 }
 .aegis-metrics {
   display: grid;

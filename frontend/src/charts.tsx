@@ -515,7 +515,7 @@ export function CandleChart({
           <polyline
             points={slowPoints}
             fill="none"
-            stroke="#81cbe6"
+            stroke="var(--info)"
             strokeWidth="1.4"
           />
         )}
@@ -537,7 +537,7 @@ export function CandleChart({
               level.kind === "stop"
                 ? "var(--negative)"
                 : level.kind === "entry"
-                  ? "#81cbe6"
+                  ? "var(--info)"
                   : "var(--muted)";
             return (
               <g key={level.id} className="chart-level" data-level={level.kind}>
@@ -727,7 +727,7 @@ export function CandleChart({
                 macdY,
               )}
               fill="none"
-              stroke="#81cbe6"
+              stroke="var(--info)"
               strokeWidth="1.4"
             />
           </g>

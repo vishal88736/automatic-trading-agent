@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "./api";
+import { ThemeToggle } from "./ThemeToggle";
 import { AegisDesk } from "./AegisDesk";
 import { AegisProvider, useAegis } from "./aegis/context";
 import { AegisChat, AegisConfirmations } from "./aegis/Chat";
@@ -841,6 +842,7 @@ function AppContent({
                     : "Connect wallet"}
                 </button>
               )}
+            <ThemeToggle />
             <button
               className="emergency-button"
               onClick={() =>

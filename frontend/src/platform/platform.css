@@ -26,7 +26,7 @@
   min-height: 690px;
   border: 1px solid var(--border);
   border-radius: 24px;
-  background: #1b1b1e;
+  background: var(--surface-inset);
   overflow: hidden;
 }
 .platform-grid > aside,
@@ -55,12 +55,12 @@
   height: 20px;
 }
 .platform-section-label b {
-  background: #35323f;
+  background: var(--raised);
   padding: 3px 6px;
   border-radius: 6px;
 }
 .platform-agent-rail {
-  background: #19191b;
+  background: var(--surface-inset);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -77,8 +77,8 @@
   border-radius: 12px !important;
 }
 .platform-agent-row.selected {
-  background: #2c2936 !important;
-  border-color: #6d5c9a !important;
+  background: var(--panel) !important;
+  border-color: var(--accent-border) !important;
 }
 .platform-agent-row strong,
 .platform-agent-row small,
@@ -91,32 +91,32 @@
 }
 .platform-agent-row small {
   font-size: 10px;
-  color: #b7b5bf;
+  color: var(--muted);
   margin: 5px 0;
 }
 .platform-agent-row em {
   font-size: 9px;
-  color: #c4b3ff;
+  color: var(--accent);
   letter-spacing: 0.8px;
 }
 .platform-agent-icon,
 .platform-lock {
   padding: 9px;
-  background: #34303f;
+  background: var(--raised);
   border-radius: 12px;
-  color: #c7b5ff;
+  color: var(--accent);
   height: 36px;
 }
 .platform-empty {
   padding: 30px 18px;
-  color: #b7b5bf;
+  color: var(--muted);
 }
 .platform-empty > svg {
-  color: #b8a4f5;
+  color: var(--accent);
   margin: 12px 0;
 }
 .platform-empty h3 {
-  color: #eeeaf7;
+  color: var(--text);
   font-size: 16px;
 }
 .platform-empty p {
@@ -127,12 +127,12 @@
   padding: 20px 14px;
   border-top: 1px solid var(--border);
   font-size: 11px;
-  color: #aaa7b3;
+  color: var(--muted);
 }
 .platform-conversation {
   display: flex;
   flex-direction: column;
-  background: #202023;
+  background: var(--surface-inset);
 }
 .platform-message-list {
   height: 590px;
@@ -149,8 +149,8 @@
   width: 50px;
   height: 50px;
   border-radius: 15px;
-  background: #39313f;
-  color: #c5b5ff;
+  background: var(--raised);
+  color: var(--accent);
   margin-bottom: 28px;
 }
 .platform-prompt-mark svg {
@@ -163,29 +163,29 @@
 }
 .platform-conversation-start p {
   line-height: 1.8;
-  color: #b9b5c4;
+  color: var(--muted);
   margin-bottom: 26px;
 }
 .platform-conversation-start > button {
   width: 100%;
   justify-content: space-between;
   text-align: left;
-  background: #29282e;
+  background: var(--panel);
   margin: 8px 0;
   padding: 14px;
   font-size: 12px;
-  border: 1px solid #3c3944;
+  border: 1px solid var(--border);
   line-height: 1.6;
 }
 .platform-message {
   padding: 15px;
   border-radius: 14px;
   margin-bottom: 16px;
-  background: #2b2930;
-  border: 1px solid #3b3745;
+  background: var(--panel);
+  border: 1px solid var(--border);
 }
 .platform-message.user {
-  background: #34303e;
+  background: var(--raised);
   margin-left: 28px;
 }
 .platform-message > p {
@@ -194,7 +194,7 @@
   overflow-wrap: anywhere;
 }
 .platform-message .eyebrow {
-  color: #bdacf3;
+  color: var(--accent);
   font-size: 9px;
 }
 .platform-tool-result {
@@ -208,10 +208,10 @@
   display: flex;
   gap: 6px;
   align-items: center;
-  color: #b4d4be;
+  color: var(--positive);
 }
 .platform-thinking {
-  color: #c5b5ff;
+  color: var(--accent);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -226,28 +226,28 @@
 }
 .platform-composer textarea {
   width: 100%;
-  background: #171719 !important;
-  border: 1px solid #44404d;
+  background: var(--surface-inset) !important;
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 13px;
   resize: vertical;
-  color: #f0ecf6;
+  color: var(--text);
 }
 .platform-composer small {
   grid-column: 1/-1;
   line-height: 1.6;
-  color: #aaa7b2;
+  color: var(--muted);
   font-size: 9px;
 }
 .platform-composer button {
   align-self: start;
-  background: #baa4f3 !important;
-  color: #17121f !important;
+  background: var(--accent-strong) !important;
+  color: var(--on-accent) !important;
 }
 .platform-inspector {
   border-left: 1px solid var(--border);
   padding: 0 16px 18px;
-  background: #1c1c1f;
+  background: var(--surface-inset);
 }
 .platform-inspector > .platform-section-label {
   margin: 0 -16px;
@@ -259,14 +259,14 @@
 }
 .platform-simulation {
   font-size: 8px;
-  background: #3d354d;
-  color: #d4c4ff;
+  background: var(--surface-hover);
+  color: var(--accent);
   padding: 5px 6px;
   border-radius: 5px;
 }
 .platform-runtime-state {
   padding: 13px;
-  background: #26242d;
+  background: var(--panel);
   border-radius: 10px;
   margin-bottom: 14px;
 }
@@ -275,12 +275,12 @@
   display: block;
 }
 .platform-runtime-state span {
-  color: #cbbbfa;
+  color: var(--accent);
   font-size: 11px;
   font-weight: 650;
 }
 .platform-runtime-state small {
-  color: #aaa6b4;
+  color: var(--muted);
   font-size: 10px;
   margin-top: 6px;
 }
@@ -305,15 +305,15 @@
   gap: 12px;
   justify-content: space-between;
   padding: 9px 0;
-  border-bottom: 1px solid #302e35;
+  border-bottom: 1px solid var(--border);
 }
 .platform-facts dt {
-  color: #aba6b6;
+  color: var(--muted);
 }
 .platform-facts dd {
   margin: 0;
   text-align: right;
-  color: #e5dff0;
+  color: var(--accent);
   max-width: 63%;
   overflow-wrap: anywhere;
 }
@@ -328,11 +328,11 @@
   border-radius: 7px;
   padding: 7px;
   background: transparent;
-  color: #b9b3c5;
+  color: var(--muted);
 }
 .platform-tabs button.active {
-  background: #3c344b;
-  color: #d4c4ff;
+  background: var(--surface-hover);
+  color: var(--accent);
 }
 .platform-event-list {
   max-height: 280px;
@@ -343,8 +343,8 @@
   font-size: 10px;
 }
 .platform-deployment-preview {
-  border: 1px solid #a28ccb;
-  background: #312b3d;
+  border: 1px solid var(--accent-strong);
+  background: var(--raised);
   border-radius: 14px;
   padding: 16px;
   margin-top: 20px;
@@ -365,9 +365,9 @@
   font-size: 10px;
 }
 .platform-error {
-  background: #3a242c;
-  border: 1px solid #784753;
-  color: #ffb6c2;
+  background: var(--negative-bg);
+  border: 1px solid var(--negative-border);
+  color: var(--negative);
   border-radius: 10px;
   padding: 12px;
   font-size: 12px;
@@ -381,21 +381,21 @@
 .platform-profile p {
   font-size: 11px;
   line-height: 1.7;
-  color: #b9b3c5;
+  color: var(--muted);
 }
 .platform-profile textarea {
   width: 100%;
   max-width: 100%;
   font-family: monospace;
   font-size: 10px;
-  background: #121214;
-  color: #e3d9f3;
+  background: var(--bg);
+  color: var(--accent);
   border-radius: 10px;
   padding: 12px;
 }
 .platform-delete {
   font-size: 10px;
-  color: #c5a0a9;
+  color: var(--negative);
   margin-top: 22px;
 }
 .platform-delete summary {
@@ -417,18 +417,18 @@
   justify-content: center;
   gap: 12px;
   min-height: 400px;
-  color: #c5b5ee;
+  color: var(--accent);
 }
 .platform-setup {
   padding: 55px;
   max-width: 850px;
   margin: 20px auto;
-  border: 1px solid #45404f;
+  border: 1px solid var(--border);
   border-radius: 24px;
-  background: #242128;
+  background: var(--panel);
 }
 .platform-setup > svg {
-  color: #b9a3f4;
+  color: var(--accent);
   margin-bottom: 25px;
 }
 .platform-setup .eyebrow {
@@ -439,15 +439,15 @@
   letter-spacing: -1px;
 }
 .platform-setup p {
-  color: #bdb6c9;
+  color: var(--muted);
   line-height: 1.9;
   max-width: 650px;
 }
 .platform-setup pre {
   padding: 20px;
-  background: #151419;
+  background: var(--surface-inset);
   border-radius: 12px;
-  color: #d1baff;
+  color: var(--accent);
   line-height: 2;
   overflow: auto;
   font-size: 12px;
@@ -455,27 +455,27 @@
 .platform-auth {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  border: 1px solid #3c3744;
+  border: 1px solid var(--border);
   border-radius: 28px;
   overflow: hidden;
   max-width: 1040px;
   margin: 30px auto;
-  background: #222125;
+  background: var(--surface-inset);
 }
 .platform-auth-story {
   padding: 60px 48px;
-  background: #292532;
+  background: var(--panel);
 }
 .platform-auth-story > svg {
   width: 48px;
   height: 48px;
-  color: #bda3ff;
+  color: var(--accent);
   margin-bottom: 45px;
 }
 .platform-auth-story .eyebrow {
   display: block;
   font-size: 9px;
-  color: #bfb1d2;
+  color: var(--accent);
 }
 .platform-auth-story h2 {
   font-size: 48px;
@@ -483,11 +483,11 @@
   line-height: 1.14;
 }
 .platform-auth-story h2 em {
-  color: #c2a8ff;
+  color: var(--accent);
   font-style: normal;
 }
 .platform-auth-story p {
-  color: #bcb3c9;
+  color: var(--muted);
   line-height: 1.9;
   font-size: 12px;
 }
@@ -496,7 +496,7 @@
   flex-direction: column;
   gap: 18px;
   margin-top: 35px;
-  color: #cec2dd;
+  color: var(--accent);
   font-size: 11px;
 }
 .platform-assurances span {
@@ -529,13 +529,13 @@
 .platform-auth input {
   padding: 12px;
   border-radius: 9px;
-  border: 1px solid #4e465d;
-  background: #19171e;
-  color: #fff;
+  border: 1px solid var(--border);
+  background: var(--surface-inset);
+  color: var(--text);
 }
 .platform-auth small {
   font-size: 9px;
-  color: #a59bb3;
+  color: var(--subtle);
   line-height: 1.8;
 }
 .platform-auth-links {
@@ -547,7 +547,7 @@
   font-size: 10px;
   background: transparent;
   padding: 0;
-  color: #c4b0ed;
+  color: var(--accent);
 }
 .platform-lock {
   width: 42px;
@@ -557,7 +557,7 @@
 }
 .platform-grid button:focus-visible,
 .platform-auth button:focus-visible {
-  outline: 2px solid #d8c4ff;
+  outline: 2px solid var(--accent-strong);
   outline-offset: 3px;
 }
 @media (min-width: 1700px) {
@@ -641,10 +641,10 @@
   gap: 8px;
   min-height: 34px;
   padding: 8px 12px;
-  border: 1px solid #4d435b;
+  border: 1px solid var(--border);
   border-radius: 9px;
-  background: #302a39;
-  color: #eee8f7;
+  background: var(--raised);
+  color: var(--text);
   font-size: 11px;
   font-weight: 550;
   transition:
@@ -654,14 +654,14 @@
 .platform-workspace button.primary,
 .platform-auth button.primary,
 .platform-setup button.primary {
-  background: #bfa7f7;
-  border-color: #bfa7f7;
-  color: #20162c;
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+  color: var(--on-accent);
 }
 .platform-workspace button:hover:not(:disabled),
 .platform-auth button:hover:not(:disabled),
 .platform-setup button:hover:not(:disabled) {
-  border-color: #bca0ec;
+  border-color: var(--accent-strong);
   filter: brightness(1.08);
 }
 .platform-workspace button:disabled,
@@ -676,16 +676,16 @@
   background: transparent;
   border: 0;
   padding: 0;
-  color: #c4b0ed;
+  color: var(--accent);
 }
 .platform-usage select {
   max-width: 100%;
   margin-top: 8px;
 }
 .platform-delete button {
-  border-color: #875663;
-  color: #ffbfcc;
-  background: #3b2730;
+  border-color: var(--border-strong);
+  color: var(--negative);
+  background: var(--raised);
 }
 
 .platform-product-nav,
