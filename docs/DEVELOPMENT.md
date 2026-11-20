@@ -2,22 +2,24 @@
 
 ## Run the app
 
-Use `make setup && make demo` from the repository root. The development script starts FastAPI on 8787 and Vite on 5173, both bound to loopback. The root page is the original Command center; `/#/aegis` opens HSKSwap. Backend edits require a process restart. Use a single backend worker. The sidebar has six core destinations; wallet, history, news, verifier and cloud tools are available under **Settings → More tools and setup** or workspace search.
-
-To serve the built frontend from FastAPI alone:
+Use `make setup`, then `uv sync --frozen --extra platform`. Run PostgreSQL, the private product API, and the independent worker using the [container topology](#container-topology-and-recovery). Run the [authenticated gateway](#authenticated-product-api) separately with your Cognito configuration and the same private API signing key. Then run the frontend:
 
 ```bash
-npm run build
-.venv/bin/python -m uvicorn backend.api:app --host 127.0.0.1 --port 8787
+make demo
 ```
 
-For that command with optional `.env` values loaded, use `UV_CACHE_DIR="$PWD/.cache/uv" uv run --frozen --no-sync --env-file .env python -m uvicorn backend.api:app --host 127.0.0.1 --port 8787`.
+Open [Krono](http://127.0.0.1:5173/). The Vite development proxy sends `/platform/*` to the Fastify gateway on port 8790 by default. Use `KRONO_PLATFORM_URL` for a different local gateway origin. In production, serve the built frontend and delegate `/platform/*` to the same-origin gateway. Browser sessions do not own agent processes.
 
 ## Code map
 
 | Location                                | Responsibility                                              |
 | --------------------------------------- | ----------------------------------------------------------- |
-| `frontend/src/App.tsx`                  | Existing shell, navigation and execution contexts           |
+| `frontend/src/platform/Workspace.tsx`   | Unified authenticated shell, routing, and account provision |
+| `frontend/src/platform/`                | Product modules using one tenant gateway                    |
+| `backend/platform_product_api.py`       | Private authenticated product endpoints                     |
+| `backend/paper_execution.py`            | Shared PostgreSQL order gate and portfolio accounting       |
+| `backend/paper_worker.py`               | Durable leases, activation, periodic replay and order loop  |
+| `frontend/src/App.tsx`                  | Historical UI for development regression fixtures           |
 | `frontend/src/aegis/`                   | Shared state, conversation, market analysis and route types |
 | `backend/api.py`                        | Authenticated local HTTP boundary                           |
 | `backend/aegis_bridge.py`               | Original strategy rules/selector to typed HSKSwap inputs    |
@@ -28,7 +30,7 @@ For that command with optional `.env` values loaded, use `UV_CACHE_DIR="$PWD/.ca
 | `agent/aegis/execution/`                | Paper gateway and separate guarded signing/reconciliation   |
 | `agent/aegis/nl/`                       | Validated tools, optional Claude and Telegram               |
 | `contracts/`                            | Vault/oracle/log, tests and deployment recorder             |
-| `backend/src/`, `infra/`, `deploy/aws/` | Optional AWS tenant control plane                           |
+| `backend/src/`, `infra/`, `deploy/aws/` | Cognito gateway, model access, and retained AWS tooling     |
 | `tradingagents/`, `webui/`, `cli/`      | Retained framework and legacy compatibility                 |
 
 [Generated source reference](SOURCE_REFERENCE.md) indexes actual API routes and symbols. Regenerate it with `.venv/bin/python -m scripts.generate_code_reference`; CI checks it with `--check`.
@@ -77,7 +79,7 @@ This optional install downloads the legacy dependency set. Review provider compa
 
 ## Tenant PostgreSQL foundation
 
-The platform schema lives in `migrations/versions/`. It applies to a dedicated PostgreSQL database and uses verified Cognito subject UUIDs for ownership. The existing local launcher continues to use its current SQLite stores. The PostgreSQL account repository is ready for the authenticated product API to call after identity verification. An opening credit defaults to 10,000 virtual USDT and can be specified by the server when provisioning a new account.
+The platform schema lives in `migrations/versions/`. It applies to a dedicated PostgreSQL database and uses verified Cognito subject UUIDs for ownership. The unified product provisions the paper account once after identity verification. SQLite files remain available for historical tools. An opening credit defaults to 10,000 virtual USDT and can be specified by the server when provisioning a new account.
 
 Install the optional driver and run the migration as a release step. Set `KRONO_DATABASE_DSN` in the shell from your local configuration or deployment secret.
 
@@ -114,9 +116,9 @@ Set the same key and `KRONO_PRODUCT_API_URL=http://127.0.0.1:8794` in the Fastif
 
 Create a saved-strategy replay with `POST /platform/custom-strategies/{id}/backtests`. Send the specific strategy `version`, UTC-hour-aligned ISO timestamps `start` and `end`, and optional capital, fee, slippage, holdout, and risk assumptions. The API supports 80 hours to 14 days of selected BTC/USD, ETH/USD or SOL/USD hourly history from Coinbase Exchange and retrieves 81 additional closed hours for indicator warm-up. Missing hours reject the run. [Coinbase Exchange candles](https://docs.cdp.coinbase.com/api-reference/exchange-api/rest-api/products/get-product-candles)
 
-Retrieve the saved report with `GET /platform/backtests/{id}` and add `?include_dataset=true` to export the exact normalized market snapshot. The report pins the strategy version, replay version, candle digest, input assumptions, in-sample and holdout results, fills, equity and drawdown. Protection triggers use a documented hourly OHLC assumption. Paper order execution is a later integration step.
+Retrieve the saved report with `GET /platform/backtests/{id}` and add `?include_dataset=true` to export the exact normalized market snapshot. The report pins the strategy version, replay version, candle digest, input assumptions, in-sample and holdout results, fills, equity and drawdown. Protection triggers use a documented hourly OHLC assumption. The worker requires an eligible pinned replay before paper trading.
 
-With the gateway configured, sign in and open **Strategies**, **Backtesting Lab**, or **Paper Trading** from the Agent Platform workspace. Strategies supports JSON editing, copies, revision comparison and archiving. Backtesting Lab takes a saved version and a range of four to fourteen complete UTC days. Its persisted report shows in-sample and holdout metrics, charts, fills, assumptions, and the dataset digest. Paper Trading displays the backend balance after opening a virtual account.
+With the gateway configured, sign in and open **Strategies**, **Backtesting Lab**, or **Paper Trading** from the unified workspace. Strategies supports JSON editing, copies, revision comparison and archiving. Backtesting Lab takes a saved version and a range of four to fourteen complete UTC days. Its persisted report shows in-sample and holdout metrics, charts, fills, assumptions, and the dataset digest. Paper Trading displays the backend balance after automatic account provisioning.
 
 The isolated browser test uses the same PostgreSQL-backed service with fixture identities. For reproducible candle inputs, run the test-only `e2e.product_api:application` Uvicorn factory with `TERMINAL_TEST_RUN=1` against a migrated disposable database. Set `KRONO_E2E_PRODUCT_API_URL` and `KRONO_E2E_PRODUCT_API_KEY` in the shell to match the private API, and run:
 
@@ -134,11 +136,13 @@ The order API accepts market orders and quantity-based limit orders with an epoc
 
 Run `.venv/bin/python -m backend.paper_worker` as a separate process with the same `KRONO_DATABASE_DSN` as the private product API. PostgreSQL stores each agent's next evaluation time, lease, checkpoint and decision timeline. The worker claims due agents with row locks, fences expired claims, and commits each order, decision and checkpoint together. The same process checks pending manual limit orders every 15 seconds when due.
 
-Open a saved report in Backtesting Lab, choose **Use report for a paper agent**, and set the allocation and schedule. Activation checks the pinned strategy and holdout report before the agent can submit a simulated order. Agents evaluate strategy rules on each newly closed hourly candle and evaluate protective exits against fresh ticker observations. The browser polls the backend for display. Closing it or restarting the API does not affect scheduled jobs. Pause, stop and account reset invalidate any outstanding claim. Pause and stop leave existing positions in the ledger, and reset closes the account epoch.
+Choose a saved strategy in **AI Trading Agents** or use an existing report from **Backtesting Lab**. When starting from a saved version, the worker records a reproducible seven-day replay before activation. The same holdout and risk validation applies to both paths. Every seven days it checks the same version against a fresh, non-overlapping evaluation window and records the new report. A failed validation stops autonomous orders and leaves any position available for operator review and close. Agents evaluate strategy rules on each newly closed hourly candle and evaluate protective exits against fresh ticker observations. The browser polls the backend for display. Closing it or restarting the API does not affect scheduled jobs. Pause, stop and account reset invalidate any outstanding claim. Pause and stop leave existing positions in the ledger, and reset closes the account epoch.
 
 The restarted worker resumes from the existing checkpoint. An interrupted claim can take up to 60 seconds to expire. Source failures retry with bounded exponential delay. Stopped and failed agents retain their order and decision history. Validate process recovery with `e2e/paper-autonomy.spec.ts` against a disposable database. The test launches and restarts its own product API and accelerated worker when `KRONO_E2E_AUTONOMY=1`, using the existing product API key and URL test settings.
 
-Open **Strategies** to choose a structured JSON editor, visual rule builder, or a natural-language draft. Templates, manual edits and model drafts use the same hourly strategy schema. Model generation uses one request to the control plane's configured model provider and returns a validated preview. Saving and backtesting the draft are separate user actions. The model call has no order or account tools.
+Open **Custom Strategy Builder** to choose a structured JSON editor, visual rule builder, or a natural-language draft. Templates, manual edits and model drafts use the same hourly strategy schema. Model generation uses one request to the control plane's configured model provider and returns a validated preview. Saving and backtesting the draft are separate user actions. The model call has no order or account tools.
+
+**Market Analysis and AI Insights** can request an interpretation of current, source-tagged observations. Model output is labeled, has no trading tools, and is unavailable when validated market evidence is unavailable.
 
 ### Container topology and recovery
 
@@ -150,7 +154,7 @@ Copy `deploy/paper/.env.example` to `deploy/paper/.env`, fill each secret with a
 docker compose --env-file deploy/paper/.env -f deploy/paper/compose.yaml up -d --build
 ```
 
-For local development, point the existing Fastify process at `KRONO_PRODUCT_API_URL=http://127.0.0.1:8794` with the same `KRONO_PRODUCT_API_KEY`. Use the existing frontend startup. In a hosted environment, route `/platform/*` through the authenticated Fastify gateway and serve the product API at a private HTTPS origin. API instances and workers need the same migrated PostgreSQL database and workers need network access to Coinbase Exchange.
+For local development, point the existing Fastify process at `KRONO_PRODUCT_API_URL=http://127.0.0.1:8794` with the same `KRONO_PRODUCT_API_KEY`. Use the existing frontend startup. In a hosted environment, route `/platform/*` through the authenticated Fastify gateway and serve the product API at a private HTTPS origin. API instances and workers need the same migrated PostgreSQL database and workers need network access to Coinbase Exchange. Before enabling strategy-based starts, stop the old paper worker, apply migration `0008`, and start the upgraded worker and API. Durable agents resume from their existing leases and checkpoints.
 
 `/healthz` checks product database readiness. The worker health command checks the most recent worker heartbeat in PostgreSQL. For a failed process, inspect the Compose logs, restart only the unhealthy service and wait for the worker lease to expire if it was interrupted. A worker unavailable for 30 seconds loses its healthy signal. Use PostgreSQL backups to protect durable state. Recovery from service restarts relies on persistence of the database volume.
 

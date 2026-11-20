@@ -401,8 +401,14 @@ def create_product_api(
         return {"market": market, "indicators": technical}
 
     @app.get("/platform/paper-news")
-    async def paper_news(request: Request, subject: Principal, asset: Asset | None = None):
-        feed = await request.app.state.feeds.news()
+    async def paper_news(
+        request: Request,
+        subject: Principal,
+        asset: Asset | None = None,
+        breaking: bool = False,
+        refresh: bool = False,
+    ):
+        feed = await request.app.state.feeds.news(breaking=breaking, refresh=refresh)
         if asset is not None:
             return feed.model_copy(
                 update={

@@ -1,5 +1,7 @@
 # Connected AEGIS paper flow
 
+> Historical operator and regression reference. Krono's website uses the authenticated PostgreSQL workspace described in the [consolidation map](CONSOLIDATION.md). The former browser URLs below document the isolated legacy fixture.
+
 AEGIS is available inside the existing Krono React application at `/#/aegis`; the root `/` retains the original home page and coin artwork. Its desk, markets, positions, executions, strategy, risk, wallet and settings routes share one frontend state provider; the existing interface and original research strategies are retained. This page reads an authenticated FastAPI service backed by the actual AEGIS ledger and connector. Its strategy uses live mainnet pool data and virtual balances and cannot sign public swaps. The separate owner panel prepares reviewed transactions for signing in the device wallet after a verified deployment is registered. Existing Krono simulation and AWS tenant agents remain separate runtimes and ledgers.
 
 ## Start and inspect
@@ -49,13 +51,13 @@ The local natural-language control plane defaults to an explicitly labeled deter
 
 Every change is versioned, audited and applied from the next market check; the single runtime thread never applies one in the middle of a fill.
 
-| Change | Effect on open positions |
-| --- | --- |
-| Position size, sizing mode, regime scaling, frequency, risk appetite | New entries only. A smaller size can trim open positions down to it, if the human chooses so in the preview. |
-| Stop-loss, take-profit, trailing stop, holding time | The preview shows which positions would close at once. The human chooses: apply to open positions too, or new entries only (open positions keep their rules, shown as frozen). |
-| Removing a held asset from the targets | The human chooses: close it now through the bounded exit path, or keep it until its stops or targets. |
-| Deactivating a strategy | Its open positions keep their own exits. |
-| Library strategy parameters or the selector | Any in-flight library snapshot is invalidated; the next check uses the new configuration. Open positions keep the ATR stop set at entry. |
+| Change                                                               | Effect on open positions                                                                                                                                                       |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Position size, sizing mode, regime scaling, frequency, risk appetite | New entries only. A smaller size can trim open positions down to it, if the human chooses so in the preview.                                                                   |
+| Stop-loss, take-profit, trailing stop, holding time                  | The preview shows which positions would close at once. The human chooses: apply to open positions too, or new entries only (open positions keep their rules, shown as frozen). |
+| Removing a held asset from the targets                               | The human chooses: close it now through the bounded exit path, or keep it until its stops or targets.                                                                          |
+| Deactivating a strategy                                              | Its open positions keep their own exits.                                                                                                                                       |
+| Library strategy parameters or the selector                          | Any in-flight library snapshot is invalidated; the next check uses the new configuration. Open positions keep the ATR stop set at entry.                                       |
 
 A change with no effect on open positions applies at once; otherwise it returns a one-use preview that expires after two minutes and is bound to the settings version and holdings. Chat and LLM tools receive the preview; only a human confirmation applies it. Saving identical settings keeps the version. Settings history keeps the last twenty versions for restore.
 
@@ -67,20 +69,20 @@ The research **Risk** workspace limits govern the research simulation ledger onl
 
 ## HTTP boundary
 
-| Method | Route                      | Behavior                                                                  |
-| ------ | -------------------------- | ------------------------------------------------------------------------- |
-| GET    | `/api/aegis/state`         | Cached mode, freshness, positions, P&L, policy, fills and local decisions |
-| POST   | `/api/aegis/check`         | One verified market observation and eligible strategy/stop evaluation     |
-| PUT    | `/api/aegis/settings`      | Validated patch with `expected_version`; applied at once unless open positions are affected, then a one-use preview |
-| POST   | `/api/aegis/settings/confirm` | Human confirmation of a settings preview: exit scope, close removed assets, trim to size |
-| POST   | `/api/aegis/settings/rollback` | Restore a recorded settings version through the same preview rules     |
-| GET/PUT | `/api/selection`          | Versioned strategy-selector settings; saving invalidates library snapshots |
-| POST   | `/api/aegis/control`       | Explicit paper controls and close confirmation                            |
-| POST   | `/api/aegis/chat`          | Shared validated language tools                                           |
-| GET    | `/api/aegis/vault`         | Chain-specific public deployment metadata                                 |
-| POST   | `/api/aegis/vault/prepare` | Allowlisted unsigned owner operations, never server signing               |
-| POST   | `/api/aegis/vault/receipt` | Match approved operation and canonical confirmed receipt                  |
-| POST   | `/api/aegis/verify`        | Exact-byte public reveal and commitment verifier                          |
+| Method  | Route                          | Behavior                                                                                                            |
+| ------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| GET     | `/api/aegis/state`             | Cached mode, freshness, positions, P&L, policy, fills and local decisions                                           |
+| POST    | `/api/aegis/check`             | One verified market observation and eligible strategy/stop evaluation                                               |
+| PUT     | `/api/aegis/settings`          | Validated patch with `expected_version`; applied at once unless open positions are affected, then a one-use preview |
+| POST    | `/api/aegis/settings/confirm`  | Human confirmation of a settings preview: exit scope, close removed assets, trim to size                            |
+| POST    | `/api/aegis/settings/rollback` | Restore a recorded settings version through the same preview rules                                                  |
+| GET/PUT | `/api/selection`               | Versioned strategy-selector settings; saving invalidates library snapshots                                          |
+| POST    | `/api/aegis/control`           | Explicit paper controls and close confirmation                                                                      |
+| POST    | `/api/aegis/chat`              | Shared validated language tools                                                                                     |
+| GET     | `/api/aegis/vault`             | Chain-specific public deployment metadata                                                                           |
+| POST    | `/api/aegis/vault/prepare`     | Allowlisted unsigned owner operations, never server signing                                                         |
+| POST    | `/api/aegis/vault/receipt`     | Match approved operation and canonical confirmed receipt                                                            |
+| POST    | `/api/aegis/verify`            | Exact-byte public reveal and commitment verifier                                                                    |
 
 All routes use the existing session/CSRF or bearer boundary. The terminal-wide emergency stop also latches AEGIS. Browser-test connector injection is restricted to an explicit isolated test application; normal startup never selects fixtures for AEGIS.
 

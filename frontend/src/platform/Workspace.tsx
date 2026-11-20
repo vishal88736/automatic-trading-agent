@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react";
-import { ArrowRight, LogOut, ShieldCheck } from "lucide-react";
+import { ArrowRight, LogOut, Menu, ShieldCheck } from "lucide-react";
 import { KronoMark } from "../brand";
 import { HomeOrbit } from "../HomeOrbit";
 import { ThemeToggle } from "../ThemeToggle";
@@ -31,11 +31,26 @@ function DashboardAgents() {
   const [error, setError] = useState(false);
   useEffect(() => {
     let mounted = true;
-    platform<NonNullable<typeof summary>>("/paper-agents")
-      .then((result) => mounted && setSummary(result))
-      .catch(() => mounted && setError(true));
+    async function refresh() {
+      try {
+        const next =
+          await platform<NonNullable<typeof summary>>("/paper-agents");
+        if (mounted) {
+          setSummary(next);
+          setError(false);
+        }
+      } catch {
+        if (mounted) {
+          setSummary(undefined);
+          setError(true);
+        }
+      }
+    }
+    void refresh();
+    const interval = setInterval(() => void refresh(), 10000);
     return () => {
       mounted = false;
+      clearInterval(interval);
     };
   }, []);
   return (
@@ -76,6 +91,7 @@ export function Workspace() {
   const [accountError, setAccountError] = useState("");
   const [accountReady, setAccountReady] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     function sync() {
@@ -83,6 +99,7 @@ export function Workspace() {
       if (location.hash !== next.href)
         history.replaceState(null, "", next.href);
       setRoute(next);
+      setMenuOpen(false);
     }
     sync();
     window.addEventListener("hashchange", sync);
@@ -143,6 +160,17 @@ export function Workspace() {
     <div className="app-shell rail-shell unified-workspace">
       <div className="workspace">
         <header className="topbar">
+          {session && (
+            <button
+              className="unified-nav-toggle"
+              aria-label="Toggle navigation"
+              aria-expanded={menuOpen}
+              aria-controls="unified-nav"
+              onClick={() => setMenuOpen(!menuOpen)}
+            >
+              <Menu size={17} />
+            </button>
+          )}
           <a
             className="mobile-brand"
             href={workspaceHref("dashboard")}
@@ -159,21 +187,28 @@ export function Workspace() {
             {session && (
               <button
                 className="button secondary sign-out"
+                aria-label="Sign out"
                 disabled={signingOut}
                 onClick={() => void signOut()}
               >
-                <LogOut size={15} /> Sign out
+                <LogOut size={15} /> <span>Sign out</span>
               </button>
             )}
           </div>
         </header>
         {session && (
-          <nav className="unified-nav" aria-label="Main navigation">
+          <nav
+            id="unified-nav"
+            className="unified-nav"
+            aria-label="Main navigation"
+            data-expanded={menuOpen}
+          >
             {modules.map(([id, label]) => (
               <a
                 key={id}
                 href={workspaceHref(id)}
                 aria-current={page === id ? "page" : undefined}
+                onClick={() => setMenuOpen(false)}
               >
                 {label}
               </a>

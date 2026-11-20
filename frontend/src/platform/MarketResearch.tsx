@@ -27,17 +27,26 @@ interface Feed {
   status: string;
   retrieved_at: string;
   error?: string;
+  limitation?: string;
 }
 
 function News() {
   const [feed, setFeed] = useState<Feed>();
   const [asset, setAsset] = useState("");
+  const [view, setView] = useState("latest");
+  const [query, setQuery] = useState("");
   const [error, setError] = useState("");
+  const [refresh, setRefresh] = useState(0);
+
   useEffect(() => {
     let active = true;
+    const params = new URLSearchParams();
+    if (asset) params.set("asset", asset);
+    if (view === "breaking") params.set("breaking", "true");
+    if (refresh) params.set("refresh", "true");
     setFeed(undefined);
     setError("");
-    platform<Feed>("/paper-news" + (asset ? `?asset=${asset}` : ""))
+    platform<Feed>(params.size ? `/paper-news?${params}` : "/paper-news")
       .then((value) => {
         if (active) setFeed(value);
       })
@@ -47,21 +56,63 @@ function News() {
     return () => {
       active = false;
     };
-  }, [asset]);
+  }, [asset, view, refresh]);
+  const articles = feed?.articles.filter((item) =>
+    `${item.title} ${item.publisher}`
+      .toLowerCase()
+      .includes(query.trim().toLowerCase()),
+  );
   return (
     <section className="platform-product-panel">
-      <h3>Latest crypto news</h3>
-      <label htmlFor="paper-news-asset">Filter by cryptocurrency</label>
-      <select
-        id="paper-news-asset"
-        value={asset}
-        onChange={(event) => setAsset(event.target.value)}
+      <h3>
+        {view === "latest" ? "Latest crypto news" : "Breaking crypto news"}
+      </h3>
+      <div className="platform-backtest-fields">
+        <label>
+          News feed
+          <select
+            value={view}
+            onChange={(event) => {
+              setRefresh(0);
+              setView(event.target.value);
+            }}
+          >
+            <option value="latest">Latest</option>
+            <option value="breaking">Breaking</option>
+          </select>
+        </label>
+        <label>
+          Search headlines
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </label>
+        <div>
+          <label htmlFor="paper-news-asset">Filter by cryptocurrency</label>
+          <select
+            id="paper-news-asset"
+            value={asset}
+            onChange={(event) => {
+              setRefresh(0);
+              setAsset(event.target.value);
+            }}
+          >
+            <option value="">All assets</option>
+            {Object.keys(assets).map((symbol) => (
+              <option key={symbol}>{symbol}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <button
+        type="button"
+        disabled={!feed && !error}
+        onClick={() => setRefresh((value) => value + 1)}
       >
-        <option value="">All assets</option>
-        {Object.keys(assets).map((symbol) => (
-          <option key={symbol}>{symbol}</option>
-        ))}
-      </select>
+        Refresh news
+      </button>
       {error && <p role="alert">{error}</p>}
       {!feed && !error && <p role="status">Loading news…</p>}
       {feed && (
@@ -71,9 +122,10 @@ function News() {
             {timestamp(feed.retrieved_at)}
           </p>
           {feed.error && <p role="status">{feed.error}</p>}
-          {feed.articles.length ? (
+          {feed.limitation && <p>{feed.limitation}</p>}
+          {articles?.length ? (
             <ul>
-              {feed.articles.map((article) => (
+              {articles.map((article) => (
                 <li key={article.id}>
                   <a href={article.url} target="_blank" rel="noreferrer">
                     {article.title}

@@ -105,3 +105,24 @@ test("DynamoDB capacity/validation failures are not mislabeled as stale configur
     );
   }
 });
+
+test("The production gateway routes only the unified product and identity surface", async () => {
+  const { app } = createPlatform({ ...config, NODE_ENV: "production" });
+  try {
+    await app.ready();
+    for (const url of [
+      "/platform/agents",
+      "/platform/conversations",
+      "/platform/emergency-stop",
+    ]) {
+      assert.equal(app.hasRoute({ method: "POST", url }), false);
+    }
+    assert.equal(
+      (await app.inject("/platform/health")).json().liveEnabled,
+      false,
+    );
+    assert.equal((await app.inject("/platform/paper-account")).statusCode, 401);
+  } finally {
+    await app.close();
+  }
+});

@@ -566,3 +566,30 @@
     grid-template-columns: 1fr;
   }
 }
+
+.unified-nav-toggle {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .unified-nav-toggle {
+    display: inline-grid;
+    flex: none;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    color: var(--text);
+    background: var(--raised);
+    border: 1px solid var(--border-strong);
+    border-radius: 50%;
+  }
+
+  .unified-nav[data-expanded="false"] {
+    display: none;
+  }
+
+  .unified-workspace .topbar .sign-out span {
+    display: none;
+  }
+}

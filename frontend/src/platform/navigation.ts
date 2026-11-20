@@ -28,6 +28,7 @@ const historicalRoutes: Record<string, Module> = {
   "platform/news": "news",
   overview: "dashboard",
   positions: "portfolio",
+  wallet: "portfolio",
   desk: "paper",
   executions: "paper",
   observatory: "agents",

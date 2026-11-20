@@ -72,34 +72,34 @@ Cognito access-token identity and tenant-aware repositories protect application 
 
 - `GET /platform/health` → [server.ts:253](../backend/src/server.ts#L253)
 - `GET /platform/ready` → [server.ts:265](../backend/src/server.ts#L265)
-- `GET /platform/emergency` → [server.ts:269](../backend/src/server.ts#L269)
-- `POST /platform/emergency-stop` → [server.ts:277](../backend/src/server.ts#L277)
-- `POST /platform/emergency-clear` → [server.ts:280](../backend/src/server.ts#L280)
-- `GET /platform/profile` → [server.ts:320](../backend/src/server.ts#L320)
-- `POST /platform/profile/preview` → [server.ts:322](../backend/src/server.ts#L322)
-- `GET /platform/agents` → [server.ts:339](../backend/src/server.ts#L339)
-- `GET /platform/portfolio` → [server.ts:343](../backend/src/server.ts#L343)
-- `POST /platform/agents` → [server.ts:344](../backend/src/server.ts#L344)
-- `GET /platform/agent-templates` → [server.ts:345](../backend/src/server.ts#L345)
-- `POST /platform/agent-templates/:id/instantiate` → [server.ts:348](../backend/src/server.ts#L348)
-- `GET /platform/agents/:id` → [server.ts:356](../backend/src/server.ts#L356)
-- `GET /platform/agents/:id/preview` → [server.ts:359](../backend/src/server.ts#L359)
-- `POST /platform/agents/:id/deploy` → [server.ts:362](../backend/src/server.ts#L362)
-- `POST /platform/agents/:id/configuration/preview` → [server.ts:365](../backend/src/server.ts#L365)
-- `POST /platform/agents/:id/rollback/preview` → [server.ts:387](../backend/src/server.ts#L387)
-- `POST /platform/agents/:id/control` → [server.ts:409](../backend/src/server.ts#L409)
-- `GET /platform/agents/:id/events` → [server.ts:433](../backend/src/server.ts#L433)
-- `GET /platform/agents/:id/logs` → [server.ts:438](../backend/src/server.ts#L438)
-- `GET /platform/agents/:id/metrics` → [server.ts:443](../backend/src/server.ts#L443)
-- `GET /platform/agents/:id/versions` → [server.ts:452](../backend/src/server.ts#L452)
-- `POST /platform/conversations` → [server.ts:458](../backend/src/server.ts#L458)
-- `GET /platform/conversations` → [server.ts:461](../backend/src/server.ts#L461)
-- `GET /platform/conversations/:id/messages` → [server.ts:465](../backend/src/server.ts#L465)
-- `POST /platform/conversations/:id/messages` → [server.ts:471](../backend/src/server.ts#L471)
-- `GET /platform/conversations/:id/requests/:requestId` → [server.ts:480](../backend/src/server.ts#L480)
-- `POST /platform/actions/:id/approve` → [server.ts:490](../backend/src/server.ts#L490)
-- `GET /platform/history/:kind` → [server.ts:500](../backend/src/server.ts#L500)
-- `GET /platform/strategies` → [server.ts:515](../backend/src/server.ts#L515)
+- `GET /platform/emergency` → [server.ts:273](../backend/src/server.ts#L273)
+- `POST /platform/emergency-stop` → [server.ts:281](../backend/src/server.ts#L281)
+- `POST /platform/emergency-clear` → [server.ts:284](../backend/src/server.ts#L284)
+- `GET /platform/profile` → [server.ts:324](../backend/src/server.ts#L324)
+- `POST /platform/profile/preview` → [server.ts:326](../backend/src/server.ts#L326)
+- `GET /platform/agents` → [server.ts:343](../backend/src/server.ts#L343)
+- `GET /platform/portfolio` → [server.ts:347](../backend/src/server.ts#L347)
+- `POST /platform/agents` → [server.ts:348](../backend/src/server.ts#L348)
+- `GET /platform/agent-templates` → [server.ts:349](../backend/src/server.ts#L349)
+- `POST /platform/agent-templates/:id/instantiate` → [server.ts:352](../backend/src/server.ts#L352)
+- `GET /platform/agents/:id` → [server.ts:360](../backend/src/server.ts#L360)
+- `GET /platform/agents/:id/preview` → [server.ts:363](../backend/src/server.ts#L363)
+- `POST /platform/agents/:id/deploy` → [server.ts:366](../backend/src/server.ts#L366)
+- `POST /platform/agents/:id/configuration/preview` → [server.ts:369](../backend/src/server.ts#L369)
+- `POST /platform/agents/:id/rollback/preview` → [server.ts:391](../backend/src/server.ts#L391)
+- `POST /platform/agents/:id/control` → [server.ts:413](../backend/src/server.ts#L413)
+- `GET /platform/agents/:id/events` → [server.ts:437](../backend/src/server.ts#L437)
+- `GET /platform/agents/:id/logs` → [server.ts:442](../backend/src/server.ts#L442)
+- `GET /platform/agents/:id/metrics` → [server.ts:447](../backend/src/server.ts#L447)
+- `GET /platform/agents/:id/versions` → [server.ts:456](../backend/src/server.ts#L456)
+- `POST /platform/conversations` → [server.ts:462](../backend/src/server.ts#L462)
+- `GET /platform/conversations` → [server.ts:465](../backend/src/server.ts#L465)
+- `GET /platform/conversations/:id/messages` → [server.ts:469](../backend/src/server.ts#L469)
+- `POST /platform/conversations/:id/messages` → [server.ts:475](../backend/src/server.ts#L475)
+- `GET /platform/conversations/:id/requests/:requestId` → [server.ts:484](../backend/src/server.ts#L484)
+- `POST /platform/actions/:id/approve` → [server.ts:494](../backend/src/server.ts#L494)
+- `GET /platform/history/:kind` → [server.ts:504](../backend/src/server.ts#L504)
+- `GET /platform/strategies` → [server.ts:519](../backend/src/server.ts#L519)
 - `POST /platform/auth/register` → [cognito.ts:112](../backend/src/auth/cognito.ts#L112)
 - `POST /platform/auth/verify` → [cognito.ts:133](../backend/src/auth/cognito.ts#L133)
 - `POST /platform/auth/login` → [cognito.ts:144](../backend/src/auth/cognito.ts#L144)
@@ -405,19 +405,20 @@ Cognito access-token identity and tenant-aware repositories protect application 
 ### backend/paper_agents.py
 
 - [AgentStart](../backend/paper_agents.py#L27) — class
-- [AgentCommand](../backend/paper_agents.py#L38) — class
-- [event](../backend/paper_agents.py#L42) — `event(db, owner, agent, kind, detail)`
-- [list_agents](../backend/paper_agents.py#L49) — `list_agents(db, owner: UUID)`
-- [timeline](../backend/paper_agents.py#L87) — `timeline(db, owner: UUID, agent: UUID, after: int=0)`
-- [start_agent](../backend/paper_agents.py#L99) — `start_agent(db, owner: UUID, request: AgentStart)`
-- [_validate_allocation](../backend/paper_agents.py#L164) — `_validate_allocation(db, owner, epoch, cash, capital, exclude=None)`
-- [control_agent](../backend/paper_agents.py#L189) — `control_agent(db, owner: UUID, agent: UUID, action: str)`
-- [claim_agent](../backend/paper_agents.py#L222) — `claim_agent(db, lease_seconds=60)`
-- [fence](../backend/paper_agents.py#L263) — `fence(db, work)`
-- [checkpoint](../backend/paper_agents.py#L276) — `checkpoint(db, work, *, stage='MONITOR', status='RUNNING', failures=0, delay=None, candle=None, quote=None, peak=None)`
-- [mark_agent](../backend/paper_agents.py#L309) — `mark_agent(db, work, quantity, price, at)`
-- [position_asset](../backend/paper_agents.py#L343) — `position_asset(db, owner, agent)`
-- [close_agent_position](../backend/paper_agents.py#L358) — `close_agent_position(db, owner, agent, request_key, epoch, quotes)`
+- [AgentStart.select_validation_source](../backend/paper_agents.py#L40) — `select_validation_source(self)`
+- [AgentCommand](../backend/paper_agents.py#L50) — class
+- [event](../backend/paper_agents.py#L54) — `event(db, owner, agent, kind, detail)`
+- [list_agents](../backend/paper_agents.py#L61) — `list_agents(db, owner: UUID)`
+- [timeline](../backend/paper_agents.py#L99) — `timeline(db, owner: UUID, agent: UUID, after: int=0)`
+- [start_agent](../backend/paper_agents.py#L111) — `start_agent(db, owner: UUID, request: AgentStart)`
+- [_validate_allocation](../backend/paper_agents.py#L200) — `_validate_allocation(db, owner, epoch, cash, capital, exclude=None)`
+- [control_agent](../backend/paper_agents.py#L225) — `control_agent(db, owner: UUID, agent: UUID, action: str)`
+- [claim_agent](../backend/paper_agents.py#L258) — `claim_agent(db, lease_seconds=60)`
+- [fence](../backend/paper_agents.py#L299) — `fence(db, work)`
+- [checkpoint](../backend/paper_agents.py#L312) — `checkpoint(db, work, *, stage='MONITOR', status='RUNNING', failures=0, delay=None, candle=None, quote=None, peak=None)`
+- [mark_agent](../backend/paper_agents.py#L345) — `mark_agent(db, work, quantity, price, at)`
+- [position_asset](../backend/paper_agents.py#L379) — `position_asset(db, owner, agent)`
+- [close_agent_position](../backend/paper_agents.py#L394) — `close_agent_position(db, owner, agent, request_key, epoch, quotes)`
 
 ### backend/paper_execution.py
 
@@ -433,17 +434,17 @@ Cognito access-token identity and tenant-aware repositories protect application 
 - [_cost](../backend/paper_execution.py#L132) — `_cost(quantity: Decimal, price: Decimal, terms: PaperTerms)`
 - [_finish](../backend/paper_execution.py#L138) — `_finish(db: Connection, order_id: UUID, status: str, reason: str | None, at: datetime)`
 - [_buy_risk](../backend/paper_execution.py#L148) — `_buy_risk(db, owner, account, asset, gross, fee, held, quotes, at, terms)`
-- [get_order](../backend/paper_execution.py#L208) — `get_order(db: Connection, owner: UUID, order_id: UUID)`
-- [_evaluate](../backend/paper_execution.py#L222) — `_evaluate(db, owner, account, stopped, order_id, request, quotes, terms, at, *, pending, agent_id=None)`
-- [submit_order](../backend/paper_execution.py#L324) — `submit_order(db, owner: UUID, request: OrderRequest, quotes, terms: PaperTerms, *, clock=now, agent_id=None)`
-- [process_limit](../backend/paper_execution.py#L376) — `process_limit(db, owner: UUID, order_id: UUID, quotes, terms: PaperTerms, *, clock=now)`
-- [cancel_order](../backend/paper_execution.py#L390) — `cancel_order(db, owner: UUID, order_id: UUID)`
-- [set_emergency](../backend/paper_execution.py#L400) — `set_emergency(db, owner: UUID, enabled: bool)`
-- [_halt_agents](../backend/paper_execution.py#L412) — `_halt_agents(db, owner, epoch, status, reason)`
-- [_cancel_open](../backend/paper_execution.py#L427) — `_cancel_open(db, owner, epoch, reason)`
-- [reset_account](../backend/paper_execution.py#L438) — `reset_account(db, owner: UUID, expected_epoch: int, opening_credit: Decimal)`
-- [portfolio](../backend/paper_execution.py#L463) — `portfolio(db, owner: UUID, quotes: dict[str, PaperQuote], *, clock=now, max_age=20)`
-- [order_history](../backend/paper_execution.py#L546) — `order_history(db, owner: UUID, *, epoch: int | None=None, limit=50)`
+- [get_order](../backend/paper_execution.py#L214) — `get_order(db: Connection, owner: UUID, order_id: UUID)`
+- [_evaluate](../backend/paper_execution.py#L228) — `_evaluate(db, owner, account, stopped, order_id, request, quotes, terms, at, *, pending, agent_id=None)`
+- [submit_order](../backend/paper_execution.py#L330) — `submit_order(db, owner: UUID, request: OrderRequest, quotes, terms: PaperTerms, *, clock=now, agent_id=None)`
+- [process_limit](../backend/paper_execution.py#L382) — `process_limit(db, owner: UUID, order_id: UUID, quotes, terms: PaperTerms, *, clock=now)`
+- [cancel_order](../backend/paper_execution.py#L396) — `cancel_order(db, owner: UUID, order_id: UUID)`
+- [set_emergency](../backend/paper_execution.py#L406) — `set_emergency(db, owner: UUID, enabled: bool)`
+- [_halt_agents](../backend/paper_execution.py#L418) — `_halt_agents(db, owner, epoch, status, reason)`
+- [_cancel_open](../backend/paper_execution.py#L433) — `_cancel_open(db, owner, epoch, reason)`
+- [reset_account](../backend/paper_execution.py#L444) — `reset_account(db, owner: UUID, expected_epoch: int, opening_credit: Decimal)`
+- [portfolio](../backend/paper_execution.py#L469) — `portfolio(db, owner: UUID, quotes: dict[str, PaperQuote], *, clock=now, max_age=20)`
+- [order_history](../backend/paper_execution.py#L552) — `order_history(db, owner: UUID, *, epoch: int | None=None, limit=50)`
 
 ### backend/paper_market.py
 
@@ -451,20 +452,20 @@ Cognito access-token identity and tenant-aware repositories protect application 
 
 ### backend/paper_worker.py
 
-- [Tick](../backend/paper_worker.py#L42) — class
-- [research](../backend/paper_worker.py#L50) — `research(state: Tick)`
-- [rules](../backend/paper_worker.py#L54) — `rules(state: Tick)`
-- [trade_graph](../backend/paper_worker.py#L58) — `trade_graph()`
-- [PaperWorker](../backend/paper_worker.py#L68) — class
-- [PaperWorker.__init__](../backend/paper_worker.py#L69) — `__init__(self, history=load_candles, quotes=load_quotes, *, allow_fixture=False, clock=now, market_clock=None)`
-- [PaperWorker.tick](../backend/paper_worker.py#L85) — `tick(self, db, work)`
-- [PaperWorker._fail](../backend/paper_worker.py#L91) — `_fail(self, db, work, reason)`
-- [PaperWorker._tick](../backend/paper_worker.py#L114) — `_tick(self, db, work)`
-- [PaperWorker._activate](../backend/paper_worker.py#L247) — `_activate(self, db, work, strategy, terms)`
-- [heartbeat_fresh](../backend/paper_worker.py#L286) — `heartbeat_fresh(db, worker_id=None)`
-- [worker_identity](../backend/paper_worker.py#L299) — `worker_identity()`
-- [service](../backend/paper_worker.py#L303) — `service(dsn: str, stop: Event, worker: PaperWorker)`
-- [main](../backend/paper_worker.py#L343) — `main()`
+- [Tick](../backend/paper_worker.py#L44) — class
+- [research](../backend/paper_worker.py#L52) — `research(state: Tick)`
+- [rules](../backend/paper_worker.py#L56) — `rules(state: Tick)`
+- [trade_graph](../backend/paper_worker.py#L60) — `trade_graph()`
+- [PaperWorker](../backend/paper_worker.py#L70) — class
+- [PaperWorker.__init__](../backend/paper_worker.py#L71) — `__init__(self, history=load_candles, quotes=load_quotes, *, allow_fixture=False, clock=now, market_clock=None)`
+- [PaperWorker.tick](../backend/paper_worker.py#L87) — `tick(self, db, work)`
+- [PaperWorker._fail](../backend/paper_worker.py#L93) — `_fail(self, db, work, reason)`
+- [PaperWorker._tick](../backend/paper_worker.py#L116) — `_tick(self, db, work)`
+- [PaperWorker._validate](../backend/paper_worker.py#L254) — `_validate(self, db, work, strategy, terms, *, revalidation)`
+- [heartbeat_fresh](../backend/paper_worker.py#L320) — `heartbeat_fresh(db, worker_id=None)`
+- [worker_identity](../backend/paper_worker.py#L333) — `worker_identity()`
+- [service](../backend/paper_worker.py#L337) — `service(dsn: str, stop: Event, worker: PaperWorker)`
+- [main](../backend/paper_worker.py#L377) — `main()`
 
 ### backend/paper_workflow.py
 
@@ -517,20 +518,20 @@ Cognito access-token identity and tenant-aware repositories protect application 
 - [create_product_api.paper_agent_stream.latest](../backend/platform_product_api.py#L370) — `latest(cursor)`
 - [create_product_api.paper_agent_stream.events](../backend/platform_product_api.py#L374) — `async events()`
 - [create_product_api.paper_market](../backend/platform_product_api.py#L393) — `async paper_market(asset: Asset, request: Request, subject: Principal)`
-- [create_product_api.paper_news](../backend/platform_product_api.py#L404) — `async paper_news(request: Request, subject: Principal, asset: Asset | None=None)`
-- [create_product_api.paper_watchlist](../backend/platform_product_api.py#L415) — `paper_watchlist(subject: Principal, db: Database)`
-- [create_product_api.paper_watch](../backend/platform_product_api.py#L423) — `paper_watch(subject: Principal, db: Database, asset: Asset, change: PaperEmergency)`
-- [create_product_api.strategy_authoring](../backend/platform_product_api.py#L438) — `strategy_authoring(subject: Principal)`
-- [create_product_api.validate_draft](../backend/platform_product_api.py#L442) — `validate_draft(draft: StrategyDraft, subject: Principal)`
-- [create_product_api.strategies](../backend/platform_product_api.py#L446) — `strategies(subject: Principal, db: Database, after: UUID | None=None, limit: Annotated[int, Query(ge=1, le=100)]=50)`
-- [create_product_api.new_strategy](../backend/platform_product_api.py#L455) — `new_strategy(document: StrategyDraft, subject: Principal, db: Database)`
-- [create_product_api.strategy](../backend/platform_product_api.py#L460) — `strategy(strategy_id: UUID, subject: Principal, db: Database, version: Annotated[int | None, Query(ge=1, le=2 ** 31 - 1)]=None)`
-- [create_product_api.edit_strategy](../backend/platform_product_api.py#L472) — `edit_strategy(strategy_id: UUID, edit: StrategyEdit, subject: Principal, db: Database)`
-- [create_product_api.remove_strategy](../backend/platform_product_api.py#L478) — `remove_strategy(strategy_id: UUID, archive: StrategyArchive, subject: Principal, db: Database)`
-- [create_product_api.versions](../backend/platform_product_api.py#L484) — `versions(strategy_id: UUID, subject: Principal, db: Database, before: Annotated[int, Query(ge=2, le=2 ** 31)]=2 ** 31, limit: Annotated[int, Query(ge=1, le=100)]=50)`
-- [create_product_api.create_backtest](../backend/platform_product_api.py#L498) — `create_backtest(strategy_id: UUID, study: HistoricalBacktestRequest, subject: Principal, db: Database)`
-- [create_product_api.backtest_report](../backend/platform_product_api.py#L515) — `backtest_report(run_id: UUID, subject: Principal, db: Database, include_dataset: bool=False)`
-- [app_from_environment](../backend/platform_product_api.py#L526) — `app_from_environment()`
+- [create_product_api.paper_news](../backend/platform_product_api.py#L404) — `async paper_news(request: Request, subject: Principal, asset: Asset | None=None, breaking: bool=False, refresh: bool=False)`
+- [create_product_api.paper_watchlist](../backend/platform_product_api.py#L421) — `paper_watchlist(subject: Principal, db: Database)`
+- [create_product_api.paper_watch](../backend/platform_product_api.py#L429) — `paper_watch(subject: Principal, db: Database, asset: Asset, change: PaperEmergency)`
+- [create_product_api.strategy_authoring](../backend/platform_product_api.py#L444) — `strategy_authoring(subject: Principal)`
+- [create_product_api.validate_draft](../backend/platform_product_api.py#L448) — `validate_draft(draft: StrategyDraft, subject: Principal)`
+- [create_product_api.strategies](../backend/platform_product_api.py#L452) — `strategies(subject: Principal, db: Database, after: UUID | None=None, limit: Annotated[int, Query(ge=1, le=100)]=50)`
+- [create_product_api.new_strategy](../backend/platform_product_api.py#L461) — `new_strategy(document: StrategyDraft, subject: Principal, db: Database)`
+- [create_product_api.strategy](../backend/platform_product_api.py#L466) — `strategy(strategy_id: UUID, subject: Principal, db: Database, version: Annotated[int | None, Query(ge=1, le=2 ** 31 - 1)]=None)`
+- [create_product_api.edit_strategy](../backend/platform_product_api.py#L478) — `edit_strategy(strategy_id: UUID, edit: StrategyEdit, subject: Principal, db: Database)`
+- [create_product_api.remove_strategy](../backend/platform_product_api.py#L484) — `remove_strategy(strategy_id: UUID, archive: StrategyArchive, subject: Principal, db: Database)`
+- [create_product_api.versions](../backend/platform_product_api.py#L490) — `versions(strategy_id: UUID, subject: Principal, db: Database, before: Annotated[int, Query(ge=2, le=2 ** 31)]=2 ** 31, limit: Annotated[int, Query(ge=1, le=100)]=50)`
+- [create_product_api.create_backtest](../backend/platform_product_api.py#L504) — `create_backtest(strategy_id: UUID, study: HistoricalBacktestRequest, subject: Principal, db: Database)`
+- [create_product_api.backtest_report](../backend/platform_product_api.py#L521) — `backtest_report(run_id: UUID, subject: Principal, db: Database, include_dataset: bool=False)`
+- [app_from_environment](../backend/platform_product_api.py#L532) — `app_from_environment()`
 
 ### backend/portfolio.py
 
@@ -749,7 +750,7 @@ Cognito access-token identity and tenant-aware repositories protect application 
 
 ### backend/src/product/routes.ts
 
-- [registerProductRoutes](../backend/src/product/routes.ts#L24)
+- [registerProductRoutes](../backend/src/product/routes.ts#L48)
 
 ### backend/src/profiles/profile.service.ts
 

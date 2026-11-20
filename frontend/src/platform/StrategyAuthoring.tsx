@@ -153,25 +153,28 @@ export function StrategyAuthoring({
         ))}
       </div>
       {options && (
-        <label>
-          Strategy template
-          <select
-            value=""
-            disabled={disabled || generating}
-            onChange={(event) => {
-              const template = options.templates.find(
-                (item) => item.name === event.target.value,
-              );
-              if (template) {
-                onTemplate(JSON.stringify(template, null, 2));
-                setMode("visual");
-              }
-            }}
-          >
-            <option value="">Choose a template to edit</option>
-            <Choices items={options.templates.map((item) => item.name)} />
-          </select>
-        </label>
+        <div className="prebuilt-strategies">
+          <h4>Prebuilt strategies</h4>
+          <label>
+            Strategy template
+            <select
+              value=""
+              disabled={disabled || generating}
+              onChange={(event) => {
+                const template = options.templates.find(
+                  (item) => item.name === event.target.value,
+                );
+                if (template) {
+                  onTemplate(JSON.stringify(template, null, 2));
+                  setMode("visual");
+                }
+              }}
+            >
+              <option value="">Choose a template to edit</option>
+              <Choices items={options.templates.map((item) => item.name)} />
+            </select>
+          </label>
+        </div>
       )}
       {mode === "json" && (
         <>

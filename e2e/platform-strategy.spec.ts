@@ -12,12 +12,11 @@ async function signIn(page: Page, user: "alice" | "bob") {
 test("Fund, version, backtest, and isolate a tenant strategy", async ({
   page,
 }) => {
-  await page.goto("/#/platform/paper");
+  await page.goto("/workspace#/paper");
   await signIn(page, "alice");
   await expect(
     page.getByRole("heading", { name: "Paper Trading" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Open virtual account" }).click();
   await expect(page.locator(".platform-product-balance")).toHaveText(
     "10000 virtual USDT",
   );
@@ -28,7 +27,9 @@ test("Fund, version, backtest, and isolate a tenant strategy", async ({
   await expect(page.getByText("BUY 0.001 BTC", { exact: false })).toBeVisible();
   await expect(page.getByText("0.001 ·", { exact: false })).toBeVisible();
 
-  await page.getByRole("link", { name: "Markets", exact: true }).click();
+  await page
+    .getByRole("link", { name: "Market Analysis and AI Insights", exact: true })
+    .click();
   await expect(
     page.getByRole("heading", { name: "Bitcoin (BTC/USD)" }),
   ).toBeVisible();
@@ -47,7 +48,9 @@ test("Fund, version, backtest, and isolate a tenant strategy", async ({
     .selectOption("BTC");
   await expect(page.getByText(/FIXTURE.*Retrieved/)).toBeVisible();
 
-  await page.getByRole("link", { name: "Strategies", exact: true }).click();
+  await page
+    .getByRole("link", { name: "Custom Strategy Builder", exact: true })
+    .click();
   await page
     .getByRole("button", { name: "Natural language", exact: true })
     .click();
@@ -105,6 +108,7 @@ test("Fund, version, backtest, and isolate a tenant strategy", async ({
   await expect(
     page.getByRole("button", { name: "Reviewed RSI · BTC · v2" }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "Toggle navigation" }).click();
   await page
     .getByRole("link", { name: "Backtesting Lab", exact: true })
     .click();
@@ -138,6 +142,7 @@ test("Fund, version, backtest, and isolate a tenant strategy", async ({
     "Backtest is unavailable",
   );
   expect(page.url()).toBe(report);
+  await page.getByRole("button", { name: "Toggle navigation" }).click();
   await page.getByRole("link", { name: "Strategies", exact: true }).click();
   await expect(page.getByText("No saved strategies.")).toBeVisible();
   await expect(

@@ -114,7 +114,17 @@ test("paper agent continues without a browser and survives API and worker restar
     const nav = page.getByRole("navigation", { name: "Main navigation" });
     await expect(nav.getByRole("link")).toHaveCount(10);
     await expect(nav).not.toContainText(/aegis|hskswap/i);
+    await page.setViewportSize({ width: 320, height: 850 });
+    await expect(nav).toBeHidden();
+    const menu = page.getByRole("button", { name: "Toggle navigation" });
+    await menu.click();
+    await expect(menu).toHaveAttribute("aria-expanded", "true");
     await nav.getByRole("link", { name: "Dashboard", exact: true }).click();
+    await expect(menu).toHaveAttribute("aria-expanded", "false");
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+      .toBe(320);
+    await page.setViewportSize({ width: 1280, height: 900 });
     await expect(
       page.getByRole("heading", { name: "Virtual balance" }),
     ).toBeVisible();
@@ -163,7 +173,7 @@ test("paper agent continues without a browser and survives API and worker restar
       .click();
     await page.getByLabel("Validation source").selectOption("strategy");
     await page
-      .getByLabel("Saved strategy")
+      .getByLabel("Saved strategy", { exact: true })
       .selectOption({ label: "Durable fixture strategy · BTC · v1" });
     await page.getByLabel("Agent name").fill("Independent fixture agent");
     await page.getByLabel("Evaluation interval (seconds)").fill("10");
@@ -222,6 +232,17 @@ test("paper agent continues without a browser and survives API and worker restar
       "text/event-stream",
     );
     await expect(reopened.page.getByText(/Replay approved/)).toBeVisible();
+    await reopened.page
+      .getByRole("link", { name: "Portfolio", exact: true })
+      .click();
+    const orders = reopened.page.getByRole("table");
+    await expect(
+      orders.getByRole("cell", { name: "Agent", exact: true }).first(),
+    ).toBeVisible();
+    await reopened.page
+      .getByRole("link", { name: "AI Trading Agents", exact: true })
+      .click();
+
     await reopened.page
       .getByRole("button", { name: "Stop agent", exact: true })
       .click();

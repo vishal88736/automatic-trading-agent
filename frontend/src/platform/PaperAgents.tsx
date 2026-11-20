@@ -286,7 +286,12 @@ export default function PaperAgents() {
             ) : (
               <label>
                 Saved strategy
-                <select name="strategy" required defaultValue="">
+                <select
+                  name="strategy"
+                  aria-label="Saved strategy"
+                  required
+                  defaultValue=""
+                >
                   <option value="">Choose a saved strategy version</option>
                   {strategies.map((item) => (
                     <option value={item.id} key={item.id}>
@@ -490,6 +495,22 @@ export default function PaperAgents() {
                         {timestamp(entry.occurred_at)}
                       </time>{" "}
                       · {eventText(entry)}
+                      {(entry.kind === "VALIDATION" ||
+                        entry.kind === "REVALIDATION") &&
+                        typeof entry.detail.report_id === "string" && (
+                          <>
+                            {" "}
+                            ·{" "}
+                            <a
+                              href={workspaceHref(
+                                "backtests",
+                                `/${entry.detail.report_id}`,
+                              )}
+                            >
+                              View replay
+                            </a>
+                          </>
+                        )}
                     </li>
                   ))}
                 </ul>
