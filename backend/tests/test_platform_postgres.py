@@ -21,6 +21,15 @@ from psycopg.errors import CheckViolation, ForeignKeyViolation, SyntaxError  # n
 
 from backend.paper_accounts import ensure_account, get_account  # noqa: E402
 from backend.platform_db import MIGRATIONS, migrate, open_database  # noqa: E402
+from backend.strategy_repository import (  # noqa: E402
+    archive_strategy,
+    create_strategy,
+    get_strategy,
+    list_strategies,
+    strategy_history,
+    update_strategy,
+)
+from backend.strategy_rules import StrategyDraft  # noqa: E402
 
 
 @pytest.fixture
@@ -44,15 +53,15 @@ def database():
 
 def test_migrations_are_repeatable_and_rollback_failed_upgrade(database, tmp_path):
     with database() as db:
-        assert migrate(db) == ["0001_paper_accounts"]
+        assert migrate(db) == ["0001_paper_accounts", "0002_strategies"]
         owner = uuid4()
         funded = ensure_account(db, owner)
 
-        head = "0001_paper_accounts.sql"
-        (tmp_path / head).write_bytes((MIGRATIONS / head).read_bytes())
+        for file in MIGRATIONS.glob("*.sql"):
+            (tmp_path / file.name).write_bytes(file.read_bytes())
         assert migrate(db, tmp_path) == []
-        (tmp_path / "0002_valid.sql").write_text("CREATE TABLE sample (id INTEGER);")
-        broken = tmp_path / "0003_invalid.sql"
+        (tmp_path / "9000_valid.sql").write_text("CREATE TABLE sample (id INTEGER);")
+        broken = tmp_path / "9001_invalid.sql"
         broken.write_text("CREATE TABLE bad_;")
         with pytest.raises(SyntaxError):
             migrate(db, tmp_path)
@@ -60,8 +69,8 @@ def test_migrations_are_repeatable_and_rollback_failed_upgrade(database, tmp_pat
         assert get_account(db, owner) == funded
 
         broken.unlink()
-        assert migrate(db, tmp_path) == ["0002_valid"]
-        (tmp_path / head).write_text("SELECT 1;")
+        assert migrate(db, tmp_path) == ["9000_valid"]
+        (tmp_path / "0001_paper_accounts.sql").write_text("SELECT 1;")
         with pytest.raises(ValueError, match="migration history differs"):
             migrate(db, tmp_path)
 
@@ -108,3 +117,51 @@ def test_account_ownership_and_credit_precision_are_enforced(database):
                 """,
                 (other, funded.id),
             )
+
+
+def test_strategy_versions_preserve_history_and_are_tenant_scoped(database):
+    owner, other = uuid4(), uuid4()
+    draft = StrategyDraft.model_validate(
+        {
+            "name": "RSI",
+            "definition": {
+                "asset": "BTC",
+                "entry": {
+                    "conditions": [{"indicator": "rsi", "operator": "lt", "threshold": "30"}]
+                },
+                "exit": {
+                    "conditions": [
+                        {"indicator": "rsi", "operator": "crosses_above", "threshold": "65"}
+                    ]
+                },
+                "stop_loss": "0.04",
+                "cash_fraction": "0.02",
+            },
+        }
+    )
+    with database() as db:
+        migrate(db)
+        ensure_account(db, owner)
+        ensure_account(db, other)
+        original = create_strategy(db, owner, draft)
+        assert list_strategies(db, owner) == [original]
+        assert list_strategies(db, owner, after=original.id) == []
+        assert list_strategies(db, other) == []
+        assert get_strategy(db, other, original.id) is None
+        assert not strategy_history(db, other, original.id)
+        with pytest.raises(LookupError):
+            update_strategy(db, other, original.id, draft, expected_version=1)
+
+        assert update_strategy(db, owner, original.id, draft, expected_version=1) == original
+        edited = draft.model_copy(update={"name": "RSI revision"})
+        revision = update_strategy(db, owner, original.id, edited, expected_version=1)
+        assert revision.version == 2
+        assert strategy_history(db, owner, original.id) == [revision, original]
+        assert strategy_history(db, owner, original.id, before_version=2) == [original]
+        with pytest.raises(ValueError, match="version changed"):
+            archive_strategy(db, owner, original.id, expected_version=1)
+        archive_strategy(db, owner, original.id, expected_version=2)
+        assert list_strategies(db, owner) == []
+        assert get_strategy(db, owner, original.id) is None
+        assert get_strategy(db, owner, original.id, 1) == original
+        assert get_strategy(db, other, original.id, 1) is None
