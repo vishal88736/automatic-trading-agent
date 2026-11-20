@@ -547,24 +547,11 @@
   margin-top: 16px;
 }
 
-.unified-dashboard {
-  display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
-  align-items: start;
-  gap: 16px;
-}
-
 .dashboard-agents a {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   color: var(--accent);
-}
-
-@media (max-width: 760px) {
-  .unified-dashboard {
-    grid-template-columns: 1fr;
-  }
 }
 
 .unified-nav-toggle {

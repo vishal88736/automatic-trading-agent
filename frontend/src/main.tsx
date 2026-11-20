@@ -7,6 +7,7 @@ import "./styles.css";
 import "./theme.css";
 import "./palette.css";
 import "./workspace.css";
+import "./platform/product-design.css";
 
 function mount(App: typeof Workspace) {
   ReactDOM.createRoot(document.getElementById("root")!).render(

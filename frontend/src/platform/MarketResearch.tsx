@@ -208,7 +208,14 @@ function MarketInsight({
 }
 
 function Markets() {
-  const [asset, setAsset] = useState<Asset>("BTC");
+  const [asset, setAsset] = useState<Asset>(() => {
+    const requested = new URLSearchParams(location.hash.split("?")[1]).get(
+      "asset",
+    );
+    return requested && Object.hasOwn(assets, requested)
+      ? (requested as Asset)
+      : "BTC";
+  });
   const [search, setSearch] = useState("");
   const [pins, setPins] = useState<Asset[]>([]);
   const [market, setMarket] = useState<Market>();

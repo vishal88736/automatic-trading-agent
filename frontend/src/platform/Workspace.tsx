@@ -1,11 +1,29 @@
 import { lazy, Suspense, useEffect, useState } from "react";
-import { ArrowRight, LogOut, Menu, ShieldCheck } from "lucide-react";
+import {
+  Activity,
+  ArrowRight,
+  Bot,
+  ChartNoAxesColumn,
+  FlaskConical,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Newspaper,
+  Play,
+  Settings2,
+  ShieldCheck,
+  SlidersHorizontal,
+  Square,
+  Wallet,
+  WandSparkles,
+} from "lucide-react";
 import { KronoMark } from "../brand";
 import { HomeOrbit } from "../HomeOrbit";
 import { ThemeToggle } from "../ThemeToggle";
 import { Auth } from "./Auth";
 import { platform, PlatformRequestError } from "./client";
-import { modules, readRoute, workspaceHref } from "./navigation";
+import { modules, readRoute, workspaceHref, type Module } from "./navigation";
+import { DashboardMarkets } from "./DashboardPanels";
 import "./platform.css";
 
 const BacktestingLab = lazy(() => import("./BacktestingLab"));
@@ -13,6 +31,19 @@ const MarketResearch = lazy(() => import("./MarketResearch"));
 const PaperAgents = lazy(() => import("./PaperAgents"));
 const PaperAccount = lazy(() => import("./PaperTrading"));
 const Strategies = lazy(() => import("./Strategies"));
+
+const moduleIcons = {
+  dashboard: LayoutDashboard,
+  agents: Bot,
+  strategies: SlidersHorizontal,
+  builder: WandSparkles,
+  backtests: ChartNoAxesColumn,
+  paper: FlaskConical,
+  markets: Activity,
+  portfolio: Wallet,
+  news: Newspaper,
+  settings: Settings2,
+} satisfies Record<Module, typeof Activity>;
 
 interface Session {
   userId: string;
@@ -55,7 +86,9 @@ function DashboardAgents() {
   }, []);
   return (
     <section className="platform-product-panel dashboard-agents">
-      <h2>Agent activity</h2>
+      <h2>
+        <Bot size={16} /> Agent activity
+      </h2>
       {error && <p role="alert">Agent status is unavailable.</p>}
       {!summary && !error && <p role="status">Checking worker status…</p>}
       {summary && (
@@ -92,6 +125,7 @@ export function Workspace() {
   const [accountReady, setAccountReady] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [replaying, setReplaying] = useState(false);
 
   useEffect(() => {
     function sync() {
@@ -100,6 +134,7 @@ export function Workspace() {
         history.replaceState(null, "", next.href);
       setRoute(next);
       setMenuOpen(false);
+      setReplaying(false);
     }
     sync();
     window.addEventListener("hashchange", sync);
@@ -139,6 +174,15 @@ export function Workspace() {
     void check();
   }, []);
 
+  useEffect(() => {
+    const motion = matchMedia("(prefers-reduced-motion: reduce)");
+    function update() {
+      if (motion.matches) setReplaying(false);
+    }
+    motion.addEventListener("change", update);
+    return () => motion.removeEventListener("change", update);
+  }, []);
+
   async function signOut() {
     setSigningOut(true);
     setAccountError("");
@@ -146,6 +190,7 @@ export function Workspace() {
       await platform("/auth/logout", "POST", {});
       setAuth({ state: "signed-out" });
       setAccountReady(false);
+      setReplaying(false);
     } catch (error) {
       setAccountError((error as Error).message);
     } finally {
@@ -157,7 +202,7 @@ export function Workspace() {
   const title = modules.find(([id]) => id === page)![1];
   const session = auth.state === "signed-in" ? auth.session : null;
   return (
-    <div className="app-shell rail-shell unified-workspace">
+    <div className="app-shell rail-shell unified-workspace" data-page={page}>
       <div className="workspace">
         <header className="topbar">
           {session && (
@@ -203,16 +248,20 @@ export function Workspace() {
             aria-label="Main navigation"
             data-expanded={menuOpen}
           >
-            {modules.map(([id, label]) => (
-              <a
-                key={id}
-                href={workspaceHref(id)}
-                aria-current={page === id ? "page" : undefined}
-                onClick={() => setMenuOpen(false)}
-              >
-                {label}
-              </a>
-            ))}
+            {modules.map(([id, label]) => {
+              const Icon = moduleIcons[id];
+              return (
+                <a
+                  key={id}
+                  href={workspaceHref(id)}
+                  aria-current={page === id ? "page" : undefined}
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <Icon size={15} aria-hidden="true" />
+                  {label}
+                </a>
+              );
+            })}
           </nav>
         )}
         <main className="platform-workspace">
@@ -268,7 +317,7 @@ export function Workspace() {
           )}
           {auth.state === "signed-in" && (
             <>
-              <section className="workspace-intro">
+              <section className="workspace-intro product-intro" key={page}>
                 <div className="page-heading">
                   <div>
                     <h1>{title}</h1>
@@ -277,6 +326,16 @@ export function Workspace() {
                     )}
                     {page === "settings" && <p>{session?.email}</p>}
                   </div>
+                  {page === "dashboard" && accountReady && (
+                    <button
+                      className="dashboard-replay"
+                      type="button"
+                      onClick={() => setReplaying(!replaying)}
+                    >
+                      {replaying ? <Square size={14} /> : <Play size={14} />}
+                      {replaying ? "Stop motion" : "Replay motion"}
+                    </button>
+                  )}
                   {page === "strategies" && (
                     <a
                       className="button primary"
@@ -312,9 +371,25 @@ export function Workspace() {
                   key={session?.userId}
                 >
                   {page === "dashboard" && (
-                    <div className="unified-dashboard">
-                      <PaperAccount view="dashboard" />
-                      <DashboardAgents />
+                    <div className="dashboard-viewport">
+                      <div
+                        className="dashboard-scene"
+                        data-replay={replaying}
+                        onAnimationEnd={(event) => {
+                          if (
+                            event.target === event.currentTarget &&
+                            event.animationName.startsWith("dashboard-camera")
+                          ) {
+                            setReplaying(false);
+                          }
+                        }}
+                      >
+                        <PaperAccount
+                          view="dashboard"
+                          dashboardSide={<DashboardAgents />}
+                          dashboardBottom={<DashboardMarkets />}
+                        />
+                      </div>
                     </div>
                   )}
                   {page === "agents" && <PaperAgents key={route.href} />}
@@ -334,7 +409,7 @@ export function Workspace() {
                     <PaperAccount key="settings" view="settings" />
                   )}
                   {(page === "markets" || page === "news") && (
-                    <MarketResearch news={page === "news"} key={page} />
+                    <MarketResearch news={page === "news"} key={route.href} />
                   )}
                 </Suspense>
               )}

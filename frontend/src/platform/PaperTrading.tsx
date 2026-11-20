@@ -1,8 +1,15 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { EquityChart } from "../charts";
 import { money, percent, timestamp } from "../ui";
 import { platform } from "./client";
-import { legacyFixture } from "./navigation";
+import { legacyFixture, workspaceHref } from "./navigation";
+import { PortfolioBars } from "./DashboardPanels";
 
 interface Account {
   id: string;
@@ -61,10 +68,15 @@ async function fetchPaper(includeOrders: boolean) {
 
 export default function PaperAccount({
   view = "trade",
+  dashboardSide,
+  dashboardBottom,
 }: {
   view?: "dashboard" | "portfolio" | "trade" | "settings";
+  dashboardSide?: ReactNode;
+  dashboardBottom?: ReactNode;
 }) {
-  const includeOrders = view === "trade" || view === "portfolio";
+  const dashboard = view === "dashboard";
+  const includeOrders = view !== "settings";
   const [data, setData] = useState<Awaited<ReturnType<typeof fetchPaper>>>();
   const [busy, setBusy] = useState(true);
   const [message, setMessage] = useState("");
@@ -105,6 +117,34 @@ export default function PaperAccount({
 
   const account = data?.account;
   const value = data?.value;
+  const metrics = value && (
+    <dl className="platform-backtest-metrics">
+      <div>
+        <dt>Buying power</dt>
+        <dd>{money(value.available_cash)}</dd>
+      </div>
+      <div>
+        <dt>Portfolio value</dt>
+        <dd>{money(value.equity)}</dd>
+      </div>
+      <div>
+        <dt>Realized P&amp;L</dt>
+        <dd>{money(value.realized_pnl)}</dd>
+      </div>
+      <div>
+        <dt>Unrealized P&amp;L</dt>
+        <dd>{money(value.unrealized_pnl)}</dd>
+      </div>
+      <div>
+        <dt>Daily P&amp;L</dt>
+        <dd>{money(value.daily_pnl)}</dd>
+      </div>
+      <div>
+        <dt>Drawdown</dt>
+        <dd>{percent(value.drawdown)}</dd>
+      </div>
+    </dl>
+  );
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!account) return;
@@ -133,35 +173,43 @@ export default function PaperAccount({
   }
 
   return (
-    <div className="platform-backtest">
+    <div
+      className={
+        dashboard ? "platform-backtest paper-overview" : "platform-backtest"
+      }
+    >
       <section
-        className="platform-product-panel"
+        className="platform-product-panel paper-overview-balance"
         aria-labelledby="paper-balance"
       >
-        <h3 id="paper-balance">Virtual balance</h3>
-        {account && (
-          <p className="platform-product-balance">
-            <strong>{account.cash}</strong> virtual {account.currency}
-          </p>
-        )}
-        {(!data || account) && (
-          <button disabled={busy} onClick={() => void act()}>
-            Refresh account
-          </button>
-        )}
-        {data && !account && (
-          <button
-            disabled={busy}
-            onClick={() =>
-              void act(async () => {
-                await platform("/paper-account", "POST");
-              })
-            }
-          >
-            Open virtual account
-          </button>
-        )}
-        <p>
+        <div className="paper-balance-heading">
+          <div>
+            <h3 id="paper-balance">Virtual balance</h3>
+            {account && (
+              <p className="platform-product-balance">
+                <strong>{account.cash}</strong> virtual {account.currency}
+              </p>
+            )}
+          </div>
+          {(!data || account) && (
+            <button disabled={busy} onClick={() => void act()}>
+              Refresh account
+            </button>
+          )}
+          {data && !account && (
+            <button
+              disabled={busy}
+              onClick={() =>
+                void act(async () => {
+                  await platform("/paper-account", "POST");
+                })
+              }
+            >
+              Open virtual account
+            </button>
+          )}
+        </div>
+        <p className="paper-money-note">
           Simulated funds. USD market prices are modeled at 1 virtual USDT per
           USD.
         </p>
@@ -179,33 +227,9 @@ export default function PaperAccount({
                 prices.
               </p>
             )}
-            <dl className="platform-backtest-metrics">
-              <div>
-                <dt>Buying power</dt>
-                <dd>{money(value.available_cash)}</dd>
-              </div>
-              <div>
-                <dt>Portfolio value</dt>
-                <dd>{money(value.equity)}</dd>
-              </div>
-              <div>
-                <dt>Realized P&amp;L</dt>
-                <dd>{money(value.realized_pnl)}</dd>
-              </div>
-              <div>
-                <dt>Unrealized P&amp;L</dt>
-                <dd>{money(value.unrealized_pnl)}</dd>
-              </div>
-              <div>
-                <dt>Daily P&amp;L</dt>
-                <dd>{money(value.daily_pnl)}</dd>
-              </div>
-              <div>
-                <dt>Drawdown</dt>
-                <dd>{percent(value.drawdown)}</dd>
-              </div>
-            </dl>
-            {view !== "trade" && value.history.length > 1 && (
+            {!dashboard && metrics}
+            {dashboard && <PortfolioBars rows={value.history} />}
+            {view === "portfolio" && value.history.length > 1 && (
               <EquityChart
                 rows={value.history}
                 baseline={Number(value.history[0].equity)}
@@ -228,6 +252,19 @@ export default function PaperAccount({
           </>
         )}
       </section>
+      {dashboard && (
+        <aside className="dashboard-side">
+          <section className="platform-product-panel dashboard-metrics">
+            <div className="dashboard-panel-heading">
+              <h3>Paper account</h3>
+              <a href={workspaceHref("portfolio")}>Portfolio</a>
+            </div>
+            {metrics}
+            {!value && <p>Account metrics are unavailable.</p>}
+          </section>
+          {dashboardSide}
+        </aside>
+      )}
       {account && value && view === "trade" && (
         <form className="platform-product-panel" onSubmit={submit}>
           <h3>Place a paper order</h3>
@@ -290,8 +327,11 @@ export default function PaperAccount({
         </form>
       )}
       {account && value && includeOrders && (
-        <section className="platform-product-panel">
-          <h3>Order history</h3>
+        <section className="platform-product-panel paper-overview-orders">
+          <div className="dashboard-panel-heading">
+            <h3>{dashboard ? "Recent paper orders" : "Order history"}</h3>
+            {dashboard && <a href={workspaceHref("paper")}>Paper trading</a>}
+          </div>
           {data.orders.length ? (
             <div className="platform-backtest-table">
               <table>
@@ -304,63 +344,72 @@ export default function PaperAccount({
                     <th>Fill</th>
                     <th>Fee</th>
                     <th>Realized P&amp;L</th>
-                    <th>Actions</th>
+                    {!dashboard && <th>Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
-                  {data.orders.map((order) => (
-                    <tr key={order.id}>
-                      <td>{timestamp(order.created_at)}</td>
-                      <td>
-                        {order.request.side} {order.request.quantity}{" "}
-                        {order.request.asset}
-                        {order.request.limit_price &&
-                          ` @ ${order.request.limit_price}`}{" "}
-                        · Epoch {order.epoch}
-                      </td>
-                      <td>{order.agent_id ? "Agent" : "Manual"}</td>
-                      <td>
-                        {order.status}
-                        {order.reason &&
-                          ` · ${order.reason.replaceAll("_", " ")}`}
-                      </td>
-                      <td>{money(order.fill_price)}</td>
-                      <td>{money(order.fee)}</td>
-                      <td>{money(order.realized_pnl)}</td>
-                      <td>
-                        {order.status === "OPEN" && (
-                          <div className="platform-product-actions">
-                            <button
-                              disabled={busy}
-                              onClick={() =>
-                                void act(async () => {
-                                  await platform(
-                                    `/paper-orders/${order.id}/evaluate`,
-                                    "POST",
-                                  );
-                                })
-                              }
-                            >
-                              Check limit
-                            </button>
-                            <button
-                              disabled={busy}
-                              onClick={() =>
-                                void act(async () => {
-                                  await platform(
-                                    `/paper-orders/${order.id}/cancel`,
-                                    "POST",
-                                  );
-                                })
-                              }
-                            >
-                              Cancel order
-                            </button>
-                          </div>
+                  {(dashboard ? data.orders.slice(0, 5) : data.orders).map(
+                    (order) => (
+                      <tr key={order.id}>
+                        <td>{timestamp(order.created_at)}</td>
+                        <td>
+                          {order.request.side} {order.request.quantity}{" "}
+                          {order.request.asset}
+                          {order.request.limit_price &&
+                            ` @ ${order.request.limit_price}`}{" "}
+                          · Epoch {order.epoch}
+                        </td>
+                        <td>{order.agent_id ? "Agent" : "Manual"}</td>
+                        <td>
+                          <span
+                            className="paper-order-status"
+                            data-status={order.status}
+                          >
+                            {order.status}
+                          </span>
+                          {order.reason &&
+                            ` · ${order.reason.replaceAll("_", " ")}`}
+                        </td>
+                        <td>{money(order.fill_price)}</td>
+                        <td>{money(order.fee)}</td>
+                        <td>{money(order.realized_pnl)}</td>
+                        {!dashboard && (
+                          <td>
+                            {order.status === "OPEN" && (
+                              <div className="platform-product-actions">
+                                <button
+                                  disabled={busy}
+                                  onClick={() =>
+                                    void act(async () => {
+                                      await platform(
+                                        `/paper-orders/${order.id}/evaluate`,
+                                        "POST",
+                                      );
+                                    })
+                                  }
+                                >
+                                  Check limit
+                                </button>
+                                <button
+                                  disabled={busy}
+                                  onClick={() =>
+                                    void act(async () => {
+                                      await platform(
+                                        `/paper-orders/${order.id}/cancel`,
+                                        "POST",
+                                      );
+                                    })
+                                  }
+                                >
+                                  Cancel order
+                                </button>
+                              </div>
+                            )}
+                          </td>
                         )}
-                      </td>
-                    </tr>
-                  ))}
+                      </tr>
+                    ),
+                  )}
                 </tbody>
               </table>
             </div>
@@ -369,6 +418,7 @@ export default function PaperAccount({
           )}
         </section>
       )}
+      {dashboard && dashboardBottom}
       {account &&
         value &&
         (view === "settings" || (view === "trade" && legacyFixture)) && (
