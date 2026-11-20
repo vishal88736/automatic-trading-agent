@@ -123,3 +123,9 @@ The isolated browser test uses the same PostgreSQL-backed service with fixture i
 ```bash
 npm run test:e2e -- e2e/platform-strategy.spec.ts
 ```
+
+### Paper execution
+
+Paper Trading reads the PostgreSQL ledger for cash, buying power, holdings, P&L, drawdown and the last 200 valuation snapshots. Market orders model Coinbase Exchange USD ticker prices at parity with virtual USDT. Fees and slippage default to ten basis points each. The engine applies account-wide risk checks before increasing exposure. Stale marks produce an unavailable portfolio value or block a buy. [Coinbase Exchange ticker](https://docs.cdp.coinbase.com/api-reference/exchange-api/rest-api/products/get-product-ticker)
+
+The order API accepts market orders and quantity-based limit orders with an epoch and an idempotency UUID. Pending limits reserve funds or assets and can be checked or cancelled from Paper Trading. Each fill and its updated order status commit together. An emergency stop cancels all pending limits and prevents new orders. A reset starts a new funded epoch and retains earlier fills for review.

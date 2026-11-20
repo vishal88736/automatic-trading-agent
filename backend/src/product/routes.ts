@@ -8,6 +8,12 @@ export function registerProductRoutes(app: FastifyInstance, config: Config) {
   const key = config.KRONO_PRODUCT_API_KEY;
   const routes = [
     { method: ["GET", "POST"], url: "/platform/paper-account" },
+    { method: "POST", url: "/platform/paper-account/reset" },
+    { method: "PUT", url: "/platform/paper-account/emergency" },
+    { method: "GET", url: "/platform/paper-portfolio" },
+    { method: ["GET", "POST"], url: "/platform/paper-orders" },
+    { method: "POST", url: "/platform/paper-orders/:id/cancel" },
+    { method: "POST", url: "/platform/paper-orders/:id/evaluate" },
     { method: ["GET", "POST"], url: "/platform/custom-strategies" },
     { method: ["GET", "PUT"], url: "/platform/custom-strategies/:id" },
     { method: "POST", url: "/platform/custom-strategies/:id/archive" },

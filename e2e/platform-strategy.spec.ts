@@ -22,6 +22,12 @@ test("Fund, version, backtest, and isolate a tenant strategy", async ({
     "10000 virtual USDT",
   );
 
+  await page.getByLabel("Quantity", { exact: true }).fill("0.001");
+  await page.getByRole("button", { name: "Submit paper order" }).click();
+  await expect(page.getByText("Order filled.")).toBeVisible();
+  await expect(page.getByText("BUY 0.001 BTC", { exact: false })).toBeVisible();
+  await expect(page.getByText("0.001 ·", { exact: false })).toBeVisible();
+
   await page.getByRole("link", { name: "Strategies", exact: true }).click();
   const editor = page.getByLabel("Strategy JSON");
   const save = page.getByRole("button", { name: "Save strategy", exact: true });

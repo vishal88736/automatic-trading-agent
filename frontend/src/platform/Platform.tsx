@@ -30,9 +30,10 @@ import {
 import { JsonDetails, money, timestamp } from "../ui";
 import { KronoMark } from "../brand";
 import { platform, type AgentRow, type Preview, type Runtime } from "./client";
-import { PaperAccount, Strategies } from "./Strategies";
+import { Strategies } from "./Strategies";
 import "./platform.css";
 
+const PaperAccount = lazy(() => import("./PaperTrading"));
 const BacktestingLab = lazy(() => import("./BacktestingLab"));
 
 type Message = {
@@ -618,7 +619,9 @@ export function PlatformWorkspace() {
         ) : strategies ? (
           <Strategies key={session.userId} />
         ) : paper ? (
-          <PaperAccount key={session.userId} />
+          <Suspense fallback={<p role="status">Loading Paper Trading…</p>}>
+            <PaperAccount key={session.userId} />
+          </Suspense>
         ) : (
           <Suspense fallback={<p role="status">Loading Backtesting Lab…</p>}>
             <BacktestingLab

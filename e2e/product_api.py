@@ -6,6 +6,8 @@ from datetime import timezone
 from backend.backtesting import RULE_WARMUP_HOURS
 from backend.data import FIXTURE_START, fixture_market
 from backend.historical_data import HOUR
+from backend.models import now
+from backend.paper_execution import PaperQuote
 from backend.platform_db import DSN_ENV
 from backend.platform_product_api import KEY_ENV, create_product_api
 
@@ -25,7 +27,18 @@ def history(symbol, start, end):
     return market
 
 
+def quotes(assets):
+    prices = {"BTC": "50000", "ETH": "2500", "SOL": "130"}
+    at = now()
+    return {
+        asset: PaperQuote(asset=asset, price=prices[asset], observed_at=at, source="fixture")
+        for asset in assets
+    }
+
+
 def application():
     if os.environ.get("TERMINAL_TEST_RUN") != "1":
         raise RuntimeError("Use the isolated e2e configuration")
-    return create_product_api(os.environ[DSN_ENV], os.environ[KEY_ENV], history_source=history)
+    return create_product_api(
+        os.environ[DSN_ENV], os.environ[KEY_ENV], history_source=history, quote_source=quotes
+    )

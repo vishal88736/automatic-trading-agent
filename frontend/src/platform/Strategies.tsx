@@ -2,12 +2,6 @@ import { useEffect, useState } from "react";
 import { platform } from "./client";
 import { timestamp } from "../ui";
 
-interface Account {
-  id: string;
-  currency: string;
-  cash: string;
-}
-
 interface Document {
   name: string;
   description?: string;
@@ -47,57 +41,6 @@ const example = JSON.stringify(
   null,
   2,
 );
-
-export function PaperAccount() {
-  const [account, setAccount] = useState<Account | null>(null);
-  const [busy, setBusy] = useState(true);
-  const [error, setError] = useState("");
-  useEffect(() => {
-    let mounted = true;
-    platform<{ account: Account | null }>("/paper-account")
-      .then((result) => mounted && setAccount(result.account))
-      .catch((err: Error) => mounted && setError(err.message))
-      .finally(() => mounted && setBusy(false));
-    return () => {
-      mounted = false;
-    };
-  }, []);
-  async function open() {
-    setBusy(true);
-    setError("");
-    try {
-      const result = await platform<{ account: Account }>(
-        "/paper-account",
-        "POST",
-      );
-      setAccount(result.account);
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <section className="platform-product-panel" aria-labelledby="paper-balance">
-      <h3 id="paper-balance">Virtual balance</h3>
-      {error && (
-        <p role="alert" className="platform-error">
-          {error}
-        </p>
-      )}
-      {busy ? (
-        <p role="status">Loading virtual account…</p>
-      ) : account ? (
-        <p className="platform-product-balance">
-          <strong>{account.cash}</strong> virtual {account.currency}
-        </p>
-      ) : (
-        <button onClick={() => void open()}>Open virtual account</button>
-      )}
-      <p>Virtual funds have no cash or withdrawal value.</p>
-    </section>
-  );
-}
 
 export function Strategies() {
   const [records, setRecords] = useState<Revision[]>([]);

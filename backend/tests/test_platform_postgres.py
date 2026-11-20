@@ -274,3 +274,111 @@ def test_authenticated_product_http_checks_identity_payload_and_ownership(
         assert call("POST", record + "/archive", payload={"expected_version": 2}).status_code == 204
         assert call("GET", record).status_code == 404
         assert call("GET", record + "?version=1").json() == first.json()
+
+
+def test_order_execution_uses_one_ledger_for_fills_reservations_and_reset(database):
+    from datetime import timedelta
+
+    from backend.models import now
+    from backend.paper_execution import (
+        OrderRequest,
+        PaperQuote,
+        PaperTerms,
+        get_order,
+        portfolio,
+        process_limit,
+        reset_account,
+        set_emergency,
+        submit_order,
+    )
+
+    owner, other = uuid4(), uuid4()
+    at = now()
+    terms = PaperTerms(fee_bps=10, slippage_bps=0)
+
+    def quote(price, when):
+        return {"BTC": PaperQuote(asset="BTC", price=price, observed_at=when, source="fixture")}
+
+    with database() as db:
+        migrate(db)
+        account = ensure_account(db, owner)
+        ensure_account(db, other)
+        buy = OrderRequest(request_key=uuid4(), epoch=1, asset="BTC", side="BUY", quantity="0.001")
+        first = submit_order(db, owner, buy, quote("50000", at), terms, clock=lambda: at)
+        assert first["status"] == "FILLED"
+        assert first["fee"] == Decimal("0.05")
+        assert get_account(db, owner).cash == Decimal("9949.95")
+        assert submit_order(db, owner, buy, {}, terms)["id"] == first["id"]
+        assert get_order(db, other, first["id"]) is None
+        with pytest.raises(CheckViolation):
+            db.execute("DELETE FROM paper_ledger_entries WHERE order_id = %s", (first["id"],))
+
+        sell = OrderRequest(
+            request_key=uuid4(),
+            epoch=1,
+            asset="BTC",
+            side="SELL",
+            quantity="0.001",
+            limit_price="55000",
+        )
+        waiting = submit_order(db, owner, sell, quote("50000", at), terms, clock=lambda: at)
+        assert waiting["status"] == "OPEN" and waiting["reserved_quantity"] == Decimal("0.001")
+        repeat = sell.model_copy(update={"request_key": uuid4(), "limit_price": None})
+        assert (
+            submit_order(db, owner, repeat, quote("50000", at), terms, clock=lambda: at)["reason"]
+            == "INSUFFICIENT_ASSET"
+        )
+        later = at + timedelta(minutes=1)
+        assert (
+            process_limit(db, owner, waiting["id"], quote("60000", at), terms, clock=lambda: later)[
+                "status"
+            ]
+            == "OPEN"
+        )
+        filled = process_limit(
+            db, owner, waiting["id"], quote("60000", later), terms, clock=lambda: later
+        )
+        assert filled["status"] == "FILLED" and filled["realized_pnl"] == Decimal("9.89")
+        assert process_limit(db, owner, waiting["id"], {}, terms)["status"] == "FILLED"
+        view = portfolio(db, owner, {})
+        assert view["available_cash"] == Decimal("10009.89")
+        assert view["holdings"] == [] and view["realized_pnl"] == Decimal("9.89")
+
+        set_emergency(db, owner, True)
+        stopped = buy.model_copy(update={"request_key": uuid4()})
+        assert (
+            submit_order(db, owner, stopped, quote("50000", at), terms, clock=lambda: at)["reason"]
+            == "EMERGENCY_STOP"
+        )
+        assert reset_account(db, owner, account.epoch, Decimal("10000")).epoch == 2
+        assert portfolio(db, owner, {})["emergency_stop"]
+        assert portfolio(db, owner, {})["cash"] == Decimal("10000")
+        assert get_order(db, owner, filled["id"])["status"] == "FILLED"
+
+
+def test_parallel_submissions_share_cash_lock(database):
+    from backend.models import now
+    from backend.paper_execution import OrderRequest, PaperQuote, PaperTerms, submit_order
+
+    owner = uuid4()
+    with database() as db:
+        migrate(db)
+        ensure_account(db, owner)
+    ready = Barrier(2, timeout=10)
+    at = now()
+    quote = PaperQuote(asset="BTC", price="50000", observed_at=at, source="fixture")
+    request = OrderRequest(request_key=uuid4(), epoch=1, asset="BTC", side="BUY", quantity="0.001")
+
+    def place(_index):
+        with database() as db:
+            ready.wait()
+            return submit_order(db, owner, request, {"BTC": quote}, PaperTerms(), clock=lambda: at)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first, retry = pool.map(place, range(2))
+    assert first["status"] == "FILLED" and retry == first
+    with database() as db:
+        assert db.execute(
+            "SELECT count(*) FROM paper_ledger_entries WHERE owner_id = %s AND kind = 'BUY'",
+            (owner,),
+        ).fetchone() == (1,)

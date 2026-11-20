@@ -402,6 +402,34 @@ Cognito access-token identity and tenant-aware repositories protect application 
 - [get_account](../backend/paper_accounts.py#L22) — `get_account(db: Connection, owner_id: UUID)`
 - [ensure_account](../backend/paper_accounts.py#L40) — `ensure_account(db: Connection, owner_id: UUID, initial_usdt: Decimal=DEFAULT_INITIAL_USDT)`
 
+### backend/paper_execution.py
+
+- [OrderRequest](../backend/paper_execution.py#L27) — class
+- [PaperQuote](../backend/paper_execution.py#L36) — class
+- [PaperTerms](../backend/paper_execution.py#L43) — class
+- [PaperTerms.costs_within_policy](../backend/paper_execution.py#L49) — `costs_within_policy(self)`
+- [lock_account](../backend/paper_execution.py#L58) — `lock_account(db: Connection, owner: UUID)`
+- [positions](../backend/paper_execution.py#L68) — `positions(db: Connection, owner: UUID, epoch: int)`
+- [reservations](../backend/paper_execution.py#L82) — `reservations(db: Connection, owner: UUID, epoch: int, exclude: UUID | None=None)`
+- [_fresh](../backend/paper_execution.py#L96) — `_fresh(quotes: dict[str, PaperQuote], asset: str, at: datetime, max_age: int)`
+- [_cost](../backend/paper_execution.py#L104) — `_cost(quantity: Decimal, price: Decimal, terms: PaperTerms)`
+- [_finish](../backend/paper_execution.py#L110) — `_finish(db: Connection, order_id: UUID, status: str, reason: str | None, at: datetime)`
+- [_buy_risk](../backend/paper_execution.py#L120) — `_buy_risk(db, owner, account, asset, gross, fee, held, quotes, at, terms)`
+- [get_order](../backend/paper_execution.py#L180) — `get_order(db: Connection, owner: UUID, order_id: UUID)`
+- [_evaluate](../backend/paper_execution.py#L194) — `_evaluate(db, owner, account, stopped, order_id, request, quotes, terms, at, *, pending)`
+- [submit_order](../backend/paper_execution.py#L275) — `submit_order(db, owner: UUID, request: OrderRequest, quotes, terms: PaperTerms, *, clock=now)`
+- [process_limit](../backend/paper_execution.py#L309) — `process_limit(db, owner: UUID, order_id: UUID, quotes, terms: PaperTerms, *, clock=now)`
+- [cancel_order](../backend/paper_execution.py#L323) — `cancel_order(db, owner: UUID, order_id: UUID)`
+- [set_emergency](../backend/paper_execution.py#L333) — `set_emergency(db, owner: UUID, enabled: bool)`
+- [_cancel_open](../backend/paper_execution.py#L344) — `_cancel_open(db, owner, epoch, reason)`
+- [reset_account](../backend/paper_execution.py#L355) — `reset_account(db, owner: UUID, expected_epoch: int, opening_credit: Decimal)`
+- [portfolio](../backend/paper_execution.py#L379) — `portfolio(db, owner: UUID, quotes: dict[str, PaperQuote], *, clock=now, max_age=20)`
+- [order_history](../backend/paper_execution.py#L460) — `order_history(db, owner: UUID, *, epoch: int | None=None, limit=50)`
+
+### backend/paper_market.py
+
+- [load_quotes](../backend/paper_market.py#L10) — `load_quotes(assets: set[str])`
+
 ### backend/platform_db.py
 
 - [open_database](../backend/platform_db.py#L15) — `open_database(dsn: str)`
@@ -409,29 +437,40 @@ Cognito access-token identity and tenant-aware repositories protect application 
 
 ### backend/platform_product_api.py
 
-- [StrategyEdit](../backend/platform_product_api.py#L40) — class
-- [StrategyArchive](../backend/platform_product_api.py#L45) — class
-- [ProductError](../backend/platform_product_api.py#L49) — class
-- [ProductError.__init__](../backend/platform_product_api.py#L50) — `__init__(self, status: int, code: str, message: str)`
-- [create_product_api](../backend/platform_product_api.py#L56) — `create_product_api(dsn: str, key: str, initial_usdt: Decimal=DEFAULT_INITIAL_USDT, *, history_source=load_candles)`
-- [create_product_api.product_error](../backend/platform_product_api.py#L67) — `async product_error(_request, exc)`
-- [create_product_api.validation_error](../backend/platform_product_api.py#L73) — `async validation_error(_request, exc)`
-- [create_product_api.database_error](../backend/platform_product_api.py#L89) — `async database_error(_request, _exc)`
-- [create_product_api.missing_strategy](../backend/platform_product_api.py#L96) — `async missing_strategy(_request, _exc)`
-- [create_product_api.conflict](../backend/platform_product_api.py#L103) — `async conflict(_request, _exc)`
-- [create_product_api.owner](../backend/platform_product_api.py#L109) — `async owner(request: Request)`
-- [create_product_api.database](../backend/platform_product_api.py#L150) — `database()`
-- [create_product_api.paper_account](../backend/platform_product_api.py#L159) — `paper_account(subject: Principal, db: Database)`
-- [create_product_api.provision_paper_account](../backend/platform_product_api.py#L163) — `provision_paper_account(subject: Principal, db: Database)`
-- [create_product_api.strategies](../backend/platform_product_api.py#L167) — `strategies(subject: Principal, db: Database, after: UUID | None=None, limit: Annotated[int, Query(ge=1, le=100)]=50)`
-- [create_product_api.new_strategy](../backend/platform_product_api.py#L176) — `new_strategy(document: StrategyDraft, subject: Principal, db: Database)`
-- [create_product_api.strategy](../backend/platform_product_api.py#L181) — `strategy(strategy_id: UUID, subject: Principal, db: Database, version: Annotated[int | None, Query(ge=1, le=2 ** 31 - 1)]=None)`
-- [create_product_api.edit_strategy](../backend/platform_product_api.py#L193) — `edit_strategy(strategy_id: UUID, edit: StrategyEdit, subject: Principal, db: Database)`
-- [create_product_api.remove_strategy](../backend/platform_product_api.py#L199) — `remove_strategy(strategy_id: UUID, archive: StrategyArchive, subject: Principal, db: Database)`
-- [create_product_api.versions](../backend/platform_product_api.py#L205) — `versions(strategy_id: UUID, subject: Principal, db: Database, before: Annotated[int, Query(ge=2, le=2 ** 31)]=2 ** 31, limit: Annotated[int, Query(ge=1, le=100)]=50)`
-- [create_product_api.create_backtest](../backend/platform_product_api.py#L219) — `create_backtest(strategy_id: UUID, study: HistoricalBacktestRequest, subject: Principal, db: Database)`
-- [create_product_api.backtest_report](../backend/platform_product_api.py#L236) — `backtest_report(run_id: UUID, subject: Principal, db: Database, include_dataset: bool=False)`
-- [app_from_environment](../backend/platform_product_api.py#L247) — `app_from_environment()`
+- [StrategyEdit](../backend/platform_product_api.py#L55) — class
+- [StrategyArchive](../backend/platform_product_api.py#L60) — class
+- [PaperReset](../backend/platform_product_api.py#L64) — class
+- [PaperEmergency](../backend/platform_product_api.py#L69) — class
+- [ProductError](../backend/platform_product_api.py#L73) — class
+- [ProductError.__init__](../backend/platform_product_api.py#L74) — `__init__(self, status: int, code: str, message: str)`
+- [create_product_api](../backend/platform_product_api.py#L80) — `create_product_api(dsn: str, key: str, initial_usdt: Decimal=DEFAULT_INITIAL_USDT, *, history_source=load_candles, quote_source=load_quotes)`
+- [create_product_api.product_error](../backend/platform_product_api.py#L96) — `async product_error(_request, exc)`
+- [create_product_api.validation_error](../backend/platform_product_api.py#L102) — `async validation_error(_request, exc)`
+- [create_product_api.database_error](../backend/platform_product_api.py#L118) — `async database_error(_request, _exc)`
+- [create_product_api.missing_strategy](../backend/platform_product_api.py#L125) — `async missing_strategy(_request, _exc)`
+- [create_product_api.conflict](../backend/platform_product_api.py#L132) — `async conflict(_request, _exc)`
+- [create_product_api.owner](../backend/platform_product_api.py#L138) — `async owner(request: Request)`
+- [create_product_api.database](../backend/platform_product_api.py#L179) — `database()`
+- [create_product_api.paper_account](../backend/platform_product_api.py#L188) — `paper_account(subject: Principal, db: Database)`
+- [create_product_api.provision_paper_account](../backend/platform_product_api.py#L192) — `provision_paper_account(subject: Principal, db: Database)`
+- [create_product_api.financial](../backend/platform_product_api.py#L195) — `financial(data, status=200)`
+- [create_product_api.quotes_for](../backend/platform_product_api.py#L200) — `quotes_for(db, subject, asset=None)`
+- [create_product_api.paper_portfolio](../backend/platform_product_api.py#L214) — `paper_portfolio(subject: Principal, db: Database)`
+- [create_product_api.paper_order_history](../backend/platform_product_api.py#L218) — `paper_order_history(subject: Principal, db: Database, epoch: Annotated[int | None, Query(ge=1)]=None, limit: Annotated[int, Query(ge=1, le=100)]=50)`
+- [create_product_api.paper_order_submit](../backend/platform_product_api.py#L227) — `paper_order_submit(order: OrderRequest, subject: Principal, db: Database)`
+- [create_product_api.paper_order_cancel](../backend/platform_product_api.py#L232) — `paper_order_cancel(order_id: UUID, subject: Principal, db: Database)`
+- [create_product_api.paper_order_evaluate](../backend/platform_product_api.py#L239) — `paper_order_evaluate(order_id: UUID, subject: Principal, db: Database)`
+- [create_product_api.paper_reset](../backend/platform_product_api.py#L249) — `paper_reset(reset: PaperReset, subject: Principal, db: Database)`
+- [create_product_api.paper_emergency](../backend/platform_product_api.py#L253) — `paper_emergency(change: PaperEmergency, subject: Principal, db: Database)`
+- [create_product_api.strategies](../backend/platform_product_api.py#L257) — `strategies(subject: Principal, db: Database, after: UUID | None=None, limit: Annotated[int, Query(ge=1, le=100)]=50)`
+- [create_product_api.new_strategy](../backend/platform_product_api.py#L266) — `new_strategy(document: StrategyDraft, subject: Principal, db: Database)`
+- [create_product_api.strategy](../backend/platform_product_api.py#L271) — `strategy(strategy_id: UUID, subject: Principal, db: Database, version: Annotated[int | None, Query(ge=1, le=2 ** 31 - 1)]=None)`
+- [create_product_api.edit_strategy](../backend/platform_product_api.py#L283) — `edit_strategy(strategy_id: UUID, edit: StrategyEdit, subject: Principal, db: Database)`
+- [create_product_api.remove_strategy](../backend/platform_product_api.py#L289) — `remove_strategy(strategy_id: UUID, archive: StrategyArchive, subject: Principal, db: Database)`
+- [create_product_api.versions](../backend/platform_product_api.py#L295) — `versions(strategy_id: UUID, subject: Principal, db: Database, before: Annotated[int, Query(ge=2, le=2 ** 31)]=2 ** 31, limit: Annotated[int, Query(ge=1, le=100)]=50)`
+- [create_product_api.create_backtest](../backend/platform_product_api.py#L309) — `create_backtest(strategy_id: UUID, study: HistoricalBacktestRequest, subject: Principal, db: Database)`
+- [create_product_api.backtest_report](../backend/platform_product_api.py#L326) — `backtest_report(run_id: UUID, subject: Principal, db: Database, include_dataset: bool=False)`
+- [app_from_environment](../backend/platform_product_api.py#L337) — `app_from_environment()`
 
 ### backend/portfolio.py
 

@@ -5,10 +5,11 @@ import hmac
 import os
 import time
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import Depends, FastAPI, Query, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from httpx import HTTPError
@@ -20,6 +21,20 @@ from backend.backtest_repository import get_replay, save_replay
 from backend.historical_data import HistoricalBacktestRequest, load_candles
 from backend.models import Model
 from backend.paper_accounts import DEFAULT_INITIAL_USDT, PaperAccount, ensure_account, get_account
+from backend.paper_execution import (
+    OrderRequest,
+    PaperTerms,
+    cancel_order,
+    get_order,
+    order_history,
+    portfolio,
+    positions,
+    process_limit,
+    reset_account,
+    set_emergency,
+    submit_order,
+)
+from backend.paper_market import load_quotes
 from backend.platform_db import DSN_ENV, open_database
 from backend.strategy_repository import (
     archive_strategy,
@@ -46,6 +61,15 @@ class StrategyArchive(Model):
     expected_version: Version
 
 
+class PaperReset(Model):
+    epoch: int = Field(ge=1)
+    acknowledge: Literal["RESET_PAPER_ACCOUNT"]
+
+
+class PaperEmergency(Model):
+    enabled: bool
+
+
 class ProductError(Exception):
     def __init__(self, status: int, code: str, message: str):
         self.status = status
@@ -54,7 +78,12 @@ class ProductError(Exception):
 
 
 def create_product_api(
-    dsn: str, key: str, initial_usdt: Decimal = DEFAULT_INITIAL_USDT, *, history_source=load_candles
+    dsn: str,
+    key: str,
+    initial_usdt: Decimal = DEFAULT_INITIAL_USDT,
+    *,
+    history_source=load_candles,
+    quote_source=load_quotes,
 ) -> FastAPI:
     if not dsn or len(key.encode()) < 32:
         raise ValueError(
@@ -162,6 +191,67 @@ def create_product_api(
     @app.post("/platform/paper-account")
     def provision_paper_account(subject: Principal, db: Database) -> dict[str, PaperAccount]:
         return {"account": ensure_account(db, subject, initial_usdt)}
+
+    def financial(data, status=200):
+        return JSONResponse(
+            jsonable_encoder(data, custom_encoder={Decimal: str}), status_code=status
+        )
+
+    def quotes_for(db, subject, asset=None):
+        account = get_account(db, subject)
+        if account is None:
+            raise ProductError(409, "ACCOUNT_REQUIRED", "Open a paper account first")
+        symbols = {
+            symbol
+            for symbol, item in positions(db, subject, account.epoch).items()
+            if item["quantity"] > 0
+        }
+        if asset:
+            symbols.add(asset)
+        return quote_source(symbols)
+
+    @app.get("/platform/paper-portfolio")
+    def paper_portfolio(subject: Principal, db: Database):
+        return financial(portfolio(db, subject, quotes_for(db, subject)))
+
+    @app.get("/platform/paper-orders")
+    def paper_order_history(
+        subject: Principal,
+        db: Database,
+        epoch: Annotated[int | None, Query(ge=1)] = None,
+        limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    ):
+        return financial({"items": order_history(db, subject, epoch=epoch, limit=limit)})
+
+    @app.post("/platform/paper-orders", status_code=201)
+    def paper_order_submit(order: OrderRequest, subject: Principal, db: Database):
+        quotes = quotes_for(db, subject, order.asset)
+        return financial(submit_order(db, subject, order, quotes, PaperTerms()), 201)
+
+    @app.post("/platform/paper-orders/{order_id}/cancel")
+    def paper_order_cancel(order_id: UUID, subject: Principal, db: Database):
+        order = cancel_order(db, subject, order_id)
+        if order is None:
+            raise ProductError(404, "NOT_FOUND", "Paper order is unavailable")
+        return financial(order)
+
+    @app.post("/platform/paper-orders/{order_id}/evaluate")
+    def paper_order_evaluate(order_id: UUID, subject: Principal, db: Database):
+        order = get_order(db, subject, order_id)
+        if order is None:
+            raise ProductError(404, "NOT_FOUND", "Paper order is unavailable")
+        if order["status"] == "OPEN":
+            quotes = quotes_for(db, subject, order["request"]["asset"])
+            order = process_limit(db, subject, order_id, quotes, PaperTerms())
+        return financial(order)
+
+    @app.post("/platform/paper-account/reset")
+    def paper_reset(reset: PaperReset, subject: Principal, db: Database) -> dict[str, PaperAccount]:
+        return {"account": reset_account(db, subject, reset.epoch, initial_usdt)}
+
+    @app.put("/platform/paper-account/emergency")
+    def paper_emergency(change: PaperEmergency, subject: Principal, db: Database):
+        return {"emergency_stop": set_emergency(db, subject, change.enabled)}
 
     @app.get("/platform/custom-strategies")
     def strategies(
