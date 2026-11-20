@@ -120,6 +120,8 @@ def indicators(market: Market) -> dict:
         "support": float(frame.low.tail(20).min()),
         "resistance": float(frame.high.tail(20).max()),
         "volume_ratio": float(frame.volume.iloc[-1]) / baseline,
+        "prior_high_20": float(frame.high.iloc[-21:-1].max()),
+        "prior_low_20": float(frame.low.iloc[-21:-1].min()),
         "realized_vol_annualized": float(close.pct_change().tail(20).std()) * math.sqrt(8760),
         "trend_distance": abs(float(close.iloc[-1]) / float(close.tail(50).mean()) - 1),
         "trend": regime.trend_state,

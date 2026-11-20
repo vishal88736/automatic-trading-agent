@@ -497,15 +497,17 @@ Cognito access-token identity and tenant-aware repositories protect application 
 - [create_product_api.paper_agent_start](../backend/platform_product_api.py#L269) — `paper_agent_start(request: AgentStart, subject: Principal, db: Database)`
 - [create_product_api.paper_agent_control](../backend/platform_product_api.py#L279) — `paper_agent_control(agent_id: UUID, command: AgentCommand, subject: Principal, db: Database)`
 - [create_product_api.paper_agent_timeline](../backend/platform_product_api.py#L290) — `paper_agent_timeline(agent_id: UUID, subject: Principal, db: Database, after: Annotated[int, Query(ge=0)]=0)`
-- [create_product_api.strategies](../backend/platform_product_api.py#L299) — `strategies(subject: Principal, db: Database, after: UUID | None=None, limit: Annotated[int, Query(ge=1, le=100)]=50)`
-- [create_product_api.new_strategy](../backend/platform_product_api.py#L308) — `new_strategy(document: StrategyDraft, subject: Principal, db: Database)`
-- [create_product_api.strategy](../backend/platform_product_api.py#L313) — `strategy(strategy_id: UUID, subject: Principal, db: Database, version: Annotated[int | None, Query(ge=1, le=2 ** 31 - 1)]=None)`
-- [create_product_api.edit_strategy](../backend/platform_product_api.py#L325) — `edit_strategy(strategy_id: UUID, edit: StrategyEdit, subject: Principal, db: Database)`
-- [create_product_api.remove_strategy](../backend/platform_product_api.py#L331) — `remove_strategy(strategy_id: UUID, archive: StrategyArchive, subject: Principal, db: Database)`
-- [create_product_api.versions](../backend/platform_product_api.py#L337) — `versions(strategy_id: UUID, subject: Principal, db: Database, before: Annotated[int, Query(ge=2, le=2 ** 31)]=2 ** 31, limit: Annotated[int, Query(ge=1, le=100)]=50)`
-- [create_product_api.create_backtest](../backend/platform_product_api.py#L351) — `create_backtest(strategy_id: UUID, study: HistoricalBacktestRequest, subject: Principal, db: Database)`
-- [create_product_api.backtest_report](../backend/platform_product_api.py#L368) — `backtest_report(run_id: UUID, subject: Principal, db: Database, include_dataset: bool=False)`
-- [app_from_environment](../backend/platform_product_api.py#L379) — `app_from_environment()`
+- [create_product_api.strategy_authoring](../backend/platform_product_api.py#L299) — `strategy_authoring(subject: Principal)`
+- [create_product_api.validate_draft](../backend/platform_product_api.py#L303) — `validate_draft(draft: StrategyDraft, subject: Principal)`
+- [create_product_api.strategies](../backend/platform_product_api.py#L307) — `strategies(subject: Principal, db: Database, after: UUID | None=None, limit: Annotated[int, Query(ge=1, le=100)]=50)`
+- [create_product_api.new_strategy](../backend/platform_product_api.py#L316) — `new_strategy(document: StrategyDraft, subject: Principal, db: Database)`
+- [create_product_api.strategy](../backend/platform_product_api.py#L321) — `strategy(strategy_id: UUID, subject: Principal, db: Database, version: Annotated[int | None, Query(ge=1, le=2 ** 31 - 1)]=None)`
+- [create_product_api.edit_strategy](../backend/platform_product_api.py#L333) — `edit_strategy(strategy_id: UUID, edit: StrategyEdit, subject: Principal, db: Database)`
+- [create_product_api.remove_strategy](../backend/platform_product_api.py#L339) — `remove_strategy(strategy_id: UUID, archive: StrategyArchive, subject: Principal, db: Database)`
+- [create_product_api.versions](../backend/platform_product_api.py#L345) — `versions(strategy_id: UUID, subject: Principal, db: Database, before: Annotated[int, Query(ge=2, le=2 ** 31)]=2 ** 31, limit: Annotated[int, Query(ge=1, le=100)]=50)`
+- [create_product_api.create_backtest](../backend/platform_product_api.py#L359) — `create_backtest(strategy_id: UUID, study: HistoricalBacktestRequest, subject: Principal, db: Database)`
+- [create_product_api.backtest_report](../backend/platform_product_api.py#L376) — `backtest_report(run_id: UUID, subject: Principal, db: Database, include_dataset: bool=False)`
+- [app_from_environment](../backend/platform_product_api.py#L387) — `app_from_environment()`
 
 ### backend/portfolio.py
 
@@ -593,7 +595,7 @@ Cognito access-token identity and tenant-aware repositories protect application 
 ### backend/strategies.py
 
 - [indicators](../backend/strategies.py#L68) — `indicators(market: Market)`
-- [evaluate](../backend/strategies.py#L138) — `evaluate(strategy_id: str, market: Market, news: NewsFeed, config: StrategyConfig, holding=False, clock=None)`
+- [evaluate](../backend/strategies.py#L140) — `evaluate(strategy_id: str, market: Market, news: NewsFeed, config: StrategyConfig, holding=False, clock=None)`
 
 ### backend/strategy_registry.py
 
@@ -624,13 +626,15 @@ Cognito access-token identity and tenant-aware repositories protect application 
 
 ### backend/strategy_rules.py
 
-- [Condition](../backend/strategy_rules.py#L32) — class
-- [RuleGroup](../backend/strategy_rules.py#L38) — class
-- [StrategyDefinition](../backend/strategy_rules.py#L43) — class
-- [StrategyDraft](../backend/strategy_rules.py#L55) — class
-- [_threshold](../backend/strategy_rules.py#L61) — `_threshold(condition: Condition, values: dict)`
-- [_matches](../backend/strategy_rules.py#L67) — `_matches(condition: Condition, current: dict, previous: dict)`
-- [rule_signal](../backend/strategy_rules.py#L90) — `rule_signal(definition: StrategyDefinition, market: Market, *, holding: bool)`
+- [Condition](../backend/strategy_rules.py#L35) — class
+- [RuleGroup](../backend/strategy_rules.py#L41) — class
+- [StrategyDefinition](../backend/strategy_rules.py#L46) — class
+- [StrategyDraft](../backend/strategy_rules.py#L58) — class
+- [_threshold](../backend/strategy_rules.py#L64) — `_threshold(condition: Condition, values: dict)`
+- [_matches](../backend/strategy_rules.py#L70) — `_matches(condition: Condition, current: dict, previous: dict)`
+- [rule_signal](../backend/strategy_rules.py#L93) — `rule_signal(definition: StrategyDefinition, market: Market, *, holding: bool)`
+- [authoring_options](../backend/strategy_rules.py#L119) — `authoring_options()`
+- [authoring_options.group](../backend/strategy_rules.py#L136) — `group(rule)`
 
 ### backend/trade_history.py
 
@@ -722,7 +726,7 @@ Cognito access-token identity and tenant-aware repositories protect application 
 
 ### backend/src/product/routes.ts
 
-- [registerProductRoutes](../backend/src/product/routes.ts#L6)
+- [registerProductRoutes](../backend/src/product/routes.ts#L22)
 
 ### backend/src/profiles/profile.service.ts
 

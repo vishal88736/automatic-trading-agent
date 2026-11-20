@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Annotated, Literal
+from typing import Annotated, Literal, get_args
 
 from pydantic import Field, StringConstraints
 
@@ -23,7 +23,10 @@ Indicator = Literal[
     "bb_upper",
     "bb_mid",
     "volume_ratio",
+    "prior_high_20",
+    "prior_low_20",
 ]
+Operator = Literal["lt", "lte", "gt", "gte", "crosses_above", "crosses_below"]
 Threshold = Annotated[Decimal, Field(max_digits=30, decimal_places=12)]
 Fraction = Annotated[Decimal, Field(gt=0, lt=1, decimal_places=6)]
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
@@ -31,7 +34,7 @@ Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max
 
 class Condition(Model):
     indicator: Indicator
-    operator: Literal["lt", "lte", "gt", "gte", "crosses_above", "crosses_below"]
+    operator: Operator
     threshold: Indicator | Threshold
 
 
@@ -111,3 +114,50 @@ def rule_signal(
     if not matched:
         return "HOLD"
     return "SELL" if holding else "BUY"
+
+
+def authoring_options() -> dict:
+    pairs = (
+        ("RSI mean reversion", ("rsi", "lt", "30"), ("rsi", "gt", "65")),
+        (
+            "MACD crossover",
+            ("macd", "crosses_above", "macd_signal"),
+            ("macd", "crosses_below", "macd_signal"),
+        ),
+        (
+            "EMA crossover",
+            ("ema_fast", "crosses_above", "ema_slow"),
+            ("ema_fast", "crosses_below", "ema_slow"),
+        ),
+        ("Bollinger mean reversion", ("price", "lt", "bb_lower"), ("price", "gte", "bb_mid")),
+        ("20-bar breakout", ("price", "gt", "prior_high_20"), ("price", "lt", "prior_low_20")),
+    )
+
+    def group(rule):
+        indicator, operator, threshold = rule
+        return RuleGroup(
+            conditions=(Condition(indicator=indicator, operator=operator, threshold=threshold),)
+        )
+
+    templates = [
+        StrategyDraft(
+            name=name,
+            description="Editable hourly spot template",
+            definition=StrategyDefinition(
+                asset="BTC",
+                entry=group(entry),
+                exit=group(exit),
+                cash_fraction=Decimal("0.02"),
+                stop_loss=Decimal("0.04"),
+            ),
+        ).model_dump(mode="json")
+        for name, entry, exit in pairs
+    ]
+    return {
+        "assets": get_args(StrategyDefinition.model_fields["asset"].annotation),
+        "timeframes": get_args(StrategyDefinition.model_fields["timeframe"].annotation),
+        "indicators": get_args(Indicator),
+        "operators": get_args(Operator),
+        "templates": templates,
+        "schema": StrategyDraft.model_json_schema(),
+    }

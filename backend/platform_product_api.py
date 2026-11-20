@@ -52,7 +52,7 @@ from backend.strategy_repository import (
     strategy_history,
     update_strategy,
 )
-from backend.strategy_rules import StrategyDraft
+from backend.strategy_rules import StrategyDraft, authoring_options
 
 KEY_ENV = "KRONO_PRODUCT_API_KEY"
 BODY_LIMIT = 65536
@@ -294,6 +294,14 @@ def create_product_api(
         after: Annotated[int, Query(ge=0)] = 0,
     ):
         return financial({"items": timeline(db, subject, agent_id, after)})
+
+    @app.get("/platform/strategy-authoring")
+    def strategy_authoring(subject: Principal):
+        return authoring_options()
+
+    @app.post("/platform/strategy-authoring/validate")
+    def validate_draft(draft: StrategyDraft, subject: Principal):
+        return {"document": draft}
 
     @app.get("/platform/custom-strategies")
     def strategies(

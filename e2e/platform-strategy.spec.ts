@@ -29,6 +29,31 @@ test("Fund, version, backtest, and isolate a tenant strategy", async ({
   await expect(page.getByText("0.001 ·", { exact: false })).toBeVisible();
 
   await page.getByRole("link", { name: "Strategies", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Natural language", exact: true })
+    .click();
+  await page
+    .getByLabel("Trading objective")
+    .fill("BTC RSI below 30 for entry and above 65 for exit.");
+  await page.getByRole("button", { name: "Generate strategy draft" }).click();
+  await expect(page.getByLabel("Strategy JSON")).toHaveValue(
+    /Fixture RSI draft/,
+  );
+  await expect(page.getByText("No saved strategies.")).toBeVisible();
+
+  await page
+    .getByRole("combobox", { name: "Strategy template" })
+    .selectOption("MACD crossover");
+  await page.getByRole("button", { name: "Add entry rule" }).click();
+  await page
+    .getByRole("combobox", { name: "Asset", exact: true })
+    .selectOption("ETH");
+  await page
+    .getByRole("button", { name: "Structured JSON", exact: true })
+    .click();
+  await expect(page.getByLabel("Strategy JSON")).toHaveValue(/"asset": "ETH"/);
+  await expect(page.getByLabel("Strategy JSON")).toHaveValue(/macd_signal/);
+  await page.getByRole("button", { name: "New strategy" }).click();
   const editor = page.getByLabel("Strategy JSON");
   const save = page.getByRole("button", { name: "Save strategy", exact: true });
   await expect(editor).toBeEnabled();

@@ -526,7 +526,7 @@ export function createPlatform(
       },
     ],
   }));
-  registerProductRoutes(app, c);
+  registerProductRoutes(app, c, llm);
   return { app, agents, profiles, store, conversations, tools };
 }
 if (

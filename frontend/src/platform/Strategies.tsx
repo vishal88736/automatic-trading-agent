@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { platform } from "./client";
 import { timestamp } from "../ui";
+import { StrategyAuthoring } from "./StrategyAuthoring";
 
 interface Document {
   name: string;
@@ -42,7 +43,7 @@ const example = JSON.stringify(
   2,
 );
 
-export function Strategies() {
+export default function Strategies() {
   const [records, setRecords] = useState<Revision[]>([]);
   const [active, setActive] = useState<Revision | null>(null);
   const [history, setHistory] = useState<Revision[]>([]);
@@ -170,15 +171,15 @@ export function Strategies() {
         className="platform-product-panel"
         aria-labelledby="structured-heading"
       >
-        <h3 id="structured-heading">Structured editor</h3>
-        <label htmlFor="strategy-document">Strategy JSON</label>
-        <textarea
-          id="strategy-document"
-          spellCheck={false}
-          value={draft}
+        <h3 id="structured-heading">Strategy editor</h3>
+        <StrategyAuthoring
+          draft={draft}
           disabled={busy}
-          rows={18}
-          onChange={(event) => setDraft(event.target.value)}
+          onChange={setDraft}
+          onTemplate={(next) => {
+            select(null);
+            setDraft(next);
+          }}
         />
         <div className="platform-product-actions">
           <button

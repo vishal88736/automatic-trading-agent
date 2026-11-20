@@ -45,6 +45,39 @@ const auth = {
 };
 const llm: LLMProvider = {
   converse: async (request) => {
+    if (request.outputSchema?.name === "paper_strategy_draft") {
+      const strategy = {
+        name: "Fixture RSI draft",
+        definition: {
+          asset: "BTC",
+          entry: {
+            conditions: [{ indicator: "rsi", operator: "lt", threshold: "30" }],
+          },
+          exit: {
+            conditions: [{ indicator: "rsi", operator: "gt", threshold: "65" }],
+          },
+          cash_fraction: "0.02",
+          stop_loss: "0.04",
+        },
+      };
+      return {
+        message: {
+          role: "assistant",
+          content: [
+            {
+              text: JSON.stringify({
+                strategy_json: JSON.stringify(strategy),
+                notes: "Fixture draft for review",
+              }),
+            },
+          ],
+        },
+        modelId: "FIXTURE",
+        usage: { inputTokens: 0, outputTokens: 0 },
+        durationMs: 0,
+        stopReason: "end_turn",
+      };
+    }
     const done = request.messages
       .at(-1)
       ?.content.some((c) => "toolResult" in c);

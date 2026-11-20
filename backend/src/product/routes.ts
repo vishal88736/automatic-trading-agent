@@ -1,12 +1,151 @@
 import { createHash, createHmac } from "node:crypto";
 import type { FastifyInstance } from "fastify";
+import { z } from "zod";
 import type { Config } from "../config.js";
 import { PlatformError } from "../domain/errors.js";
+import type { LLMProvider } from "../integrations/llm/llm.interface.js";
+import {
+  bedrockSchema,
+  validateOutput,
+} from "../integrations/llm/structured-output.js";
 
-export function registerProductRoutes(app: FastifyInstance, config: Config) {
+const objectiveSchema = z
+  .object({ objective: z.string().trim().min(10).max(2000) })
+  .strict();
+const draftSchema = z
+  .object({
+    strategy_json: z.string().max(16000),
+    notes: z.string().max(1200),
+  })
+  .strict();
+
+export function registerProductRoutes(
+  app: FastifyInstance,
+  config: Config,
+  llm: LLMProvider,
+) {
   const api = config.KRONO_PRODUCT_API_URL;
   const key = config.KRONO_PRODUCT_API_KEY;
+  async function forward(
+    subject: string,
+    method: string,
+    path: string,
+    payload?: unknown,
+    timeout = 8000,
+  ) {
+    if (!api || !key) {
+      throw new PlatformError(
+        "PRODUCT_API_UNAVAILABLE",
+        "Paper accounts and custom strategies are unavailable",
+        503,
+      );
+    }
+    if (!path.startsWith("/platform/")) {
+      throw new PlatformError(
+        "INVALID_HTTP_REQUEST",
+        "Invalid request path",
+        400,
+      );
+    }
+    const expires = String(Math.floor(Date.now() / 1000) + 20);
+    const body = payload === undefined ? "" : JSON.stringify(payload);
+    const digest = createHash("sha256").update(body).digest("hex");
+    const message = [expires, subject, method, path, digest].join("\n");
+    const signature = createHmac("sha256", key).update(message).digest("hex");
+    return fetch(new URL(api).origin + path, {
+      method: method,
+      headers: {
+        "x-krono-product-sub": subject,
+        "x-krono-product-expires": expires,
+        "x-krono-product-signature": signature,
+        ...(body && { "content-type": "application/json" }),
+      },
+      body: body || undefined,
+      redirect: "error",
+      signal: AbortSignal.timeout(timeout),
+    });
+  }
+
+  app.post("/platform/strategy-authoring/generate", async (req) => {
+    const { objective } = objectiveSchema.parse(req.body);
+    const subject = req.principal.userId;
+    const options = await forward(
+      subject,
+      "GET",
+      "/platform/strategy-authoring",
+    );
+    if (!options.ok)
+      throw new PlatformError(
+        "PRODUCT_API_UNAVAILABLE",
+        "Strategy authoring is unavailable",
+        503,
+      );
+    const { schema } = (await options.json()) as {
+      schema: Record<string, unknown>;
+    };
+    const response = await llm.converse({
+      context: {
+        userId: subject,
+        sessionId: "strategy-authoring",
+        requestId: req.id,
+      },
+      system: `Translate the user's objective into an editable, long-only hourly paper strategy. Return the strategy as a JSON string in strategy_json, matching this schema: ${JSON.stringify(schema)}. Use fractions (2% is 0.02), never invent an indicator or market. Explain defaults in notes. For unsupported instructions, leave strategy_json empty and explain in notes. Return no forecasts. This drafts a document and cannot save it or place orders.`,
+      messages: [{ role: "user", content: [{ text: objective }] }],
+      outputSchema: {
+        name: "paper_strategy_draft",
+        schema: bedrockSchema(draftSchema),
+      },
+    });
+    const output = response.message.content
+      .flatMap((entry) => ("text" in entry ? [entry.text] : []))
+      .join("");
+    const invalid = () =>
+      new PlatformError(
+        "INVALID_MODEL_OUTPUT",
+        "The model did not return a valid paper strategy",
+        422,
+      );
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(output);
+    } catch {
+      throw invalid();
+    }
+    const candidate = validateOutput(draftSchema, parsed);
+    if (!candidate.strategy_json)
+      return {
+        document: null,
+        notes: candidate.notes,
+        model: response.modelId,
+      };
+    let document: unknown;
+    try {
+      document = JSON.parse(candidate.strategy_json);
+    } catch {
+      throw invalid();
+    }
+    const validation = await forward(
+      subject,
+      "POST",
+      "/platform/strategy-authoring/validate",
+      document,
+    );
+    if (validation.status === 422) throw invalid();
+    if (!validation.ok)
+      throw new PlatformError(
+        "PRODUCT_API_UNAVAILABLE",
+        "Strategy validation is unavailable",
+        503,
+      );
+    const validated = (await validation.json()) as { document: unknown };
+    return {
+      document: validated.document,
+      notes: candidate.notes,
+      model: response.modelId,
+    };
+  });
   const routes = [
+    { method: "GET", url: "/platform/strategy-authoring" },
     { method: ["GET", "POST"], url: "/platform/paper-account" },
     { method: "POST", url: "/platform/paper-account/reset" },
     { method: "PUT", url: "/platform/paper-account/emergency" },
@@ -34,43 +173,13 @@ export function registerProductRoutes(app: FastifyInstance, config: Config) {
       method: typeof method === "string" ? method : [...method],
       url,
       async handler(req, reply) {
-        if (!api || !key) {
-          throw new PlatformError(
-            "PRODUCT_API_UNAVAILABLE",
-            "Paper accounts and custom strategies are unavailable",
-            503,
-          );
-        }
-        const path = req.url;
-        if (!path.startsWith("/platform/")) {
-          throw new PlatformError(
-            "INVALID_HTTP_REQUEST",
-            "Invalid request path",
-            400,
-          );
-        }
-        const subject = req.principal.userId;
-        const expires = String(Math.floor(Date.now() / 1000) + 20);
-        const body = req.body === undefined ? "" : JSON.stringify(req.body);
-        const digest = createHash("sha256").update(body).digest("hex");
-        const message = [expires, subject, req.method, path, digest].join("\n");
-        const signature = createHmac("sha256", key)
-          .update(message)
-          .digest("hex");
-        const response = await fetch(new URL(api).origin + path, {
-          method: req.method,
-          headers: {
-            "x-krono-product-sub": subject,
-            "x-krono-product-expires": expires,
-            "x-krono-product-signature": signature,
-            ...(body && { "content-type": "application/json" }),
-          },
-          body: body || undefined,
-          redirect: "error",
-          signal: AbortSignal.timeout(
-            "timeout" in route ? route.timeout : 8000,
-          ),
-        });
+        const response = await forward(
+          req.principal.userId,
+          req.method,
+          req.url,
+          req.body,
+          "timeout" in route ? route.timeout : 8000,
+        );
         if (response.status === 204) return reply.code(204).send();
         if (response.status === 401 || response.status >= 500) {
           throw new PlatformError(

@@ -30,9 +30,9 @@ import {
 import { JsonDetails, money, timestamp } from "../ui";
 import { KronoMark } from "../brand";
 import { platform, type AgentRow, type Preview, type Runtime } from "./client";
-import { Strategies } from "./Strategies";
 import "./platform.css";
 
+const Strategies = lazy(() => import("./Strategies"));
 const PaperAccount = lazy(() => import("./PaperTrading"));
 const PaperAgents = lazy(() => import("./PaperAgents"));
 const BacktestingLab = lazy(() => import("./BacktestingLab"));
@@ -627,7 +627,9 @@ export function PlatformWorkspace() {
             The paper account and strategy service is unavailable.
           </p>
         ) : strategies ? (
-          <Strategies key={session.userId} />
+          <Suspense fallback={<p role="status">Loading Strategies…</p>}>
+            <Strategies key={session.userId} />
+          </Suspense>
         ) : paperAgents ? (
           <Suspense fallback={<p role="status">Loading Paper Agents…</p>}>
             <PaperAgents key={session.userId} />

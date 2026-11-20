@@ -82,3 +82,15 @@ def test_indicator_operand_is_evaluated_at_the_same_bar():
 def test_unsupported_inputs_fail_validation(invalid):
     with pytest.raises(ValidationError):
         definition(**invalid)
+
+
+def test_all_authoring_templates_use_the_runtime_strategy_schema():
+    from backend.strategy_rules import StrategyDraft, authoring_options
+
+    choice = authoring_options()
+    assert len(choice["templates"]) == 5
+    market = fixture_market("BTC")
+    for template in choice["templates"]:
+        draft = StrategyDraft.model_validate(template)
+        assert rule_signal(draft.definition, market, holding=False) in {"BUY", "HOLD"}
+        assert rule_signal(draft.definition, market, holding=True) in {"SELL", "HOLD"}
