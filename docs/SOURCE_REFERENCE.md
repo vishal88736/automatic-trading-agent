@@ -71,35 +71,35 @@ Use the local session/CSRF client or configured bearer authentication. Health/re
 Cognito access-token identity and tenant-aware repositories protect application resources. Authentication endpoints establish or clear sessions; `/platform/health` is public and does not attest AWS account availability.
 
 - `GET /platform/health` → [server.ts:253](../backend/src/server.ts#L253)
-- `GET /platform/ready` → [server.ts:262](../backend/src/server.ts#L262)
-- `GET /platform/emergency` → [server.ts:266](../backend/src/server.ts#L266)
-- `POST /platform/emergency-stop` → [server.ts:274](../backend/src/server.ts#L274)
-- `POST /platform/emergency-clear` → [server.ts:277](../backend/src/server.ts#L277)
-- `GET /platform/profile` → [server.ts:317](../backend/src/server.ts#L317)
-- `POST /platform/profile/preview` → [server.ts:319](../backend/src/server.ts#L319)
-- `GET /platform/agents` → [server.ts:336](../backend/src/server.ts#L336)
-- `GET /platform/portfolio` → [server.ts:340](../backend/src/server.ts#L340)
-- `POST /platform/agents` → [server.ts:341](../backend/src/server.ts#L341)
-- `GET /platform/agent-templates` → [server.ts:342](../backend/src/server.ts#L342)
-- `POST /platform/agent-templates/:id/instantiate` → [server.ts:345](../backend/src/server.ts#L345)
-- `GET /platform/agents/:id` → [server.ts:353](../backend/src/server.ts#L353)
-- `GET /platform/agents/:id/preview` → [server.ts:356](../backend/src/server.ts#L356)
-- `POST /platform/agents/:id/deploy` → [server.ts:359](../backend/src/server.ts#L359)
-- `POST /platform/agents/:id/configuration/preview` → [server.ts:362](../backend/src/server.ts#L362)
-- `POST /platform/agents/:id/rollback/preview` → [server.ts:384](../backend/src/server.ts#L384)
-- `POST /platform/agents/:id/control` → [server.ts:406](../backend/src/server.ts#L406)
-- `GET /platform/agents/:id/events` → [server.ts:430](../backend/src/server.ts#L430)
-- `GET /platform/agents/:id/logs` → [server.ts:435](../backend/src/server.ts#L435)
-- `GET /platform/agents/:id/metrics` → [server.ts:440](../backend/src/server.ts#L440)
-- `GET /platform/agents/:id/versions` → [server.ts:449](../backend/src/server.ts#L449)
-- `POST /platform/conversations` → [server.ts:455](../backend/src/server.ts#L455)
-- `GET /platform/conversations` → [server.ts:458](../backend/src/server.ts#L458)
-- `GET /platform/conversations/:id/messages` → [server.ts:462](../backend/src/server.ts#L462)
-- `POST /platform/conversations/:id/messages` → [server.ts:468](../backend/src/server.ts#L468)
-- `GET /platform/conversations/:id/requests/:requestId` → [server.ts:477](../backend/src/server.ts#L477)
-- `POST /platform/actions/:id/approve` → [server.ts:487](../backend/src/server.ts#L487)
-- `GET /platform/history/:kind` → [server.ts:497](../backend/src/server.ts#L497)
-- `GET /platform/strategies` → [server.ts:512](../backend/src/server.ts#L512)
+- `GET /platform/ready` → [server.ts:265](../backend/src/server.ts#L265)
+- `GET /platform/emergency` → [server.ts:269](../backend/src/server.ts#L269)
+- `POST /platform/emergency-stop` → [server.ts:277](../backend/src/server.ts#L277)
+- `POST /platform/emergency-clear` → [server.ts:280](../backend/src/server.ts#L280)
+- `GET /platform/profile` → [server.ts:320](../backend/src/server.ts#L320)
+- `POST /platform/profile/preview` → [server.ts:322](../backend/src/server.ts#L322)
+- `GET /platform/agents` → [server.ts:339](../backend/src/server.ts#L339)
+- `GET /platform/portfolio` → [server.ts:343](../backend/src/server.ts#L343)
+- `POST /platform/agents` → [server.ts:344](../backend/src/server.ts#L344)
+- `GET /platform/agent-templates` → [server.ts:345](../backend/src/server.ts#L345)
+- `POST /platform/agent-templates/:id/instantiate` → [server.ts:348](../backend/src/server.ts#L348)
+- `GET /platform/agents/:id` → [server.ts:356](../backend/src/server.ts#L356)
+- `GET /platform/agents/:id/preview` → [server.ts:359](../backend/src/server.ts#L359)
+- `POST /platform/agents/:id/deploy` → [server.ts:362](../backend/src/server.ts#L362)
+- `POST /platform/agents/:id/configuration/preview` → [server.ts:365](../backend/src/server.ts#L365)
+- `POST /platform/agents/:id/rollback/preview` → [server.ts:387](../backend/src/server.ts#L387)
+- `POST /platform/agents/:id/control` → [server.ts:409](../backend/src/server.ts#L409)
+- `GET /platform/agents/:id/events` → [server.ts:433](../backend/src/server.ts#L433)
+- `GET /platform/agents/:id/logs` → [server.ts:438](../backend/src/server.ts#L438)
+- `GET /platform/agents/:id/metrics` → [server.ts:443](../backend/src/server.ts#L443)
+- `GET /platform/agents/:id/versions` → [server.ts:452](../backend/src/server.ts#L452)
+- `POST /platform/conversations` → [server.ts:458](../backend/src/server.ts#L458)
+- `GET /platform/conversations` → [server.ts:461](../backend/src/server.ts#L461)
+- `GET /platform/conversations/:id/messages` → [server.ts:465](../backend/src/server.ts#L465)
+- `POST /platform/conversations/:id/messages` → [server.ts:471](../backend/src/server.ts#L471)
+- `GET /platform/conversations/:id/requests/:requestId` → [server.ts:480](../backend/src/server.ts#L480)
+- `POST /platform/actions/:id/approve` → [server.ts:490](../backend/src/server.ts#L490)
+- `GET /platform/history/:kind` → [server.ts:500](../backend/src/server.ts#L500)
+- `GET /platform/strategies` → [server.ts:515](../backend/src/server.ts#L515)
 - `POST /platform/auth/register` → [cognito.ts:112](../backend/src/auth/cognito.ts#L112)
 - `POST /platform/auth/verify` → [cognito.ts:133](../backend/src/auth/cognito.ts#L133)
 - `POST /platform/auth/login` → [cognito.ts:144](../backend/src/auth/cognito.ts#L144)
@@ -218,10 +218,18 @@ Cognito access-token identity and tenant-aware repositories protect application 
 - [run_backtest](../backend/assistant_tools.py#L19) — `async run_backtest(engine, body: BacktestRequest)`
 - [execute](../backend/assistant_tools.py#L60) — `async execute(engine, name: str, arguments: dict, *, save_strategy)`
 
+### backend/backtest_repository.py
+
+- [save_replay](../backend/backtest_repository.py#L21) — `save_replay(db: Connection, owner_id: UUID, strategy: StoredStrategy, request: HistoricalBacktestRequest, market: Market)`
+- [get_replay](../backend/backtest_repository.py#L70) — `get_replay(db: Connection, owner_id: UUID, run_id: UUID, *, include_dataset: bool)`
+
 ### backend/backtesting.py
 
-- [backtest](../backend/backtesting.py#L11) — `backtest(market: Market, news: NewsFeed, request: BacktestRequest, strategy_config, risk: RiskConfig)`
-- [backtest.segment](../backend/backtesting.py#L19) — `segment(start, end)`
+- [backtest](../backend/backtesting.py#L20) — `backtest(market: Market, news: NewsFeed, request: BacktestRequest, strategy_config, risk: RiskConfig)`
+- [backtest_rules](../backend/backtesting.py#L26) — `backtest_rules(market: Market, request: BacktestAssumptions, definition: StrategyDefinition, risk: RiskConfig)`
+- [_replay](../backend/backtesting.py#L34) — `_replay(market: Market, request: BacktestAssumptions, risk: RiskConfig, strategy: StrategyConfig | StrategyDefinition, strategy_id: str, news: NewsFeed | None=None)`
+- [_replay.segment](../backend/backtesting.py#L56) — `segment(start, end)`
+- [_replay.segment.close_position](../backend/backtesting.py#L70) — `close_position(at, raw_price, reason)`
 
 ### backend/cloud_worker.py
 
@@ -250,19 +258,20 @@ Cognito access-token identity and tenant-aware repositories protect application 
 ### backend/data.py
 
 - [fixture_market](../backend/data.py#L28) — `fixture_market(symbol: str, count=238)`
-- [canonical_url](../backend/data.py#L79) — `canonical_url(raw: str)`
-- [text_content](../backend/data.py#L106) — `text_content(raw, limit=1500)`
-- [parse_time](../backend/data.py#L110) — `parse_time(raw)`
-- [normalize_news](../backend/data.py#L118) — `normalize_news(payload: dict, retrieved: datetime, breaking=False, scoring: NewsScoring | None=None)`
-- [fixture_news](../backend/data.py#L228) — `fixture_news()`
-- [Providers](../backend/data.py#L284) — class
-- [Providers.__init__](../backend/data.py#L285) — `__init__(self, store: Store, market_provider='fixture', news_provider='fixture', transport=None, news_key='', refresh: ProviderRefresh | None=None)`
-- [Providers.close](../backend/data.py#L316) — `async close(self)`
-- [Providers.request](../backend/data.py#L319) — `async request(self, url, **kwargs)`
-- [Providers._candles](../backend/data.py#L333) — `async _candles(self, symbol: str, refresh: bool)`
-- [Providers._cached_market](../backend/data.py#L370) — `_cached_market(self, cached, *, failed: bool=False)`
-- [Providers.market](../backend/data.py#L384) — `async market(self, symbol: str, refresh=False)`
-- [Providers.news](../backend/data.py#L448) — `async news(self, breaking=False, refresh=False)`
+- [parse_coinbase_candles](../backend/data.py#L79) — `parse_coinbase_candles(rows, closed_by: datetime)`
+- [canonical_url](../backend/data.py#L103) — `canonical_url(raw: str)`
+- [text_content](../backend/data.py#L130) — `text_content(raw, limit=1500)`
+- [parse_time](../backend/data.py#L134) — `parse_time(raw)`
+- [normalize_news](../backend/data.py#L142) — `normalize_news(payload: dict, retrieved: datetime, breaking=False, scoring: NewsScoring | None=None)`
+- [fixture_news](../backend/data.py#L252) — `fixture_news()`
+- [Providers](../backend/data.py#L308) — class
+- [Providers.__init__](../backend/data.py#L309) — `__init__(self, store: Store, market_provider='fixture', news_provider='fixture', transport=None, news_key='', refresh: ProviderRefresh | None=None)`
+- [Providers.close](../backend/data.py#L340) — `async close(self)`
+- [Providers.request](../backend/data.py#L343) — `async request(self, url, **kwargs)`
+- [Providers._candles](../backend/data.py#L357) — `async _candles(self, symbol: str, refresh: bool)`
+- [Providers._cached_market](../backend/data.py#L374) — `_cached_market(self, cached, *, failed: bool=False)`
+- [Providers.market](../backend/data.py#L388) — `async market(self, symbol: str, refresh=False)`
+- [Providers.news](../backend/data.py#L452) — `async news(self, breaking=False, refresh=False)`
 
 ### backend/desk.py
 
@@ -341,6 +350,12 @@ Cognito access-token identity and tenant-aware repositories protect application 
 - [Execution.recover](../backend/execution.py#L281) — `recover(self)`
 - [Execution.reconcile](../backend/execution.py#L301) — `reconcile(self, intent_id)`
 
+### backend/historical_data.py
+
+- [HistoricalBacktestRequest](../backend/historical_data.py#L20) — class
+- [HistoricalBacktestRequest.validate_window](../backend/historical_data.py#L27) — `validate_window(self)`
+- [load_candles](../backend/historical_data.py#L39) — `load_candles(symbol: str, start: datetime, end: datetime, *, transport=None)`
+
 ### backend/models.py
 
 - [now](../backend/models.py#L15) — `now()`
@@ -378,7 +393,8 @@ Cognito access-token identity and tenant-aware repositories protect application 
 - [SchedulerAction](../backend/models.py#L415) — class
 - [ChatTurn](../backend/models.py#L427) — class
 - [ChatRequest](../backend/models.py#L432) — class
-- [BacktestRequest](../backend/models.py#L438) — class
+- [BacktestAssumptions](../backend/models.py#L438) — class
+- [BacktestRequest](../backend/models.py#L449) — class
 
 ### backend/paper_accounts.py
 
@@ -393,27 +409,29 @@ Cognito access-token identity and tenant-aware repositories protect application 
 
 ### backend/platform_product_api.py
 
-- [StrategyEdit](../backend/platform_product_api.py#L37) — class
-- [StrategyArchive](../backend/platform_product_api.py#L42) — class
-- [ProductError](../backend/platform_product_api.py#L46) — class
-- [ProductError.__init__](../backend/platform_product_api.py#L47) — `__init__(self, status: int, code: str, message: str)`
-- [create_product_api](../backend/platform_product_api.py#L53) — `create_product_api(dsn: str, key: str, initial_usdt: Decimal=DEFAULT_INITIAL_USDT)`
-- [create_product_api.product_error](../backend/platform_product_api.py#L62) — `async product_error(_request, exc)`
-- [create_product_api.validation_error](../backend/platform_product_api.py#L68) — `async validation_error(_request, exc)`
-- [create_product_api.database_error](../backend/platform_product_api.py#L84) — `async database_error(_request, _exc)`
-- [create_product_api.missing_strategy](../backend/platform_product_api.py#L91) — `async missing_strategy(_request, _exc)`
-- [create_product_api.conflict](../backend/platform_product_api.py#L98) — `async conflict(_request, _exc)`
-- [create_product_api.owner](../backend/platform_product_api.py#L104) — `async owner(request: Request)`
-- [create_product_api.database](../backend/platform_product_api.py#L145) — `database()`
-- [create_product_api.paper_account](../backend/platform_product_api.py#L154) — `paper_account(subject: Principal, db: Database)`
-- [create_product_api.provision_paper_account](../backend/platform_product_api.py#L158) — `provision_paper_account(subject: Principal, db: Database)`
-- [create_product_api.strategies](../backend/platform_product_api.py#L162) — `strategies(subject: Principal, db: Database, after: UUID | None=None, limit: Annotated[int, Query(ge=1, le=100)]=50)`
-- [create_product_api.new_strategy](../backend/platform_product_api.py#L171) — `new_strategy(document: StrategyDraft, subject: Principal, db: Database)`
-- [create_product_api.strategy](../backend/platform_product_api.py#L176) — `strategy(strategy_id: UUID, subject: Principal, db: Database, version: Annotated[int | None, Query(ge=1, le=2 ** 31 - 1)]=None)`
-- [create_product_api.edit_strategy](../backend/platform_product_api.py#L188) — `edit_strategy(strategy_id: UUID, edit: StrategyEdit, subject: Principal, db: Database)`
-- [create_product_api.remove_strategy](../backend/platform_product_api.py#L194) — `remove_strategy(strategy_id: UUID, archive: StrategyArchive, subject: Principal, db: Database)`
-- [create_product_api.versions](../backend/platform_product_api.py#L200) — `versions(strategy_id: UUID, subject: Principal, db: Database, before: Annotated[int, Query(ge=2, le=2 ** 31)]=2 ** 31, limit: Annotated[int, Query(ge=1, le=100)]=50)`
-- [app_from_environment](../backend/platform_product_api.py#L216) — `app_from_environment()`
+- [StrategyEdit](../backend/platform_product_api.py#L40) — class
+- [StrategyArchive](../backend/platform_product_api.py#L45) — class
+- [ProductError](../backend/platform_product_api.py#L49) — class
+- [ProductError.__init__](../backend/platform_product_api.py#L50) — `__init__(self, status: int, code: str, message: str)`
+- [create_product_api](../backend/platform_product_api.py#L56) — `create_product_api(dsn: str, key: str, initial_usdt: Decimal=DEFAULT_INITIAL_USDT, *, history_source=load_candles)`
+- [create_product_api.product_error](../backend/platform_product_api.py#L67) — `async product_error(_request, exc)`
+- [create_product_api.validation_error](../backend/platform_product_api.py#L73) — `async validation_error(_request, exc)`
+- [create_product_api.database_error](../backend/platform_product_api.py#L89) — `async database_error(_request, _exc)`
+- [create_product_api.missing_strategy](../backend/platform_product_api.py#L96) — `async missing_strategy(_request, _exc)`
+- [create_product_api.conflict](../backend/platform_product_api.py#L103) — `async conflict(_request, _exc)`
+- [create_product_api.owner](../backend/platform_product_api.py#L109) — `async owner(request: Request)`
+- [create_product_api.database](../backend/platform_product_api.py#L150) — `database()`
+- [create_product_api.paper_account](../backend/platform_product_api.py#L159) — `paper_account(subject: Principal, db: Database)`
+- [create_product_api.provision_paper_account](../backend/platform_product_api.py#L163) — `provision_paper_account(subject: Principal, db: Database)`
+- [create_product_api.strategies](../backend/platform_product_api.py#L167) — `strategies(subject: Principal, db: Database, after: UUID | None=None, limit: Annotated[int, Query(ge=1, le=100)]=50)`
+- [create_product_api.new_strategy](../backend/platform_product_api.py#L176) — `new_strategy(document: StrategyDraft, subject: Principal, db: Database)`
+- [create_product_api.strategy](../backend/platform_product_api.py#L181) — `strategy(strategy_id: UUID, subject: Principal, db: Database, version: Annotated[int | None, Query(ge=1, le=2 ** 31 - 1)]=None)`
+- [create_product_api.edit_strategy](../backend/platform_product_api.py#L193) — `edit_strategy(strategy_id: UUID, edit: StrategyEdit, subject: Principal, db: Database)`
+- [create_product_api.remove_strategy](../backend/platform_product_api.py#L199) — `remove_strategy(strategy_id: UUID, archive: StrategyArchive, subject: Principal, db: Database)`
+- [create_product_api.versions](../backend/platform_product_api.py#L205) — `versions(strategy_id: UUID, subject: Principal, db: Database, before: Annotated[int, Query(ge=2, le=2 ** 31)]=2 ** 31, limit: Annotated[int, Query(ge=1, le=100)]=50)`
+- [create_product_api.create_backtest](../backend/platform_product_api.py#L219) — `create_backtest(strategy_id: UUID, study: HistoricalBacktestRequest, subject: Principal, db: Database)`
+- [create_product_api.backtest_report](../backend/platform_product_api.py#L236) — `backtest_report(run_id: UUID, subject: Principal, db: Database, include_dataset: bool=False)`
+- [app_from_environment](../backend/platform_product_api.py#L247) — `app_from_environment()`
 
 ### backend/portfolio.py
 

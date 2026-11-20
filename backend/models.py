@@ -435,11 +435,7 @@ class ChatRequest(Model):
     history: list[ChatTurn] = Field(default_factory=list, max_length=12)
 
 
-class BacktestRequest(Model):
-    symbol: Literal["BTC", "ETH", "SOL"] = "BTC"
-    strategy_id: Literal[
-        "momentum_v1", "mean_reversion_v1", "trend_following_v1", "breakout_v1", "news_aware_v1"
-    ] = "momentum_v1"
+class BacktestAssumptions(Model):
     initial_equity: Positive = Field(
         default_factory=lambda: get_settings().simulation.initial_equity, le=100000000
     )
@@ -448,3 +444,10 @@ class BacktestRequest(Model):
         default_factory=lambda: get_settings().simulation.slippage_bps, ge=0, le=100
     )
     holdout_fraction: float = Field(default=0.3, ge=0.2, le=0.5)
+
+
+class BacktestRequest(BacktestAssumptions):
+    symbol: Literal["BTC", "ETH", "SOL"] = "BTC"
+    strategy_id: Literal[
+        "momentum_v1", "mean_reversion_v1", "trend_following_v1", "breakout_v1", "news_aware_v1"
+    ] = "momentum_v1"

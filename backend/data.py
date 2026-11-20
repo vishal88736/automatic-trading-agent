@@ -76,6 +76,30 @@ def fixture_market(symbol: str, count=238) -> Market:
     )
 
 
+def parse_coinbase_candles(rows, closed_by: datetime) -> list[Candle]:
+    if not isinstance(rows, list):
+        raise ValueError("Malformed candle response")
+    unique = {}
+    for row in rows[:1000]:
+        if not isinstance(row, list) or len(row) != 6:
+            raise ValueError("Invalid candle shape")
+        start = datetime.fromtimestamp(float(row[0]), timezone.utc)
+        bar = Candle(
+            timestamp=start,
+            closed_at=start + timedelta(hours=1),
+            low=D(str(row[1])),
+            high=D(str(row[2])),
+            open=D(str(row[3])),
+            close=D(str(row[4])),
+            volume=D(str(row[5])),
+        )
+        if bar.closed_at <= closed_by:
+            if start in unique and unique[start] != bar:
+                raise ValueError("Conflicting duplicate candles")
+            unique[start] = bar
+    return sorted(unique.values(), key=lambda c: c.timestamp)
+
+
 def canonical_url(raw: str) -> str:
     parts = urlsplit(raw.strip())
     if (
@@ -341,27 +365,7 @@ class Providers:
             f"{self.settings.market_base_url}/products/{self.settings.assets[symbol].product_id}/candles",
             params={"granularity": "3600"},
         )
-        if not isinstance(rows, list):
-            raise ValueError("Malformed candle response")
-        unique = {}
-        for row in rows[:1000]:
-            if not isinstance(row, list) or len(row) != 6:
-                raise ValueError("Invalid candle shape")
-            start = datetime.fromtimestamp(float(row[0]), timezone.utc)
-            bar = Candle(
-                timestamp=start,
-                closed_at=start + timedelta(hours=1),
-                low=D(str(row[1])),
-                high=D(str(row[2])),
-                open=D(str(row[3])),
-                close=D(str(row[4])),
-                volume=D(str(row[5])),
-            )
-            if bar.closed_at <= now():
-                if start in unique and unique[start] != bar:
-                    raise ValueError("Conflicting duplicate candles")
-                unique[start] = bar
-        bars = sorted(unique.values(), key=lambda c: c.timestamp)[-300:]
+        bars = parse_coinbase_candles(rows, now())[-300:]
         if not bars:
             raise ValueError("No closed candles")
         self.store.put("cache", key, {"candles": bars, "retrieved_at": now()})

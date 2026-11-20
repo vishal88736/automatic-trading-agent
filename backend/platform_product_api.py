@@ -11,10 +11,13 @@ from uuid import UUID
 from fastapi import Depends, FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from httpx import HTTPError
 from psycopg import Connection
 from psycopg import Error as DatabaseError
 from pydantic import Field, TypeAdapter
 
+from backend.backtest_repository import get_replay, save_replay
+from backend.historical_data import HistoricalBacktestRequest, load_candles
 from backend.models import Model
 from backend.paper_accounts import DEFAULT_INITIAL_USDT, PaperAccount, ensure_account, get_account
 from backend.platform_db import DSN_ENV, open_database
@@ -50,7 +53,9 @@ class ProductError(Exception):
         self.message = message
 
 
-def create_product_api(dsn: str, key: str, initial_usdt: Decimal = DEFAULT_INITIAL_USDT) -> FastAPI:
+def create_product_api(
+    dsn: str, key: str, initial_usdt: Decimal = DEFAULT_INITIAL_USDT, *, history_source=load_candles
+) -> FastAPI:
     if not dsn or len(key.encode()) < 32:
         raise ValueError(
             "Configure the platform database and a product API key of at least 32 bytes"
@@ -209,6 +214,32 @@ def create_product_api(dsn: str, key: str, initial_usdt: Decimal = DEFAULT_INITI
         return {
             "items": strategy_history(db, subject, strategy_id, before_version=before, limit=limit)
         }
+
+    @app.post("/platform/custom-strategies/{strategy_id}/backtests", status_code=201)
+    def create_backtest(
+        strategy_id: UUID, study: HistoricalBacktestRequest, subject: Principal, db: Database
+    ):
+        strategy = get_strategy(db, subject, strategy_id, study.version)
+        if strategy is None:
+            raise LookupError
+        try:
+            market = history_source(strategy.document.definition.asset, study.start, study.end)
+            return save_replay(db, subject, strategy, study, market)
+        except HTTPError:
+            raise ProductError(
+                503, "HISTORY_UNAVAILABLE", "Historical market data unavailable"
+            ) from None
+        except ValueError as exc:
+            raise ProductError(422, "REPLAY_REJECTED", str(exc)) from None
+
+    @app.get("/platform/backtests/{run_id}")
+    def backtest_report(
+        run_id: UUID, subject: Principal, db: Database, include_dataset: bool = False
+    ):
+        report = get_replay(db, subject, run_id, include_dataset=include_dataset)
+        if report is None:
+            raise ProductError(404, "NOT_FOUND", "Backtest is unavailable")
+        return report
 
     return app
 

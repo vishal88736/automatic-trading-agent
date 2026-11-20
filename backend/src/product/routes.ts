@@ -12,8 +12,15 @@ export function registerProductRoutes(app: FastifyInstance, config: Config) {
     { method: ["GET", "PUT"], url: "/platform/custom-strategies/:id" },
     { method: "POST", url: "/platform/custom-strategies/:id/archive" },
     { method: "GET", url: "/platform/custom-strategies/:id/versions" },
+    {
+      method: "POST",
+      url: "/platform/custom-strategies/:id/backtests",
+      timeout: 25000,
+    },
+    { method: "GET", url: "/platform/backtests/:id" },
   ] as const;
-  for (const { method, url } of routes) {
+  for (const route of routes) {
+    const { method, url } = route;
     app.route({
       method: typeof method === "string" ? method : [...method],
       url,
@@ -51,7 +58,9 @@ export function registerProductRoutes(app: FastifyInstance, config: Config) {
           },
           body: body || undefined,
           redirect: "error",
-          signal: AbortSignal.timeout(8000),
+          signal: AbortSignal.timeout(
+            "timeout" in route ? route.timeout : 8000,
+          ),
         });
         if (response.status === 204) return reply.code(204).send();
         if (response.status === 401 || response.status >= 500) {

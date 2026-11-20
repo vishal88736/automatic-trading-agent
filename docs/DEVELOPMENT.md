@@ -112,7 +112,9 @@ Set the same key and `KRONO_PRODUCT_API_URL=http://127.0.0.1:8794` in the Fastif
 | GET `/platform/custom-strategies/{id}/versions` | Read immutable versions with an optional `before` version cursor.                                                                                       |
 | POST `/platform/custom-strategies/{id}/archive` | Archive with `expected_version`; existing version history remains available.                                                                            |
 
-The APIs provide the account opening credit and strategy storage. Custom-strategy backtesting and paper order execution are later integration steps.
+Create a saved-strategy replay with `POST /platform/custom-strategies/{id}/backtests`. Send the specific strategy `version`, UTC-hour-aligned ISO timestamps `start` and `end`, and optional capital, fee, slippage, holdout, and risk assumptions. The API supports 80 hours to 14 days of selected BTC/USD, ETH/USD or SOL/USD hourly history from Coinbase Exchange and retrieves 81 additional closed hours for indicator warm-up. Missing hours reject the run. [Coinbase Exchange candles](https://docs.cdp.coinbase.com/api-reference/exchange-api/rest-api/products/get-product-candles)
+
+Retrieve the saved report with `GET /platform/backtests/{id}` and add `?include_dataset=true` to export the exact normalized market snapshot. The report pins the strategy version, replay version, candle digest, input assumptions, in-sample and holdout results, fills, equity and drawdown. Protection triggers use a documented hourly OHLC assumption. Paper order execution is a later integration step.
 
 With the gateway configured, sign in and open **Strategies** or **Paper Trading** from the Agent Platform workspace. Strategies supports JSON editing, copies, revision comparison and archiving. Paper Trading displays the backend balance after opening a virtual account.
 

@@ -25,6 +25,7 @@ from psycopg import sql  # noqa: E402
 from psycopg.conninfo import make_conninfo  # noqa: E402
 from psycopg.errors import CheckViolation, ForeignKeyViolation, SyntaxError  # noqa: E402
 
+from backend.data import fixture_market  # noqa: E402
 from backend.paper_accounts import ensure_account, get_account  # noqa: E402
 from backend.platform_db import MIGRATIONS, migrate, open_database  # noqa: E402
 from backend.platform_product_api import create_product_api  # noqa: E402
@@ -63,7 +64,7 @@ def database(database_dsn):
 
 def test_migrations_are_repeatable_and_rollback_failed_upgrade(database, tmp_path):
     with database() as db:
-        assert migrate(db) == ["0001_paper_accounts", "0002_strategies"]
+        assert migrate(db) == [file.stem for file in sorted(MIGRATIONS.glob("*.sql"))]
         owner = uuid4()
         funded = ensure_account(db, owner)
 
@@ -189,7 +190,12 @@ def test_authenticated_product_http_checks_identity_payload_and_ownership(
         migrate(db)
     owner, other = uuid4(), uuid4()
     key = "signed-product-test-material" * 2
-    app = create_product_api(database_dsn, key, Decimal("1250.000001"))
+    app = create_product_api(
+        database_dsn,
+        key,
+        Decimal("1250.000001"),
+        history_source=lambda symbol, *_: fixture_market(symbol),
+    )
 
     def headers(method, path, subject, body="", ttl=20):
         expires = str(int(time.time()) + ttl)
@@ -235,6 +241,26 @@ def test_authenticated_product_http_checks_identity_payload_and_ownership(
         assert call("GET", record, other).status_code == 404
         assert call("GET", strategies, other).json()["items"] == []
         assert call("GET", strategies + "?limit=1").json()["items"] == [first.json()]
+        market = fixture_market("BTC")
+        study = {
+            "version": 1,
+            "start": market.candles[81].timestamp.isoformat(),
+            "end": market.candles[-1].closed_at.isoformat(),
+            "initial_equity": "10000",
+        }
+        backtest = call("POST", record + "/backtests", payload=study)
+        assert backtest.status_code == 201, backtest.text
+        result = backtest.json()
+        assert result["strategy_id"] == first.json()["id"] and result["strategy_version"] == 1
+        assert result["dataset"]["candle_count"] == len(market.candles)
+        assert result["result"]["fixture"] is True
+        report_path = "/platform/backtests/" + result["id"]
+        assert call("GET", report_path).json() == result
+        assert call("GET", report_path, other).status_code == 404
+        assert call("POST", record + "/backtests", other, study).status_code == 404
+        assert call("GET", report_path + "?include_dataset=true").json()["market_data"]["candles"][
+            0
+        ] == market.candles[0].model_dump(mode="json")
         invalid = call("POST", strategies, payload={**draft, "owner_id": str(other)})
         assert invalid.status_code == 422
         assert str(other) not in invalid.text
