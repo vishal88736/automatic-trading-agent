@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { money, timestamp } from "../ui";
 import { platform } from "./client";
 import { legacyFixture, workspaceHref } from "./navigation";
+import { PaperAgentFields, paperAgentSettings } from "./PaperAgentFields";
 
 type AgentStatus = "RUNNING" | "PAUSED" | "STOPPED" | "FAILED";
 interface Agent {
@@ -75,8 +76,9 @@ export default function PaperAgents() {
   const [workerOnline, setWorkerOnline] = useState<boolean>();
   const closeKeys = useRef(new Map<string, string>());
   const retry = useRef<{ input: string; key: string } | null>(null);
-  const report =
-    new URLSearchParams(location.hash.split("?")[1] ?? "").get("report") ?? "";
+  const params = new URLSearchParams(location.hash.split("?")[1] ?? "");
+  const report = params.get("report") ?? "";
+  const requestedAgent = params.get("agent");
   const [source, setSource] = useState(
     report || legacyFixture ? "report" : "strategy",
   );
@@ -123,7 +125,13 @@ export default function PaperAgents() {
         setAgents(items);
         setWorkerOnline(worker_online);
         setAccount(wallet.account);
-        setSelected((current) => current || items[0]?.id || "");
+        setSelected(
+          (current) =>
+            current ||
+            items.find((item) => item.id === requestedAgent)?.id ||
+            items[0]?.id ||
+            "",
+        );
         setFeedError("");
       } catch (err) {
         if (active) setFeedError((err as Error).message);
@@ -135,7 +143,7 @@ export default function PaperAgents() {
       active = false;
       clearInterval(timer);
     };
-  }, []);
+  }, [requestedAgent]);
   useEffect(() => {
     setEvents([]);
     if (!selected) return;
@@ -211,11 +219,7 @@ export default function PaperAgents() {
     const payload = {
       ...validation,
       epoch: account.epoch,
-      name: form.get("name"),
-      capital: form.get("capital"),
-      interval_seconds: Number(form.get("interval")),
-      max_drawdown: form.get("drawdown"),
-      max_daily_loss: form.get("loss"),
+      ...paperAgentSettings(form),
     };
     const input = JSON.stringify(payload);
     if (retry.current?.input !== input)
@@ -262,10 +266,6 @@ export default function PaperAgents() {
         )}
         <form onSubmit={start}>
           <div className="platform-backtest-fields">
-            <label>
-              Agent name
-              <input name="name" maxLength={120} required />
-            </label>
             {!legacyFixture && (
               <label>
                 Validation source
@@ -306,52 +306,7 @@ export default function PaperAgents() {
                 )}
               </label>
             )}
-            <label>
-              Allocated virtual USDT
-              <input
-                name="capital"
-                type="number"
-                min="0.01"
-                step="0.01"
-                defaultValue="1000"
-                required
-              />
-            </label>
-            <label>
-              Evaluation interval (seconds)
-              <input
-                name="interval"
-                type="number"
-                min="10"
-                max="3600"
-                defaultValue="60"
-                required
-              />
-            </label>
-            <label>
-              Drawdown cap (fraction)
-              <input
-                name="drawdown"
-                type="number"
-                min="0.001"
-                max="0.10"
-                step="0.001"
-                defaultValue="0.10"
-                required
-              />
-            </label>
-            <label>
-              Daily loss cap (fraction)
-              <input
-                name="loss"
-                type="number"
-                min="0.001"
-                max="0.03"
-                step="0.001"
-                defaultValue="0.03"
-                required
-              />
-            </label>
+            <PaperAgentFields />
           </div>
           <button className="primary" disabled={busy || !account}>
             Start agent

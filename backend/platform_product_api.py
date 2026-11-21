@@ -28,11 +28,13 @@ from backend.paper_accounts import DEFAULT_INITIAL_USDT, PaperAccount, ensure_ac
 from backend.paper_agents import (
     AgentCommand,
     AgentStart,
+    DraftAgentStart,
     close_agent_position,
     control_agent,
     list_agents,
     position_asset,
     start_agent,
+    start_draft_agent,
     timeline,
 )
 from backend.paper_execution import (
@@ -447,6 +449,14 @@ def create_product_api(
     @app.post("/platform/strategy-authoring/validate")
     def validate_draft(draft: StrategyDraft, subject: Principal):
         return {"document": draft}
+
+    @app.post("/platform/strategy-authoring/start-agent", status_code=201)
+    def start_agent_from_draft(request: DraftAgentStart, subject: Principal, db: Database):
+        try:
+            agent, strategy = start_draft_agent(db, subject, request)
+        except ValueError as exc:
+            raise ProductError(409, "AGENT_START_REJECTED", str(exc)) from None
+        return {"id": agent, "strategy": strategy}
 
     @app.get("/platform/custom-strategies")
     def strategies(

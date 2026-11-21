@@ -140,7 +140,9 @@ Choose a saved strategy in **AI Trading Agents** or use an existing report from 
 
 The restarted worker resumes from the existing checkpoint. An interrupted claim can take up to 60 seconds to expire. Source failures retry with bounded exponential delay. Stopped and failed agents retain their order and decision history. Validate process recovery with `e2e/paper-autonomy.spec.ts` against a disposable database. The test launches and restarts its own product API and accelerated worker when `KRONO_E2E_AUTONOMY=1`, using the existing product API key and URL test settings.
 
-Open **Custom Strategy Builder** to choose a structured JSON editor, visual rule builder, or a natural-language draft. Templates, manual edits and model drafts use the same hourly strategy schema. Model generation uses one request to the control plane's configured model provider and returns a validated preview. Saving and backtesting the draft are separate user actions. The model call has no order or account tools.
+Open **Custom Strategy Builder** and paste an objective in **Strategy chat**. Each follow-up can revise the last validated draft. Use **Edit strategy** to open the visual builder or switch to structured JSON. Templates, manual edits and model drafts use the same hourly strategy schema.
+
+**Save strategy** adds the draft to the strategy library. To queue it for paper trading, choose **Run as paper agent**, set the virtual allocation and limits, and click **Start paper agent**. The authenticated `POST /platform/strategy-authoring/start-agent` call accepts a strategy document with the existing agent settings and a request key. It saves the draft and queues validation in one transaction. Retries with the same key and payload return the same agent and strategy. The worker evaluates the replay and risk checks before placing any simulated orders. The model receives drafting input and returns a validated preview.
 
 **Market Analysis and AI Insights** can request an interpretation of current, source-tagged observations. Model output is labeled, has no trading tools, and is unavailable when validated market evidence is unavailable.
 

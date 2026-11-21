@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 from typing import Annotated, Literal
-from uuid import UUID, uuid4
+from uuid import UUID, uuid4, uuid5
 
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
@@ -21,20 +21,24 @@ from backend.paper_execution import (
     reservations,
     submit_order,
 )
-from backend.strategy_rules import Name
+from backend.strategy_repository import create_strategy, get_strategy
+from backend.strategy_rules import Name, StrategyDraft
 
 
-class AgentStart(Model):
+class AgentStartSettings(Model):
     request_key: UUID = Field(default_factory=uuid4)
     name: Name
-    report_id: UUID | None = None
-    strategy_id: UUID | None = None
-    strategy_version: int | None = Field(default=None, ge=1, le=2**31 - 1)
     epoch: int = Field(ge=1)
     capital: Annotated[Decimal, Field(gt=0, le=100000, decimal_places=6)]
     interval_seconds: int = Field(default=60, ge=10, le=3600)
     max_drawdown: Annotated[Decimal, Field(gt=0, le=Decimal("0.10"))] = Decimal("0.10")
     max_daily_loss: Annotated[Decimal, Field(gt=0, le=Decimal("0.03"))] = Decimal("0.03")
+
+
+class AgentStart(AgentStartSettings):
+    report_id: UUID | None = None
+    strategy_id: UUID | None = None
+    strategy_version: int | None = Field(default=None, ge=1, le=2**31 - 1)
 
     @model_validator(mode="after")
     def select_validation_source(self):
@@ -45,6 +49,10 @@ class AgentStart(Model):
         if not valid:
             raise ValueError("Choose a report or one saved strategy version")
         return self
+
+
+class DraftAgentStart(AgentStartSettings):
+    document: StrategyDraft
 
 
 class AgentCommand(Model):
@@ -195,6 +203,29 @@ def start_agent(db, owner: UUID, request: AgentStart):
             },
         )
         return ident
+
+
+def start_draft_agent(db, owner: UUID, request: DraftAgentStart):
+    """Persist version one and queue its agent together using the same start rules."""
+    strategy_id = uuid5(owner, f"paper-agent-draft:{request.request_key}")
+    with db.transaction():
+        lock_account(db, owner)
+        saved = get_strategy(db, owner, strategy_id, version=1)
+        if saved is None:
+            saved = create_strategy(db, owner, request.document, strategy_id=strategy_id)
+        elif saved.document != request.document:
+            raise ValueError("Agent key already belongs to a different strategy draft")
+        agent = start_agent(
+            db,
+            owner,
+            AgentStart(
+                **request.model_dump(exclude={"document", "request_key"}),
+                request_key=uuid5(owner, f"paper-agent-from-draft:{request.request_key}"),
+                strategy_id=saved.id,
+                strategy_version=saved.version,
+            ),
+        )
+        return agent, saved
 
 
 def _validate_allocation(db, owner, epoch, cash, capital, exclude=None):

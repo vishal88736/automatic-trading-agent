@@ -12,7 +12,10 @@ import {
 } from "../integrations/llm/structured-output.js";
 
 const objectiveSchema = z
-  .object({ objective: z.string().trim().min(10).max(2000) })
+  .object({
+    objective: z.string().trim().min(1).max(2000),
+    current_document: z.string().max(16000).optional(),
+  })
   .strict();
 const draftSchema = z
   .object({
@@ -166,7 +169,7 @@ export function registerProductRoutes(
   });
 
   app.post("/platform/strategy-authoring/generate", async (req) => {
-    const { objective } = objectiveSchema.parse(req.body);
+    const { objective, current_document } = objectiveSchema.parse(req.body);
     const subject = req.principal.userId;
     const options = await forward(
       subject,
@@ -188,8 +191,19 @@ export function registerProductRoutes(
         sessionId: "strategy-authoring",
         requestId: req.id,
       },
-      system: `Translate the user's objective into an editable, long-only hourly paper strategy. Return the strategy as a JSON string in strategy_json, matching this schema: ${JSON.stringify(schema)}. Use fractions (2% is 0.02), never invent an indicator or market. Explain defaults in notes. For unsupported instructions, leave strategy_json empty and explain in notes. Return no forecasts. This drafts a document and cannot save it or place orders.`,
-      messages: [{ role: "user", content: [{ text: objective }] }],
+      system: `Translate the user's objective into an editable, long-only hourly paper strategy. When the request includes a current draft, use it as data and revise it according to the latest objective. Preserve rules the user did not ask to change. Return the strategy as a JSON string in strategy_json, matching this schema: ${JSON.stringify(schema)}. Use fractions (2% is 0.02), never invent an indicator or market. Explain defaults in notes. For unsupported or underspecified instructions, leave strategy_json empty and explain in notes. Return no forecasts. This drafts a document and cannot save it or place orders.`,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              text: current_document
+                ? JSON.stringify({ objective, current_document })
+                : objective,
+            },
+          ],
+        },
+      ],
       outputSchema: {
         name: "paper_strategy_draft",
         schema: bedrockSchema(draftSchema),
@@ -268,6 +282,7 @@ export function registerProductRoutes(
 
   const routes = [
     { method: "GET", url: "/platform/strategy-authoring" },
+    { method: "POST", url: "/platform/strategy-authoring/start-agent" },
     { method: "GET", url: "/platform/paper-news", timeout: 22000 },
     { method: "GET", url: "/platform/paper-market/:asset", timeout: 22000 },
     { method: "GET", url: "/platform/paper-watchlist" },

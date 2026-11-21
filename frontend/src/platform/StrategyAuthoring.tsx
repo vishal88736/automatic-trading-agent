@@ -1,40 +1,25 @@
 import { useEffect, useState } from "react";
 import { platform } from "./client";
+import { StrategyChat } from "./StrategyChat";
+import type {
+  Rule,
+  StrategyDocument,
+  StrategyRevision,
+} from "./strategy-types";
 
-interface Rule {
-  indicator: string;
-  operator: string;
-  threshold: string | number;
-}
-interface Group {
-  combine?: "all" | "any";
-  conditions: Rule[];
-}
-interface Strategy {
-  name: string;
-  description?: string;
-  definition: {
-    asset: string;
-    timeframe?: string;
-    entry: Group;
-    exit: Group;
-    cash_fraction: string | number;
-    stop_loss: string | number;
-    take_profit?: string | number | null;
-    trailing_stop?: string | number | null;
-  };
-}
+export type AuthoringMode = "json" | "visual" | "natural";
+
 interface Options {
   assets: string[];
   timeframes: string[];
   indicators: string[];
   operators: string[];
-  templates: Strategy[];
+  templates: StrategyDocument[];
 }
 const defaultRule = { indicator: "rsi", operator: "lt", threshold: "30" };
-function readVisual(text: string): Strategy | null {
+function readVisual(text: string): StrategyDocument | null {
   try {
-    const value: Strategy = JSON.parse(text);
+    const value: StrategyDocument = JSON.parse(text);
     for (const key of ["entry", "exit"] as const) {
       const rules = value.definition[key].conditions;
       if (
@@ -65,22 +50,28 @@ function Choices({ items }: { items: string[] }) {
 export function StrategyAuthoring({
   draft,
   disabled,
+  mode,
+  onMode,
   onChange,
   onTemplate,
-  initialMode = "json",
+  chatKey,
+  onEditDraft,
+  onSaveDraft,
+  onAgentStarted,
 }: {
-  initialMode?: "json" | "visual" | "natural";
+  mode: AuthoringMode;
+  onMode: (mode: AuthoringMode) => void;
   draft: string;
   disabled: boolean;
   onChange: (draft: string) => void;
   onTemplate: (draft: string) => void;
+  chatKey: number;
+  onEditDraft: (document: StrategyDocument, saved?: StrategyRevision) => void;
+  onSaveDraft: (document: StrategyDocument) => Promise<StrategyRevision>;
+  onAgentStarted: (strategy: StrategyRevision) => void;
 }) {
-  const [mode, setMode] = useState<"json" | "visual" | "natural">(initialMode);
   const [options, setOptions] = useState<Options>();
-  const [objective, setObjective] = useState("");
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
-  const [generating, setGenerating] = useState(false);
   useEffect(() => {
     let active = true;
     platform<Options>("/strategy-authoring")
@@ -96,7 +87,7 @@ export function StrategyAuthoring({
   }, []);
 
   const visual = readVisual(draft);
-  function patch(definition: Partial<Strategy["definition"]>) {
+  function patch(definition: Partial<StrategyDocument["definition"]>) {
     if (visual)
       onChange(
         JSON.stringify(
@@ -106,47 +97,25 @@ export function StrategyAuthoring({
         ),
       );
   }
-  async function generate() {
-    setGenerating(true);
-    setError("");
-    setNotice("");
-    try {
-      const result = await platform<{
-        document: Strategy | null;
-        notes: string;
-        model: string;
-      }>("/strategy-authoring/generate", "POST", { objective });
-      setNotice(`${result.model} · ${result.notes}`);
-      if (result.document) {
-        onTemplate(JSON.stringify(result.document, null, 2));
-        setMode("json");
-      }
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setGenerating(false);
-    }
-  }
-
   return (
     <>
       <div
-        className="platform-product-actions"
+        className="platform-product-actions strategy-authoring-methods"
         aria-label="Strategy authoring method"
       >
         {(
           [
-            ["json", "Structured JSON"],
+            ["natural", "Strategy chat"],
             ["visual", "Visual builder"],
-            ["natural", "Natural language"],
+            ["json", "Structured JSON"],
           ] as const
         ).map(([key, label]) => (
           <button
             type="button"
             key={key}
             aria-pressed={mode === key}
-            disabled={disabled || generating}
-            onClick={() => setMode(key)}
+            disabled={disabled}
+            onClick={() => onMode(key)}
           >
             {label}
           </button>
@@ -159,14 +128,14 @@ export function StrategyAuthoring({
             Strategy template
             <select
               value=""
-              disabled={disabled || generating}
+              disabled={disabled}
               onChange={(event) => {
                 const template = options.templates.find(
                   (item) => item.name === event.target.value,
                 );
                 if (template) {
                   onTemplate(JSON.stringify(template, null, 2));
-                  setMode("visual");
+                  onMode("visual");
                 }
               }}
             >
@@ -189,26 +158,15 @@ export function StrategyAuthoring({
           />
         </>
       )}
-      {mode === "natural" && (
-        <>
-          <label htmlFor="strategy-objective">Trading objective</label>
-          <textarea
-            id="strategy-objective"
-            maxLength={2000}
-            value={objective}
-            rows={5}
-            onChange={(event) => setObjective(event.target.value)}
-          />
-          <button
-            type="button"
-            disabled={disabled || generating || objective.trim().length < 10}
-            onClick={() => void generate()}
-          >
-            {generating ? "Generating draft…" : "Generate strategy draft"}
-          </button>
-          <p>Generated rules stay in the editor for review and saving.</p>
-        </>
-      )}
+      <div hidden={mode !== "natural"}>
+        <StrategyChat
+          key={chatKey}
+          disabled={disabled}
+          onEdit={onEditDraft}
+          onSave={onSaveDraft}
+          onStarted={onAgentStarted}
+        />
+      </div>
       {mode === "visual" &&
         (!visual || !options ? (
           <p>
@@ -386,7 +344,6 @@ export function StrategyAuthoring({
           {error}
         </p>
       )}
-      {notice && <p role="status">{notice}</p>}
     </>
   );
 }

@@ -112,7 +112,9 @@ test("paper agent continues without a browser and survives API and worker restar
     let worker = launch(["-m", "e2e.paper_worker_fixture"]);
     const { page, context } = await browserSession();
     const nav = page.getByRole("navigation", { name: "Main navigation" });
-    await expect(nav.getByRole("link")).toHaveCount(10);
+    await expect(
+      nav.getByRole("link").filter({ hasNotText: "Krono." }),
+    ).toHaveCount(10);
     await expect(nav).not.toContainText(/aegis|hskswap/i);
     await page.setViewportSize({ width: 320, height: 850 });
     await expect(nav).toBeHidden();
@@ -171,23 +173,34 @@ test("paper agent continues without a browser and survives API and worker restar
     await page
       .getByRole("link", { name: "Use report for a paper agent" })
       .click();
-    await page.getByLabel("Validation source").selectOption("strategy");
-    await page
-      .getByLabel("Saved strategy", { exact: true })
-      .selectOption({ label: "Durable fixture strategy · BTC · v1" });
-    await page.getByLabel("Agent name").fill("Independent fixture agent");
-    await page.getByLabel("Evaluation interval (seconds)").fill("10");
+    await expect(page.getByLabel("Backtest report ID")).not.toHaveValue("");
+    await nav
+      .getByRole("link", { name: "Custom Strategy Builder", exact: true })
+      .click();
+    const chat = page.getByRole("region", { name: "Strategy chat" });
+    await chat
+      .getByLabel("Trading prompt")
+      .fill(
+        "Run a paper agent. Enter and exit when BTC price is above 1 USD, with 2% of cash and a 4% stop loss.",
+      );
+    await chat.getByRole("button", { name: "Send prompt" }).click();
+    await page.getByRole("button", { name: "Run as paper agent" }).click();
+    await chat.getByLabel("Agent name").fill("Independent fixture agent");
+    await chat.getByLabel("Evaluation interval (seconds)").fill("10");
     const startResponse = page.waitForResponse(
       (response) =>
-        response.url().endsWith("/platform/paper-agents") &&
+        response.url().endsWith("/platform/strategy-authoring/start-agent") &&
         response.request().method() === "POST",
     );
-    await page
-      .getByRole("button", { name: "Start agent", exact: true })
+    await chat
+      .getByRole("button", { name: "Start paper agent", exact: true })
       .click();
     const started = await startResponse;
     expect(started.status()).toBe(201);
-    const { id } = await started.json();
+    const { id, strategy } = await started.json();
+    expect(strategy.document.name).toBe("Fixture price draft");
+    await chat.getByRole("link", { name: "View paper agent" }).click();
+    await expect(page.getByLabel("Agent", { exact: true })).toHaveValue(id);
     await context.close();
     expect(browser.contexts()).toHaveLength(0);
 

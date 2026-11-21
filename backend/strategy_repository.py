@@ -37,8 +37,10 @@ def _insert_version(
     return _stored(row)
 
 
-def create_strategy(db: Connection, owner_id: UUID, draft: StrategyDraft) -> StoredStrategy:
-    strategy_id = uuid4()
+def create_strategy(
+    db: Connection, owner_id: UUID, draft: StrategyDraft, *, strategy_id: UUID | None = None
+) -> StoredStrategy:
+    strategy_id = strategy_id or uuid4()
     with db.transaction():
         db.execute(
             "INSERT INTO platform_strategies (owner_id, id) VALUES (%s, %s)",

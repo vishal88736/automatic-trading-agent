@@ -66,17 +66,31 @@ const llm: LLMProvider = {
       };
     }
     if (request.outputSchema?.name === "paper_strategy_draft") {
+      const input = request.messages[0]?.content[0];
+      const prompt = input && "text" in input ? input.text : "";
+      const tradeEveryBar = prompt.includes("BTC price is above 1 USD");
       const strategy = {
-        name: "Fixture RSI draft",
+        name: tradeEveryBar ? "Fixture price draft" : "Fixture RSI draft",
         definition: {
           asset: "BTC",
           entry: {
-            conditions: [{ indicator: "rsi", operator: "lt", threshold: "30" }],
+            conditions: [
+              tradeEveryBar
+                ? { indicator: "price", operator: "gt", threshold: "1" }
+                : { indicator: "rsi", operator: "lt", threshold: "30" },
+            ],
           },
           exit: {
-            conditions: [{ indicator: "rsi", operator: "gt", threshold: "65" }],
+            conditions: [
+              tradeEveryBar
+                ? { indicator: "price", operator: "gt", threshold: "1" }
+                : { indicator: "rsi", operator: "gt", threshold: "65" },
+            ],
           },
-          cash_fraction: "0.02",
+          cash_fraction:
+            prompt.includes("current_document") && prompt.includes("Use 3%")
+              ? "0.03"
+              : "0.02",
           stop_loss: "0.04",
         },
       };
@@ -130,7 +144,8 @@ const llm: LLMProvider = {
 const { app } = createPlatform(
   {
     ...config,
-    KRONO_PUBLIC_ORIGIN: "http://127.0.0.1:5179",
+    KRONO_PUBLIC_ORIGIN:
+      process.env.KRONO_E2E_PUBLIC_ORIGIN ?? "http://127.0.0.1:5179",
     KRONO_PRODUCT_API_URL: process.env.KRONO_E2E_PRODUCT_API_URL,
     KRONO_PRODUCT_API_KEY: process.env.KRONO_E2E_PRODUCT_API_KEY,
   },
@@ -159,6 +174,9 @@ app.post("/platform/auth/logout", async (req, reply) => {
   reply.clearCookie("krono_fixture", { path: "/platform" });
   return { signedOut: true };
 });
-await app.listen({ host: "127.0.0.1", port: 8792 });
+await app.listen({
+  host: "127.0.0.1",
+  port: Number(process.env.KRONO_E2E_GATEWAY_PORT ?? 8792),
+});
 for (const signal of ["SIGTERM", "SIGINT"] as const)
   process.on(signal, () => void app.close().then(() => process.exit(0)));

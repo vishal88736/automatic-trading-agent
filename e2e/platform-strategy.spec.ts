@@ -51,17 +51,33 @@ test("Fund, version, backtest, and isolate a tenant strategy", async ({
   await page
     .getByRole("link", { name: "Custom Strategy Builder", exact: true })
     .click();
-  await page
-    .getByRole("button", { name: "Natural language", exact: true })
-    .click();
-  await page
-    .getByLabel("Trading objective")
+  const chat = page.getByRole("region", { name: "Strategy chat" });
+  await chat
+    .getByLabel("Trading prompt")
     .fill("BTC RSI below 30 for entry and above 65 for exit.");
-  await page.getByRole("button", { name: "Generate strategy draft" }).click();
-  await expect(page.getByLabel("Strategy JSON")).toHaveValue(
-    /Fixture RSI draft/,
-  );
+  await chat.getByRole("button", { name: "Send prompt" }).click();
+  const preview = chat.getByRole("region", {
+    name: "Validated strategy draft",
+  });
+  await expect(
+    preview.getByRole("heading", { name: "Fixture RSI draft" }),
+  ).toBeVisible();
   await expect(page.getByText("No saved strategies.")).toBeVisible();
+  await chat.getByLabel("Trading prompt").fill("Use 3%");
+  await chat.getByRole("button", { name: "Send prompt" }).click();
+  await expect(preview).toContainText("3.00% of cash");
+  await chat
+    .getByRole("button", { name: "Save strategy", exact: true })
+    .click();
+  await expect(chat.getByRole("button", { name: "Saved v1" })).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Fixture RSI draft · BTC · v1" }),
+  ).toBeVisible();
+  await chat.getByRole("button", { name: "Edit strategy" }).click();
+  await page.getByRole("button", { name: "Structured JSON" }).click();
+  await expect(page.getByLabel("Strategy JSON")).toHaveValue(
+    /"cash_fraction": "0.03"/,
+  );
 
   await page
     .getByRole("combobox", { name: "Strategy template" })

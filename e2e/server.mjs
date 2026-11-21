@@ -4,6 +4,9 @@ import { spawn } from "node:child_process";
 
 mkdirSync(".runtime", { recursive: true });
 const directory = mkdtempSync(resolve(".runtime/e2e-"));
+const uiPort = process.env.TERMINAL_UI_PORT ?? "5179";
+const apiPort = process.env.TERMINAL_PORT ?? "8791";
+const gatewayPort = process.env.KRONO_E2E_GATEWAY_PORT ?? "8792";
 const platform = spawn("node", ["--import", "tsx", "e2e/platform-server.ts"], {
   stdio: "inherit",
   env: {
@@ -11,6 +14,7 @@ const platform = spawn("node", ["--import", "tsx", "e2e/platform-server.ts"], {
     TERMINAL_TEST_RUN: "1",
     NODE_ENV: "test",
     AWS_EC2_METADATA_DISABLED: "true",
+    KRONO_E2E_PUBLIC_ORIGIN: `http://127.0.0.1:${uiPort}`,
   },
 });
 const child = spawn("node", ["scripts/dev.mjs"], {
@@ -26,11 +30,11 @@ const child = spawn("node", ["scripts/dev.mjs"], {
     RESEARCH_ENABLED: "false",
     NEWS_API_KEY: "",
     TERMINAL_API_TOKEN: "",
-    TERMINAL_PORT: "8791",
-    TERMINAL_UI_PORT: "5179",
+    TERMINAL_PORT: apiPort,
+    TERMINAL_UI_PORT: uiPort,
     VITE_KRONO_LEGACY_FIXTURES: "true",
-    TERMINAL_BACKEND_URL: "http://127.0.0.1:8791",
-    KRONO_PLATFORM_URL: "http://127.0.0.1:8792",
+    TERMINAL_BACKEND_URL: `http://127.0.0.1:${apiPort}`,
+    KRONO_PLATFORM_URL: `http://127.0.0.1:${gatewayPort}`,
   },
 });
 process.on("SIGTERM", () => {

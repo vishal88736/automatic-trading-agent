@@ -748,6 +748,138 @@
 .platform-strategy-list button[aria-pressed="true"] {
   border-color: currentColor;
 }
+
+.strategy-authoring-methods button[aria-pressed="true"] {
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.strategy-chat {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.strategy-chat-messages {
+  display: grid;
+  gap: 10px;
+  max-height: 300px;
+  overflow: auto;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-inset);
+}
+
+.strategy-chat-welcome {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  color: var(--muted);
+}
+
+.strategy-chat-welcome svg {
+  flex: none;
+  color: var(--accent);
+}
+
+.strategy-chat-message {
+  justify-self: start;
+  max-width: min(94%, 65ch);
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  overflow-wrap: anywhere;
+}
+
+.strategy-chat-message[data-role="user"] {
+  justify-self: end;
+  background: var(--accent-bg);
+}
+
+.strategy-chat-message small {
+  margin-inline-start: 8px;
+  color: var(--muted);
+}
+
+.strategy-chat-message p {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+}
+
+.strategy-chat-compose textarea {
+  display: block;
+  padding: 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface-inset);
+  color: var(--text);
+  white-space: pre-wrap;
+  font: inherit;
+}
+
+.strategy-chat-compose textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.strategy-chat-compose button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.strategy-chat-preview {
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+  overflow-wrap: anywhere;
+}
+
+.strategy-chat-preview h4,
+.strategy-chat-preview > p {
+  margin: 0 0 8px;
+}
+
+.strategy-chat-preview h4 {
+  font-size: 16px;
+  font-weight: 630;
+}
+
+.strategy-chat-preview > p {
+  color: var(--muted);
+}
+
+.strategy-chat-preview dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 148px), 1fr));
+  gap: 8px 16px;
+}
+
+.strategy-chat-preview dt {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.strategy-chat-preview dd {
+  margin: 2px 0 0;
+}
+
+.strategy-chat-start {
+  border-top: 1px solid var(--border);
+  margin-top: 14px;
+  padding-top: 10px;
+}
+
+.strategy-chat-start .platform-backtest-fields {
+  align-items: end;
+}
+
 .platform-product-balance strong {
   font-size: 28px;
   font-variant-numeric: tabular-nums;

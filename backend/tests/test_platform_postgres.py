@@ -521,6 +521,52 @@ def test_durable_agent_lease_recovers_and_shared_execution_stops_atomically(
         assert positions(db, owner, 1, actor_only=True, agent_id=ident)["BTC"]["quantity"] == 0
 
 
+def test_start_from_draft_is_atomic_idempotent_and_owner_scoped(database, strategy_draft):
+    from backend.paper_agents import DraftAgentStart, list_agents, start_draft_agent, timeline
+    from backend.paper_execution import set_emergency
+
+    owner, other = uuid4(), uuid4()
+    request = DraftAgentStart(
+        name="Draft test agent", epoch=1, document=strategy_draft, capital="1000"
+    )
+    with database() as db:
+        migrate(db)
+        ensure_account(db, owner)
+        ensure_account(db, other)
+        rejected = request.model_copy(update={"capital": Decimal("10001")})
+        with pytest.raises(ValueError, match="exceeds the available paper capital"):
+            start_draft_agent(db, owner, rejected)
+        assert list_strategies(db, owner) == []
+        assert list_agents(db, owner) == []
+
+        set_emergency(db, owner, True)
+        with pytest.raises(ValueError, match="cannot start agents"):
+            start_draft_agent(db, owner, request)
+        assert list_strategies(db, owner) == []
+        set_emergency(db, owner, False)
+
+        agent, strategy = start_draft_agent(db, owner, request)
+        assert start_draft_agent(db, owner, request) == (agent, strategy)
+        assert [entry["kind"] for entry in timeline(db, owner, agent)] == ["QUEUED"]
+        [stored_agent] = list_agents(db, owner)
+        assert stored_agent["stage"] == "VALIDATE"
+        assert stored_agent["report_id"] is None
+        assert stored_agent["strategy_id"] == strategy.id
+        assert list_strategies(db, owner) == [strategy]
+        assert get_strategy(db, other, strategy.id) is None
+        assert timeline(db, other, agent) == []
+
+        changed = request.model_copy(
+            update={"document": strategy_draft.model_copy(update={"name": "Different rules"})}
+        )
+        with pytest.raises(ValueError, match="different strategy draft"):
+            start_draft_agent(db, owner, changed)
+        other_agent, other_strategy = start_draft_agent(db, other, request)
+        assert other_agent != agent and other_strategy.id != strategy.id
+        assert list_strategies(db, owner) == [strategy]
+        assert list_strategies(db, other) == [other_strategy]
+
+
 def test_activation_critic_rejects_unrealistic_holdout_before_trading():
     from backend.paper_execution import PaperTerms
     from backend.paper_workflow import activation_graph
