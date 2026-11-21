@@ -7,6 +7,9 @@ import { randomBytes } from "node:crypto";
 import { createServer } from "node:net";
 
 if (existsSync(".env")) process.loadEnvFile(".env");
+// Blank lines copied from .env.example mean "use the default", not an empty value.
+for (const [name, value] of Object.entries(process.env))
+  if (value === "") delete process.env[name];
 const python = ".venv/bin/python";
 if (!existsSync(python)) {
   console.error("Run `make setup` first to create the Python environment.");
@@ -88,7 +91,10 @@ async function database() {
     docker("start", name);
   }
   for (let attempt = 0; attempt < 60; attempt++) {
-    if (docker("exec", name, "pg_isready", "-U", "krono", "-d", "krono").status === 0)
+    if (
+      docker("exec", name, "pg_isready", "-U", "krono", "-d", "krono")
+        .status === 0
+    )
       return `postgresql://krono:${secrets.dbPassword}@127.0.0.1:${ports.db}/krono`;
     await sleep(500);
   }
@@ -114,7 +120,8 @@ const gatewayEnv = {
   ...env,
   NODE_ENV: "development",
   KRONO_AUTH_MODE: process.env.KRONO_AUTH_MODE ?? "local",
-  KRONO_SESSION_SECRET: process.env.KRONO_SESSION_SECRET ?? secrets.sessionSecret,
+  KRONO_SESSION_SECRET:
+    process.env.KRONO_SESSION_SECRET ?? secrets.sessionSecret,
   KRONO_PORT: String(ports.gateway),
   KRONO_PUBLIC_ORIGIN: `http://127.0.0.1:${ports.ui}`,
   KRONO_PRODUCT_API_URL: `http://127.0.0.1:${ports.api}`,
@@ -124,7 +131,10 @@ const gatewayEnv = {
 const colors = { api: 33, worker: 35, gateway: 34, ui: 32 };
 const children = [];
 function run(name, command, args, childEnv) {
-  const child = spawn(command, args, { env: childEnv, stdio: ["ignore", "pipe", "pipe"] });
+  const child = spawn(command, args, {
+    env: childEnv,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
   const prefix = `\x1b[${colors[name]}m[${name}]\x1b[0m `;
   const pipe = (stream, out) =>
     stream.on("data", (chunk) => {
@@ -178,7 +188,7 @@ log(
   `Krono is starting at http://127.0.0.1:${ports.ui}/  (sign-in: ${gatewayEnv.KRONO_AUTH_MODE}, strategy chat: ${gatewayEnv.KRONO_LLM_PROVIDER})`,
 );
 log(
-  "Agents keep their state in PostgreSQL. Stopping this command pauses evaluation until the worker runs again; use `make up` for an always-on stack.",
+  "Agents run in the worker, not the browser: closing the tab never stops them. Stopping this command pauses them until the worker restarts from its checkpoint.",
 );
 
 let stopping = false;

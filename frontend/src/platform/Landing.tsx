@@ -62,14 +62,18 @@ const steps = [
 ];
 
 const chart = [
-  42, 44, 43, 47, 46, 49, 52, 50, 54, 53, 57, 61, 59, 63, 62, 66, 70, 68, 72, 75,
+  42, 44, 43, 47, 46, 49, 52, 50, 54, 53, 57, 61, 59, 63, 62, 66, 70, 68, 72,
+  75,
 ];
 
 function HeroPreview() {
   const max = Math.max(...chart),
     min = Math.min(...chart);
   const points = chart
-    .map((v, i) => `${(i / (chart.length - 1)) * 100},${40 - ((v - min) / (max - min)) * 34}`)
+    .map(
+      (v, i) =>
+        `${(i / (chart.length - 1)) * 100},${40 - ((v - min) / (max - min)) * 34}`,
+    )
     .join(" ");
   return (
     <div className="kx-preview" aria-hidden>
@@ -82,7 +86,11 @@ function HeroPreview() {
           +12.84%
         </span>
       </div>
-      <svg viewBox="0 0 100 42" preserveAspectRatio="none" className="kx-preview-chart">
+      <svg
+        viewBox="0 0 100 42"
+        preserveAspectRatio="none"
+        className="kx-preview-chart"
+      >
         <defs>
           <linearGradient id="kx-hero-fill" x1="0" x2="0" y1="0" y2="1">
             <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.35" />
@@ -90,25 +98,46 @@ function HeroPreview() {
           </linearGradient>
         </defs>
         <polygon points={`0,42 ${points} 100,42`} fill="url(#kx-hero-fill)" />
-        <polyline points={points} fill="none" stroke="var(--accent)" strokeWidth="0.8" vectorEffect="non-scaling-stroke" />
+        <polyline
+          points={points}
+          fill="none"
+          stroke="var(--accent)"
+          strokeWidth="0.8"
+          vectorEffect="non-scaling-stroke"
+        />
       </svg>
       <ul className="kx-preview-feed">
         <li>
-          <span className="kx-side" data-side="buy">BUY</span> 0.42 ETH · RSI 27.9 crossed entry
+          <span className="kx-side" data-side="buy">
+            BUY
+          </span>{" "}
+          0.42 ETH · RSI 27.9 crossed entry
         </li>
         <li>
-          <span className="kx-side" data-side="hold">HOLD</span> Waiting for exit, RSI 54.2
+          <span className="kx-side" data-side="hold">
+            HOLD
+          </span>{" "}
+          Waiting for exit, RSI 54.2
         </li>
         <li>
-          <span className="kx-side" data-side="sell">SELL</span> 0.42 ETH · take profit hit
+          <span className="kx-side" data-side="sell">
+            SELL
+          </span>{" "}
+          0.42 ETH · take profit hit
         </li>
       </ul>
       <div className="kx-preview-board">
         <span>Leaderboard</span>
         <ol>
-          <li><b>1</b> Momentum Mike <em data-direction="up">+18.2%</em></li>
-          <li><b>2</b> ETH dip buyer <em data-direction="up">+12.8%</em></li>
-          <li><b>3</b> SOL breakout <em data-direction="up">+9.4%</em></li>
+          <li>
+            <b>1</b> Momentum Mike <em data-direction="up">+18.2%</em>
+          </li>
+          <li>
+            <b>2</b> ETH dip buyer <em data-direction="up">+12.8%</em>
+          </li>
+          <li>
+            <b>3</b> SOL breakout <em data-direction="up">+9.4%</em>
+          </li>
         </ol>
       </div>
     </div>
@@ -118,7 +147,9 @@ function HeroPreview() {
 export function Landing({ section }: { section?: LandingSection }) {
   useEffect(() => {
     if (section)
-      document.getElementById(`landing-${section}`)?.scrollIntoView({ behavior: "smooth" });
+      document
+        .getElementById(`landing-${section}`)
+        ?.scrollIntoView({ behavior: "smooth" });
   }, [section]);
 
   return (
@@ -165,7 +196,10 @@ export function Landing({ section }: { section?: LandingSection }) {
             <a className="button primary kx-lg" href={signUpHref}>
               Start paper trading free <ArrowRight size={16} />
             </a>
-            <a className="button secondary kx-lg" href={landingSectionHref("workflow")}>
+            <a
+              className="button secondary kx-lg"
+              href={landingSectionHref("workflow")}
+            >
               How it works
             </a>
           </div>

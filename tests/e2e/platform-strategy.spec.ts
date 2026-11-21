@@ -134,9 +134,7 @@ test("Fund, version, backtest, and isolate a tenant strategy", async ({
     page.getByRole("button", { name: "Reviewed RSI · BTC · v2" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Open navigation" }).click();
-  await page
-    .getByRole("link", { name: "Backtesting", exact: true })
-    .click();
+  await page.getByRole("link", { name: "Backtesting", exact: true }).click();
   await page
     .getByRole("combobox", { name: "Strategy", exact: true })
     .selectOption({

@@ -31,10 +31,12 @@ export const moduleSubtitles: Partial<Record<Module, string>> = {
   live: "Connect an exchange account so agents can trade real funds.",
   portfolio: "Holdings, allocation and performance of your paper account.",
   agents: "Autonomous agents keep running on the server after you close Krono.",
-  leaderboard: "Every running agent on Krono, ranked by return on its allocation.",
+  leaderboard:
+    "Every running agent on Krono, ranked by return on its allocation.",
   builder: "Describe a strategy in plain English. Krono turns it into rules.",
   strategies: "Your saved strategies and their version history.",
-  backtests: "Replay a strategy version on historical candles before risking funds.",
+  backtests:
+    "Replay a strategy version on historical candles before risking funds.",
   markets: "Live prices, indicators and an AI read of current conditions.",
   news: "Crypto headlines tagged by asset.",
 };
@@ -94,6 +96,8 @@ export function readRoute() {
     signIn,
     register: signIn && params.get("mode") === "register",
     landingSection: landingSections.find(([id]) => id === section)?.[0],
-    href: signIn ? `#/sign-in${query ? `?${query}` : ""}` : workspaceHref(page, suffix),
+    href: signIn
+      ? `#/sign-in${query ? `?${query}` : ""}`
+      : workspaceHref(page, suffix),
   };
 }

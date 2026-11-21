@@ -372,7 +372,9 @@ export default function PaperAgents() {
                   {change !== null && (
                     <span
                       className="kx-num kx-change"
-                      data-direction={change > 0 ? "up" : change < 0 ? "down" : "flat"}
+                      data-direction={
+                        change > 0 ? "up" : change < 0 ? "down" : "flat"
+                      }
                     >
                       {change >= 0 ? "+" : ""}
                       {(change * 100).toFixed(2)}%
@@ -435,7 +437,9 @@ export default function PaperAgents() {
                   <dt>Realized P&amp;L</dt>
                   <dd
                     className="kx-num"
-                    data-direction={Number(agent.realized_pnl) >= 0 ? "up" : "down"}
+                    data-direction={
+                      Number(agent.realized_pnl) >= 0 ? "up" : "down"
+                    }
                   >
                     {money(agent.realized_pnl)}
                   </dd>
@@ -492,7 +496,11 @@ export default function PaperAgents() {
               <div className="kx-actions">
                 {(["pause", "resume", "stop"] as const).map((action) => {
                   const Icon =
-                    action === "pause" ? Pause : action === "resume" ? Play : Square;
+                    action === "pause"
+                      ? Pause
+                      : action === "resume"
+                        ? Play
+                        : Square;
                   return (
                     <button
                       key={action}
@@ -536,10 +544,14 @@ export default function PaperAgents() {
                           const result = await platform<{
                             status: string;
                             reason: string | null;
-                          }>(`/paper-agents/${agent.id}/close-position`, "POST", {
-                            request_key: key,
-                            epoch: agent.epoch,
-                          });
+                          }>(
+                            `/paper-agents/${agent.id}/close-position`,
+                            "POST",
+                            {
+                              request_key: key,
+                              epoch: agent.epoch,
+                            },
+                          );
                           closeKeys.current.delete(agent.id);
                           if (result.status !== "FILLED")
                             throw Error(
@@ -613,7 +625,9 @@ export default function PaperAgents() {
 
       {formOpen && (
         <section className="kx-card">
-          <h2 className="kx-card-title">Start an agent from a saved strategy</h2>
+          <h2 className="kx-card-title">
+            Start an agent from a saved strategy
+          </h2>
           <p className="muted">
             The worker replays the pinned strategy on recent candles before any
             simulated order, and keeps running after you sign out or close the

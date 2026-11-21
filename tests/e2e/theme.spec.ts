@@ -7,7 +7,12 @@ async function stubMarkets(page: Page) {
   await page.route("**/platform/public/market/*", (route) =>
     route.fulfill({
       json: {
-        market: { status: "STALE", source: "fixture", price: null, candles: [] },
+        market: {
+          status: "STALE",
+          source: "fixture",
+          price: null,
+          candles: [],
+        },
       },
     }),
   );
@@ -81,7 +86,9 @@ test("the landing fits every viewport and opens sign-up and sign-in", async ({
   ).toBeVisible();
   await expect(page.getByLabel("Display name")).toBeVisible();
   await page.getByRole("button", { name: "Back to sign in" }).click();
-  await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Welcome back" }),
+  ).toBeVisible();
   await page.goBack();
   await expect(hero).toBeVisible();
 });
@@ -94,7 +101,9 @@ test("landing section links scroll to their content", async ({ page }) => {
   await nav.getByRole("link", { name: "How it works" }).click();
   await expect(page).toHaveURL(/#\/dashboard\?section=workflow$/);
   await expect(
-    page.getByRole("heading", { name: "From idea to running agent in minutes" }),
+    page.getByRole("heading", {
+      name: "From idea to running agent in minutes",
+    }),
   ).toBeInViewport();
   await nav.getByRole("link", { name: "AI agents" }).click();
   await expect(page).toHaveURL(/#\/dashboard\?section=agents$/);

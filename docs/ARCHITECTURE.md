@@ -2,26 +2,25 @@
 
 ```mermaid
 flowchart LR
-    Browser[React website] -->|Same-origin platform API| Gateway[Fastify gateway]
-    Gateway -->|Signed tenant request| API[Private FastAPI service]
-    Gateway --> Cognito
-    Gateway -->|Drafts and insights| Model[Configured model provider]
+    Browser[React app] -->|Same-origin /platform| Gateway[Fastify gateway]
+    Gateway -->|HMAC-signed tenant request| API[Private FastAPI product API]
+    Gateway -->|Strategy drafts, insights| Model[LLM provider or rules drafter]
     API --> Database[(PostgreSQL)]
-    Worker[Independent paper worker] --> Database
-    API --> Market[Market and news providers]
+    Worker[Agents worker] --> Database
+    API --> Market[Coinbase and news feeds]
     Worker --> Market
 ```
 
-## Product services
+## Services
 
-- `frontend/src/platform/` renders the authenticated workspace and public landing page.
-- `backend/gateway/` validates Cognito sessions and CSRF, derives tenant identity and signs requests to the private product service. It validates model-generated strategy drafts before returning them.
-- `backend/product/api.py` owns account, strategy, backtest, market, news, and agent APIs. `backend/product/execution.py` applies deterministic checks and posts both manual and agent fills to the same ledger.
-- `backend/product/worker.py` claims due work from PostgreSQL, pins a saved strategy version and historical report, and evaluates rules against closed candles and fresh quotes. Work leases, checkpoints and fill keys support recovery. The worker runs independently of the website and API.
-- `backend/migrations/` defines the PostgreSQL ledger, tenant records and durable work queue.
+- **Frontend** (`frontend/src/`): the landing page, sign-in and the workspace. The workspace includes the dashboard, paper trading, live trading, agents, leaderboard, AI strategy builder, backtesting, markets and news. Light and dark themes share one token palette in `styles/palette.css`.
+- **Gateway** (`backend/gateway/`): authenticates every request and enforces origin and CSRF checks. It forwards to the product API with a short-lived HMAC signature over the subject, method, path and body digest. Sign-in is either `local` (accounts in PostgreSQL, signed session cookie) or `cognito`. Strategy chat calls the configured model, or the built-in rules drafter when no key is set. The gateway validates every draft against the product schema before returning it.
+- **Product API** (`backend/product/api.py`): accounts, strategies and versions, backtests, the paper ledger, agents, the leaderboard, markets and news. It trusts only signed gateway requests. Account routes under `/platform/internal/` accept only the gateway's service subject.
+- **Agents worker** (`backend/product/worker.py`): claims due agents from PostgreSQL with row locks and leases. It validates each pinned strategy version with a replay, then evaluates rules on each closed hourly candle and protective exits on fresh quotes. Orders, decisions, checkpoints and equity marks commit together. The worker is independent of the browser and the API: closing the tab, signing out or restarting the API never stops an agent, and a crashed worker resumes from its checkpoint.
+- **Leaderboard** (`GET /platform/leaderboard`): ranks running and paused agents across all accounts by return on their own allocation. It uses the worker's equity marks and reports max drawdown and trade counts. Other users' agent IDs are never returned, and owners appear by display name or an anonymous handle.
 
-## Operator tools
+## Paper and live trading
 
-The separate [HashKey operator API](operator/AEGIS_FLOWS.md), chain connectors and contracts retain their historical workflows and verification evidence. They use their own local records and operator entry points. The website uses the product API and paper ledger. Live trading is disabled in the product gateway.
+Paper trading is complete: virtual USDT, live reference prices, fees, slippage, account-wide and per-agent risk limits, and an emergency stop. Live trading is not enabled yet. The Live Trading page and [live trading design](LIVE_TRADING.md) describe how exchange accounts will be linked.
 
-See [development](DEVELOPMENT.md) for startup and deployment paths, [consolidation](CONSOLIDATION.md) for the migration map, and the [original architecture audit](ARCHITECTURE_AUDIT.md) for historical context.
+See [development](DEVELOPMENT.md) for configuration, tests and deployment.

@@ -25,7 +25,10 @@ let cache: { at: number; data: MarketSummary[] } | null = null;
 let inflight: Promise<MarketSummary[]> | null = null;
 const listeners = new Set<(data: MarketSummary[]) => void>();
 
-function summarize(asset: MarketAsset, quote: MarketQuote | null): MarketSummary {
+function summarize(
+  asset: MarketAsset,
+  quote: MarketQuote | null,
+): MarketSummary {
   const live = quote?.status === "AVAILABLE" || quote?.status === "FIXTURE";
   const closes = (quote?.candles ?? []).slice(-24).map((c) => Number(c.close));
   const price = live && quote?.price != null ? Number(quote.price) : null;
@@ -36,8 +39,7 @@ function summarize(asset: MarketAsset, quote: MarketQuote | null): MarketSummary
     live,
     price,
     closes,
-    change24h:
-      price !== null && first ? (price - first) / first : null,
+    change24h: price !== null && first ? (price - first) / first : null,
   };
 }
 

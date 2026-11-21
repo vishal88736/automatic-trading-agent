@@ -103,7 +103,10 @@ export default function Leaderboard() {
         </div>
         <div className="kx-toolbar-end">
           {data && (
-            <span className="kx-badge" data-tone={data.worker_online ? "positive" : "negative"}>
+            <span
+              className="kx-badge"
+              data-tone={data.worker_online ? "positive" : "negative"}
+            >
               <span className="kx-dot" aria-hidden />
               {data.worker_online ? "Live rankings" : "Worker offline"}
             </span>
@@ -215,7 +218,10 @@ export default function Leaderboard() {
               </thead>
               <tbody>
                 {items.map((entry) => (
-                  <tr key={`${entry.rank}-${entry.name}`} data-mine={entry.mine || undefined}>
+                  <tr
+                    key={`${entry.rank}-${entry.name}`}
+                    data-mine={entry.mine || undefined}
+                  >
                     <td className="kx-rank">{entry.rank}</td>
                     <td>
                       {entry.mine && entry.id ? (

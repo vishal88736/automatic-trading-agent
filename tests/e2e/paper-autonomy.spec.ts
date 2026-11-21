@@ -159,9 +159,7 @@ test("paper agent continues without a browser and survives API and worker restar
       .getByRole("button", { name: "Save strategy", exact: true })
       .click();
     await expect(page.getByText("Saved version 1.")).toBeVisible();
-    await page
-      .getByRole("link", { name: "Backtesting", exact: true })
-      .click();
+    await page.getByRole("link", { name: "Backtesting", exact: true }).click();
     await page
       .getByRole("combobox", { name: "Strategy", exact: true })
       .selectOption({ label: "Durable fixture strategy · BTC/USD · v1" });

@@ -82,7 +82,8 @@ function useWorkerStatus(enabled: boolean) {
     let mounted = true;
     async function refresh() {
       try {
-        const next = await platform<NonNullable<typeof summary>>("/paper-agents");
+        const next =
+          await platform<NonNullable<typeof summary>>("/paper-agents");
         if (mounted) setSummary(next);
       } catch {
         if (mounted) setSummary(null);
@@ -324,7 +325,10 @@ export function Workspace() {
           ))}
         </nav>
         <div className="kx-sidebar-foot">
-          <div className="kx-worker" data-online={worker?.worker_online ?? false}>
+          <div
+            className="kx-worker"
+            data-online={worker?.worker_online ?? false}
+          >
             <span className="kx-dot" aria-hidden />
             <div>
               <strong>

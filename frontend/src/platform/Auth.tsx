@@ -21,7 +21,10 @@ const headings: Record<Mode, [string, string]> = {
     "Start with 10,000 virtual USDT. No card, no exchange account needed.",
   ],
   verify: ["Verify your email", "Enter the code we sent to your inbox."],
-  forgot: ["Reset your password", "We'll send a reset code if the account exists."],
+  forgot: [
+    "Reset your password",
+    "We'll send a reset code if the account exists.",
+  ],
   reset: ["Choose a new password", "Enter the code and your new password."],
 };
 
@@ -77,7 +80,9 @@ export function Auth({
     if (mode === "forgot") {
       await platform("/auth/forgot", "POST", { email });
       switchMode("reset");
-      setNotice("If the account is eligible, a reset code will arrive by email.");
+      setNotice(
+        "If the account is eligible, a reset code will arrive by email.",
+      );
     }
     if (mode === "reset") {
       await platform("/auth/reset", "POST", { email, code, password });
@@ -101,8 +106,8 @@ export function Auth({
             <span className="kx-gradient-text">built by you.</span>
           </h2>
           <p>
-            Tell the AI what you want to trade, test it on real market data,
-            and let your agent run around the clock, on paper first, then live.
+            Tell the AI what you want to trade, test it on real market data, and
+            let your agent run around the clock, on paper first, then live.
           </p>
           <ul className="kx-auth-points">
             <li>

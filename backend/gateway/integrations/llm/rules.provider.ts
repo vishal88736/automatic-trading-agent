@@ -36,10 +36,7 @@ const ASSETS: Array<[Strategy["definition"]["asset"], RegExp]> = [
 const fraction = (value: number) =>
   String(Math.round(Math.min(Math.max(value, 0.001), 0.99) * 10000) / 10000);
 
-function percentAfter(
-  text: string,
-  ...patterns: RegExp[]
-): number | undefined {
+function percentAfter(text: string, ...patterns: RegExp[]): number | undefined {
   for (const pattern of patterns) {
     const match = text.match(pattern);
     const value = match ? Number(match[1]) : NaN;

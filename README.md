@@ -1,27 +1,34 @@
 # Krono
 
-Krono is a personal crypto strategy and paper-trading platform. Build strategies in chat, visually, or in JSON. Backtest a saved version, then start a paper agent that keeps running in a backend worker after the browser closes.
+Krono is an automated cryptocurrency trading platform. Describe a strategy to the AI builder in plain English, backtest it on real market data, and run it as an agent that keeps trading on the server after you close the browser. Every running agent competes on a public leaderboard.
+
+- **Paper trading**: each account starts with 10,000 virtual USDT, priced against live Coinbase quotes with simulated fees and slippage.
+- **Live trading**: linking your own exchange account (planned). See [live trading](docs/LIVE_TRADING.md).
 
 ## Run locally
 
+Requirements: Node 22+, [uv](https://docs.astral.sh/uv/), and Docker (for PostgreSQL).
+
 ```bash
-make setup
+make setup   # Python and Node dependencies, production build
+make dev     # PostgreSQL, migrations, API, agents worker, gateway and UI
 ```
 
-Start PostgreSQL, the private API, the gateway, and the worker using the [development guide](docs/DEVELOPMENT.md). Then run `make demo` and open [Krono on localhost](http://127.0.0.1:5173/). Authentication uses the configured Cognito environment. Paper orders use virtual USDT.
+Open [Krono on localhost](http://127.0.0.1:5173/) and create an account. `make dev` generates its local secrets in `.runtime/dev.json`. Strategy chat works without a model key using the built-in rules drafter. To use an LLM, set `GROQ_API_KEY` (or any OpenAI-compatible endpoint) in `.env`. See [`.env.example`](.env.example).
 
 ## Repository layout
 
-| Folder                | Contents                                                   |
-| --------------------- | ---------------------------------------------------------- |
-| `frontend/`           | React website and shared styles                            |
-| `backend/product/`    | FastAPI, strategies, backtests, paper execution and worker |
-| `backend/gateway/`    | Fastify identity gateway and model integration             |
-| `backend/migrations/` | PostgreSQL schema migrations                               |
-| `tests/e2e/`          | Browser tests and isolated fixtures for the same website   |
-| `deploy/`, `infra/`   | Containers and AWS infrastructure                          |
-| `docs/`               | Architecture, setup and verification                       |
+| Folder                | Contents                                                      |
+| --------------------- | ------------------------------------------------------------- |
+| `frontend/`           | React app: landing, workspace, leaderboard, strategy chat     |
+| `backend/product/`    | FastAPI service, strategies, backtests, paper ledger, worker  |
+| `backend/gateway/`    | Fastify gateway: sign-in, CSRF, model drafting, signed proxy  |
+| `backend/migrations/` | PostgreSQL schema migrations                                  |
+| `tradingagents/`      | Indicator, regime and sizing components reused by the backend |
+| `tests/e2e/`          | Browser tests with isolated fixtures                          |
+| `deploy/`, `infra/`   | Containers and AWS infrastructure                             |
+| `docs/`               | Architecture, development and verification                    |
 
-[Architecture](docs/ARCHITECTURE.md) describes how the services fit together. [Consolidation notes](docs/CONSOLIDATION.md) cover the retired web apps and migration. The [HashKey operator guide](docs/operator/AEGIS_FLOWS.md) and [testnet evidence](docs/operator/CONTRACTS.md) document the separately operated chain tools.
+[Architecture](docs/ARCHITECTURE.md) describes how the services fit together, and [development](docs/DEVELOPMENT.md) covers configuration, tests and deployment.
 
 Krono reuses components from the TradingAgents framework. See [third-party notices](THIRD_PARTY_NOTICES.md) and [LICENSE](LICENSE).

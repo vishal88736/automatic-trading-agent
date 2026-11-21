@@ -10,7 +10,9 @@ export function MarketTicker() {
         <a
           key={item?.asset ?? index}
           className="kx-ticker-item"
-          href={item ? workspaceHref("markets", `?asset=${item.asset}`) : undefined}
+          href={
+            item ? workspaceHref("markets", `?asset=${item.asset}`) : undefined
+          }
           data-loading={!item || undefined}
         >
           {item && <Coin symbol={item.asset} />}

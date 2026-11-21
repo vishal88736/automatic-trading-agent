@@ -1,13 +1,19 @@
 PYTHON ?= .venv/bin/python
 
-.PHONY: setup demo
+.PHONY: setup dev demo test
 
 setup:
 	UV_CACHE_DIR="$(CURDIR)/.cache/uv" UV_PYTHON_INSTALL_DIR="$(CURDIR)/.python" uv sync --frozen --extra platform --python 3.12
 	npm ci --ignore-scripts
 	npm run build
 
-demo:
+# PostgreSQL (Docker), migrations, product API, agents worker, gateway and UI in one command.
+dev:
 	npm run dev
 
-include scripts/operators.mk
+demo: dev
+
+test:
+	$(PYTHON) -m pytest -q
+	npm run test:platform
+	npm run build

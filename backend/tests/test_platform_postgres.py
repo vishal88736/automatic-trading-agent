@@ -668,9 +668,8 @@ def test_worker_backtests_saved_version_then_revalidates_on_independent_history(
 def test_shared_paper_entry_frequency_counts_exits_without_blocking_exit(database):
     from datetime import timedelta
 
-    from aegis.risk.policy import CAPS
-
     from backend.models import now
+    from backend.product.execution import REVIEWED_TRADE_CAPS as CAPS
     from backend.product.execution import OrderRequest, PaperQuote, PaperTerms, submit_order
 
     owner = uuid4()

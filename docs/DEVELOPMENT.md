@@ -2,29 +2,29 @@
 
 ## Run the app
 
-Run `make setup` from the project root. Run PostgreSQL, the private product API, and the independent worker using the [container topology](#container-topology-and-recovery). Run the [authenticated gateway](#authenticated-product-api) separately with your Cognito configuration and the same private API signing key. Then run the frontend:
-
 ```bash
-make demo
+make setup
+make dev
 ```
 
-Open [Krono](http://127.0.0.1:5173/). The Vite development proxy sends `/platform/*` to the Fastify gateway on port 8790 by default. Use `KRONO_PLATFORM_URL` for a different local gateway origin. In production, serve the built frontend and delegate `/platform/*` to the same-origin gateway. Browser sessions do not own agent processes.
+`make dev` (`scripts/dev.mjs`) starts PostgreSQL in Docker on `127.0.0.1:55432` and applies migrations. It then runs the product API (8794), the agents worker, the gateway (8790) and Vite (5173), with prefixed logs. Secrets are generated once into `.runtime/dev.json`. Set `KRONO_DATABASE_DSN` to use your own PostgreSQL instead of Docker.
+
+The local gateway runs with `KRONO_AUTH_MODE=local`. Accounts are stored in PostgreSQL (`platform_credentials`, scrypt password hashes), and sessions are HMAC-signed HttpOnly cookies with double-submit CSRF. Cognito mode needs the AWS settings in `deploy/aws/.env` (see [AWS setup](AWS_SETUP.md)).
+
+Strategy chat uses `KRONO_LLM_PROVIDER`. With no setting, it uses `groq` when `GROQ_API_KEY` is set and the built-in `rules` drafter otherwise. The `GROQ_*` settings accept any OpenAI-compatible endpoint.
 
 ## Code map
 
-| Location                                    | Responsibility                                                  |
-| ------------------------------------------- | --------------------------------------------------------------- |
-| `frontend/src/platform/`                    | Unified workspace, sign-in and product pages                    |
-| `frontend/src/styles/`                      | Shared typography, themes and shell layout                      |
-| `backend/gateway/`                          | Fastify, Cognito sessions, model requests and signed forwarding |
-| `backend/product/`                          | Private API, strategy versions, replay, paper ledger and worker |
-| `backend/migrations/`                       | Ordered PostgreSQL migrations with checksum verification        |
-| `backend/operator/`, `agent/`, `contracts/` | Standalone HashKey and historical research APIs and tools       |
-| `tests/e2e/`                                | Browser checks that open the Krono website                      |
-| `backend/tests/`, `tests/inherited/`        | Product, operator and inherited numerical tests                 |
-| `deploy/`, `infra/`                         | Container definitions and AWS infrastructure                    |
-
-[Generated source reference](SOURCE_REFERENCE.md) links routes and symbols. Regenerate it with `.venv/bin/python -m scripts.generate_code_reference`.
+| Location                             | Responsibility                                                  |
+| ------------------------------------ | --------------------------------------------------------------- |
+| `frontend/src/platform/`             | Unified workspace, sign-in and product pages                    |
+| `frontend/src/styles/`               | Shared typography, themes and shell layout                      |
+| `backend/gateway/`                   | Fastify, Cognito sessions, model requests and signed forwarding |
+| `backend/product/`                   | Private API, strategy versions, replay, paper ledger and worker |
+| `backend/migrations/`                | Ordered PostgreSQL migrations with checksum verification        |
+| `tests/e2e/`                         | Browser checks that open the Krono website                      |
+| `backend/tests/`, `tests/inherited/` | Product and inherited numerical tests                           |
+| `deploy/`, `infra/`                  | Container definitions and AWS infrastructure                    |
 
 ## Local checks
 
@@ -37,7 +37,7 @@ npm run test:e2e
 
 The browser runner opens the same frontend used in production. It uses loopback ports 5180 and 8793 and supports overrides through `KRONO_E2E_UI_PORT` and `KRONO_E2E_GATEWAY_PORT`. Set `KRONO_E2E_BUILD=1` after a build to test the production bundle. PostgreSQL integration tests require a disposable `KRONO_TEST_DATABASE_DSN`.
 
-Krono shares the reviewed trade limits from `agent/aegis/risk/policy.py`. The separate operator API exposes chain and historical research operations. Its network settings, controls and proof records are documented in the [HashKey operator guide](operator/AEGIS_FLOWS.md). The optional inherited CLI has its own [dependency list](../config/legacy-requirements.txt).
+Account-wide trade frequency limits live in `REVIEWED_TRADE_CAPS` in `backend/product/execution.py`. The optional inherited CLI has its own [dependency list](../config/legacy-requirements.txt).
 
 ## Tenant PostgreSQL foundation
 
@@ -66,7 +66,7 @@ After applying the migrations, run the private FastAPI process with the database
 .venv/bin/python -m uvicorn backend.product.api:app_from_environment --factory --host 127.0.0.1 --port 8794
 ```
 
-Set the same key and `KRONO_PRODUCT_API_URL=http://127.0.0.1:8794` in the Fastify process environment, then start the existing `npm run dev:platform` with its Cognito and AWS settings. For a hosted environment use a private HTTPS origin. The gateway verifies Cognito and CSRF, then signs the subject, expiration, HTTP method, raw path and payload digest. Keep both the key and database DSN server-side. The product API remains separately configured from the local operator API and AEGIS.
+Set the same key and `KRONO_PRODUCT_API_URL=http://127.0.0.1:8794` in the Fastify process environment, then start the existing `npm run dev:platform` with its Cognito and AWS settings. For a hosted environment use a private HTTPS origin. The gateway verifies Cognito and CSRF, then signs the subject, expiration, HTTP method, raw path and payload digest. Keep both the key and database DSN server-side.
 
 | Authenticated route                             | Behavior                                                                                                                                                |
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -98,11 +98,11 @@ The order API accepts market orders and quantity-based limit orders with an epoc
 
 Run `.venv/bin/python -m backend.product.worker` as a separate process with the same `KRONO_DATABASE_DSN` as the private product API. PostgreSQL stores each agent's next evaluation time, lease, checkpoint and decision timeline. The worker claims due agents with row locks, fences expired claims, and commits each order, decision and checkpoint together. The same process checks pending manual limit orders every 15 seconds when due.
 
-Choose a saved strategy in **AI Trading Agents** or use an existing report from **Backtesting Lab**. When starting from a saved version, the worker records a reproducible seven-day replay before activation. The same holdout and risk validation applies to both paths. Every seven days it checks the same version against a fresh, non-overlapping evaluation window and records the new report. A failed validation stops autonomous orders and leaves any position available for operator review and close. Agents evaluate strategy rules on each newly closed hourly candle and evaluate protective exits against fresh ticker observations. The browser polls the backend for display. Closing it or restarting the API does not affect scheduled jobs. Pause, stop and account reset invalidate any outstanding claim. Pause and stop leave existing positions in the ledger, and reset closes the account epoch.
+Choose a saved strategy in **My Agents** or use an existing report from **Backtesting**. When starting from a saved version, the worker records a reproducible seven-day replay before activation. The same holdout and risk validation applies to both paths. Every seven days it checks the same version against a fresh, non-overlapping evaluation window and records the new report. A failed validation stops autonomous orders and leaves any position available for operator review and close. Agents evaluate strategy rules on each newly closed hourly candle and evaluate protective exits against fresh ticker observations. The browser polls the backend for display. Closing it or restarting the API does not affect scheduled jobs. Pause, stop and account reset invalidate any outstanding claim. Pause and stop leave existing positions in the ledger, and reset closes the account epoch.
 
 The restarted worker resumes from the existing checkpoint. An interrupted claim can take up to 60 seconds to expire. Source failures retry with bounded exponential delay. Stopped and failed agents retain their order and decision history. Validate process recovery with `tests/e2e/paper-autonomy.spec.ts` against a disposable database. The test launches and restarts its own product API and accelerated worker when `KRONO_E2E_AUTONOMY=1`, using the existing product API key and URL test settings.
 
-Open **Custom Strategy Builder** and paste an objective in **Strategy chat**. Each follow-up can revise the last validated draft. Use **Edit strategy** to open the visual builder or switch to structured JSON. Templates, manual edits and model drafts use the same hourly strategy schema.
+Open **AI Strategy Builder** and describe an objective in **Strategy chat**. Each follow-up can revise the last validated draft. Use **Edit strategy** to open the visual builder or switch to structured JSON. Templates, manual edits and model drafts use the same hourly strategy schema.
 
 **Save strategy** adds the draft to the strategy library. To queue it for paper trading, choose **Run as paper agent**, set the virtual allocation and limits, and click **Start paper agent**. The authenticated `POST /platform/strategy-authoring/start-agent` call accepts a strategy document with the existing agent settings and a request key. It saves the draft and queues validation in one transaction. Retries with the same key and payload return the same agent and strategy. The worker evaluates the replay and risk checks before placing any simulated orders. The model receives drafting input and returns a validated preview.
 

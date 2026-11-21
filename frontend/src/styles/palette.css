@@ -20,7 +20,12 @@
   --accent-border: light-dark(#cfc4ff, #3b3170);
   --on-accent: #ffffff;
   --accent-2: light-dark(#0891b2, #22d3ee);
-  --gradient-brand: linear-gradient(135deg, #7c5cff 0%, #4f7bff 50%, #22d3ee 100%);
+  --gradient-brand: linear-gradient(
+    135deg,
+    #7c5cff 0%,
+    #4f7bff 50%,
+    #22d3ee 100%
+  );
 
   --positive: light-dark(#059669, #16d49a);
   --positive-bg: light-dark(#e6f7f0, #0f2a22);
@@ -53,7 +58,8 @@
   --allocation-eth: light-dark(#4f6bdc, #7b93f0);
   --allocation-sol: light-dark(#0f9f6e, #14f195);
 
-  --font-mono: "JetBrains Mono", "SFMono-Regular", ui-monospace, Menlo, monospace;
+  --font-mono:
+    "JetBrains Mono", "SFMono-Regular", ui-monospace, Menlo, monospace;
 }
 :root[data-theme="light"] {
   color-scheme: light;

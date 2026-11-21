@@ -11,10 +11,26 @@ import {
 import { workspaceHref } from "./navigation";
 
 const exchanges = [
-  { name: "Binance", method: "API key", note: "Spot, trade-only key, IP allow-list" },
-  { name: "Coinbase Advanced", method: "OAuth", note: "Sign in with Coinbase, no key copy-paste" },
-  { name: "Kraken", method: "API key", note: "Query + create/cancel orders only" },
-  { name: "Bybit", method: "API key", note: "Spot, read + trade, no withdrawals" },
+  {
+    name: "Binance",
+    method: "API key",
+    note: "Spot, trade-only key, IP allow-list",
+  },
+  {
+    name: "Coinbase Advanced",
+    method: "OAuth",
+    note: "Sign in with Coinbase, no key copy-paste",
+  },
+  {
+    name: "Kraken",
+    method: "API key",
+    note: "Query + create/cancel orders only",
+  },
+  {
+    name: "Bybit",
+    method: "API key",
+    note: "Spot, read + trade, no withdrawals",
+  },
   { name: "OKX", method: "API key", note: "Trade permission with passphrase" },
 ];
 
@@ -47,7 +63,8 @@ export default function LiveTrading() {
       <section className="kx-card kx-hero-card">
         <div>
           <span className="kx-badge" data-tone="warning">
-            <span className="kx-dot" aria-hidden /> Not yet enabled on this server
+            <span className="kx-dot" aria-hidden /> Not yet enabled on this
+            server
           </span>
           <h2>Trade real funds with the agents you've proven on paper</h2>
           <p>
