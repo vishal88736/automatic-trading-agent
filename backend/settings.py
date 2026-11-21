@@ -106,7 +106,6 @@ class SchedulerSettings(SettingsModel):
     default_asset: str
 
 
-
 class RuntimeSettings(SettingsModel):
     schema_version: Literal[1]
     providers: DataSettings

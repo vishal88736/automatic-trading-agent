@@ -65,7 +65,6 @@ async def test_configured_research_failure_blocks_candidate():
     store.close()
 
 
-
 def test_news_scoring_is_validated_and_indicators_do_not_invent_flat_momentum():
     from backend.models import Candle
     from backend.strategies import indicators

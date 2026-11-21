@@ -703,3 +703,103 @@ def test_shared_paper_entry_frequency_counts_exits_without_blocking_exit(databas
             completed_fills += 2
             n += 1
         assert submit(db, "BUY", 6 * 3600)["reason"] == "FREQUENCY"
+
+
+def test_self_hosted_accounts_are_unique_and_reserved_for_the_gateway(database_dsn, database):
+    from uuid import UUID
+
+    from backend.product.users import Credentials, Registration, authenticate, register
+
+    with database() as db:
+        migrate(db)
+        user = register(
+            db,
+            Registration(email="Trader@Example.com", password="long password", display_name="Ana"),
+        )
+        assert user["email"] == "trader@example.com"
+        with pytest.raises(ValueError, match="already exists"):
+            register(
+                db,
+                Registration(email="trader@example.com", password="other pass", display_name="B"),
+            )
+        assert authenticate(db, Credentials(email="TRADER@example.com", password="long password"))
+        assert authenticate(db, Credentials(email="trader@example.com", password="nope")) is None
+        assert authenticate(db, Credentials(email="ghost@example.com", password="nope")) is None
+        # A self-hosted user is a normal tenant: the paper account attaches to the same id.
+        assert ensure_account(db, user["id"]).cash == Decimal("10000")
+
+    key = "signed-product-test-material" * 2
+    app = create_product_api(database_dsn, key, fixture_feeds=True)
+
+    def headers(method, path, subject, body=""):
+        expires = str(int(time.time()) + 20)
+        checksum = hashlib.sha256(body.encode()).hexdigest()
+        message = "\n".join([expires, str(subject), method, path, checksum])
+        return {
+            "x-krono-product-sub": str(subject),
+            "x-krono-product-expires": expires,
+            "x-krono-product-signature": hmac.new(
+                key.encode(), message.encode(), hashlib.sha256
+            ).hexdigest(),
+            "content-type": "application/json",
+        }
+
+    login = json.dumps({"email": "trader@example.com", "password": "long password"})
+    with TestClient(app) as client:
+        path = "/platform/internal/sessions"
+        tenant = client.post(path, headers=headers("POST", path, uuid4(), login), content=login)
+        assert tenant.status_code == 403
+        service = client.post(
+            path, headers=headers("POST", path, UUID(int=0), login), content=login
+        )
+        assert service.status_code == 200
+        assert service.json()["user"]["display_name"] == "Ana"
+
+
+def test_leaderboard_ranks_every_tenant_by_return_without_exposing_other_ids(
+    database, strategy_draft
+):
+    from backend.product.agents import DraftAgentStart, leaderboard, start_draft_agent
+    from backend.product.users import Registration, register
+
+    with database() as db:
+        migrate(db)
+        named = register(
+            db, Registration(email="a@example.com", password="long password", display_name="Ana")
+        )["id"]
+        anonymous = uuid4()
+        agents = {}
+        for owner, name in ((named, "Steady"), (anonymous, "Volatile")):
+            ensure_account(db, owner)
+            request = DraftAgentStart(name=name, epoch=1, document=strategy_draft, capital="1000")
+            agents[name], _ = start_draft_agent(db, owner, request)
+
+        def mark(owner, agent, minutes_ago, equity):
+            db.execute(
+                """
+                INSERT INTO paper_agent_equity VALUES
+                (%s, %s, now() - make_interval(mins => %s), %s)
+                """,
+                (owner, agent, minutes_ago, equity),
+            )
+
+        mark(named, agents["Steady"], 10, "1020")
+        mark(named, agents["Steady"], 5, "1050")
+        mark(anonymous, agents["Volatile"], 10, "1200")
+        mark(anonymous, agents["Volatile"], 5, "900")
+
+        board = leaderboard(db, named)
+        assert [row["name"] for row in board] == ["Steady", "Volatile"]
+        steady, volatile = board
+        assert steady["rank"] == 1 and steady["mine"] and steady["id"] == agents["Steady"]
+        assert steady["owner"] == "Ana"
+        assert steady["return_pct"] == Decimal("0.05")
+        assert not volatile["mine"] and volatile["id"] is None
+        assert volatile["owner"].startswith("Trader ")
+        assert str(anonymous) not in json.dumps(board, default=str)
+        assert volatile["return_pct"] == Decimal("-0.1")
+        assert volatile["max_drawdown"] == Decimal("0.25")
+
+        db.execute("UPDATE paper_agents SET status = 'STOPPED' WHERE id = %s", (agents["Steady"],))
+        assert [row["name"] for row in leaderboard(db, named)] == ["Volatile"]
+        assert len(leaderboard(db, named, "all")) == 2

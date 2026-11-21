@@ -105,7 +105,6 @@ class SimulationAdapter:
         }
 
 
-
 class AlpacaPaperAdapter:
     name = "alpaca_paper"
 
