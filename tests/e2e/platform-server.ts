@@ -2,8 +2,6 @@
 import { createPlatform } from "../../backend/gateway/server.js";
 import { MemoryTenantStore } from "../../backend/gateway/storage/tenant-store.js";
 import {
-  alice,
-  bob,
   config,
   FixtureRuntime,
 } from "../../backend/tests/platform/helpers.js";
@@ -11,6 +9,20 @@ import { PlatformError } from "../../backend/gateway/domain/errors.js";
 import type { LLMProvider } from "../../backend/gateway/integrations/llm/llm.interface.js";
 if (process.env.TERMINAL_TEST_RUN !== "1")
   throw Error("This server is restricted to browser fixture validation");
+
+// A restarted fixture gateway must reopen the same test accounts.
+const users = {
+  alice: { userId: "00000000-0000-4000-8000-000000000001", username: "alice" },
+  bob: { userId: "00000000-0000-4000-8000-000000000002", username: "bob" },
+  lifecycle: {
+    userId: "00000000-0000-4000-8000-000000000003",
+    username: "lifecycle",
+  },
+};
+function knownUser(name: string): name is keyof typeof users {
+  return Object.hasOwn(users, name);
+}
+
 const store = new MemoryTenantStore();
 const auth = {
   authenticate: async (req: {
@@ -19,7 +31,7 @@ const auth = {
     headers: Record<string, unknown>;
   }) => {
     const user = req.cookies.krono_fixture;
-    if (!["alice", "bob"].includes(user))
+    if (!knownUser(user))
       throw new PlatformError(
         "UNAUTHENTICATED",
         "Fixture sign in required",
@@ -27,7 +39,7 @@ const auth = {
       );
     if (req.method !== "GET" && req.headers["x-krono-csrf"] !== "fixture-csrf")
       throw new PlatformError("CSRF", "Fixture CSRF required", 403);
-    return user === "alice" ? alice : bob;
+    return users[user];
   },
 };
 const llm: LLMProvider = {
@@ -113,8 +125,15 @@ const { app } = createPlatform(
   { store, runtime: new FixtureRuntime(), auth, llm },
 );
 app.post("/platform/auth/login", async (req, reply) => {
-  const v = req.body as { email: string };
-  const username = v.email === "bob@fixture.test" ? "bob" : "alice";
+  const input = req.body as { email?: unknown; password?: unknown } | null;
+  const email = typeof input?.email === "string" ? input.email : "";
+  const username = email.split("@")[0];
+  if (
+    !knownUser(username) ||
+    email !== `${username}@fixture.test` ||
+    input?.password !== "fixture"
+  )
+    throw new PlatformError("UNAUTHENTICATED", "Fixture sign in required", 401);
   reply.setCookie("krono_fixture", username, {
     path: "/platform",
     httpOnly: true,
@@ -126,7 +145,7 @@ app.get("/platform/auth/session", async (req) => {
   const p = await auth.authenticate(req as never);
   return {
     ...p,
-    email: p === alice ? "alice@fixture.test" : "bob@fixture.test",
+    email: `${p.username}@fixture.test`,
     csrf: "fixture-csrf",
   };
 });

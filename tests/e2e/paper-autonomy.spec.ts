@@ -98,7 +98,9 @@ test("paper agent continues without a browser and survives API and worker restar
     const context = await browser.newContext({ baseURL });
     const page = await context.newPage();
     await page.goto("/#/strategies");
-    await page.getByLabel("Email", { exact: true }).fill("alice@fixture.test");
+    await page
+      .getByLabel("Email", { exact: true })
+      .fill("lifecycle@fixture.test");
     await page.getByLabel("Password", { exact: true }).fill("fixture");
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
     await expect(
