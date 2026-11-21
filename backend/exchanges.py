@@ -1,15 +1,12 @@
 from __future__ import annotations
 
-import asyncio
 from datetime import timedelta
 from decimal import ROUND_DOWN, ROUND_UP, Decimal
 from typing import Protocol
 
-import httpx
-
 from backend.data import USD
-from backend.models import Mode, Proposal, Quote, Token, now
-from backend.settings import NetworkSettings, SimulationSettings, get_settings
+from backend.models import Mode, Proposal, Quote, now
+from backend.settings import SimulationSettings, get_settings
 
 D = Decimal
 PRECISION = D("0.000000000000000001")
@@ -108,136 +105,6 @@ class SimulationAdapter:
         }
 
 
-class HSKSwapAdapter:
-    name = "hskswap"
-    missing = [
-        "On-chain token decimals and metadata validation against the documented registry",
-        "Independently verified current router ABI and executable quote route",
-        "Quote-to-calldata binding, allowance and L1+L2 fee validation",
-        "Wallet signing authorization and receipt/balance reconciliation integration tests",
-    ]
-
-    def __init__(self, transport=None, settings: NetworkSettings | None = None):
-        self.settings = settings or get_settings().hsk
-        self.chain_id, self.rpc_url, self.explorer = (
-            self.settings.chain_id,
-            self.settings.rpc_url,
-            self.settings.explorer,
-        )
-        self.client = httpx.AsyncClient(
-            timeout=8,
-            transport=transport,
-            follow_redirects=False,
-            limits=httpx.Limits(max_connections=3),
-        )
-        self.semaphore = asyncio.Semaphore(3)
-        self.sequence = 0
-
-    async def close(self):
-        await self.client.aclose()
-
-    def configuration(self):
-        return {
-            "name": self.name,
-            "chain_id": self.chain_id,
-            "rpc_url": self.rpc_url,
-            "explorer": self.explorer,
-            "network_source": self.settings.network_source,
-            "token_source": self.settings.token_source,
-            "execution_enabled": False,
-            "quote_enabled": False,
-            "missing_requirements": self.missing,
-            "tokens": [
-                Token(
-                    asset_id=symbol,
-                    symbol=symbol,
-                    name=token.name,
-                    chain_id=self.chain_id,
-                    address=token.address,
-                    kind="erc20",
-                    metadata_source=self.settings.token_source,
-                ).model_dump(mode="json")
-                for symbol, token in self.settings.tokens.items()
-            ],
-            "note": "Documented addresses; decimals and bytecode require RPC verification. Symbols are not interchangeable with CEX reference assets.",
-        }
-
-    async def rpc(self, method, params):
-        if method not in {
-            "eth_chainId",
-            "eth_getBalance",
-            "eth_getCode",
-            "eth_call",
-            "eth_getTransactionReceipt",
-            "eth_blockNumber",
-        }:
-            raise IntegrationUnavailable("Only allowlisted read-only RPC methods are available")
-        async with self.semaphore:
-            self.sequence += 1
-            response = await self.client.post(
-                self.rpc_url,
-                json={"jsonrpc": "2.0", "id": self.sequence, "method": method, "params": params},
-            )
-            response.raise_for_status()
-            result = response.json()
-            if "error" in result or "result" not in result:
-                raise IntegrationUnavailable("RPC could not return verified data")
-            return result["result"]
-
-    async def wallet(self, address: str):
-        import re
-
-        if not re.fullmatch(r"0x[0-9a-fA-F]{40}", address) or int(address, 16) == 0:
-            raise ValueError("Invalid wallet address")
-        chain, block = await asyncio.gather(
-            self.rpc("eth_chainId", []),
-            self.rpc("eth_blockNumber", []),
-        )
-        if int(chain, 16) != self.chain_id:
-            raise IntegrationUnavailable("RPC chain mismatch")
-        balance = await self.rpc("eth_getBalance", [address, block])
-        return {
-            "address": address,
-            "chain_id": self.chain_id,
-            "native_symbol": self.settings.native_symbol,
-            "native_balance_raw": str(int(balance, 16)),
-            "native_balance": str(D(int(balance, 16)) / D(10**self.settings.native_decimals)),
-            "block": int(block, 16),
-            "retrieved_at": now(),
-            "source": self.rpc_url,
-            "read_only": True,
-            "ownership_verified": False,
-            "limitation": "Native balance only. No wallet ownership authentication, token history, or wallet P&L is inferred.",
-        }
-
-    async def quote(self, proposal: Proposal, notional: Decimal) -> Quote:
-        raise IntegrationUnavailable("HSKSwap quoting disabled: " + "; ".join(self.missing))
-
-    async def submit(self, intent_id: str, quote: Quote) -> str:
-        raise IntegrationUnavailable(
-            "Live execution is unavailable. No transaction was signed or submitted."
-        )
-
-    async def transaction_status(self, tx_hash: str):
-        import re
-
-        if not re.fullmatch(r"0x[0-9a-fA-F]{64}", tx_hash):
-            raise ValueError("Invalid transaction hash")
-        if int(await self.rpc("eth_chainId", []), 16) != self.chain_id:
-            raise IntegrationUnavailable("RPC chain mismatch")
-        receipt = await self.rpc("eth_getTransactionReceipt", [tx_hash])
-        return (
-            {"status": "PENDING_OR_UNKNOWN"}
-            if receipt is None
-            else {
-                "status": "CONFIRMED" if int(receipt["status"], 16) == 1 else "REVERTED",
-                "block_number": int(receipt["blockNumber"], 16),
-                "transaction_hash": tx_hash,
-                "source": self.rpc_url,
-                "balance_reconciled": False,
-            }
-        )
-
 
 class AlpacaPaperAdapter:
     name = "alpaca_paper"
@@ -255,5 +122,5 @@ class AlpacaPaperAdapter:
 
     async def quote(self, proposal, notional):
         raise IntegrationUnavailable(
-            "Alpaca brokerage execution is available only through the preserved legacy paper workflow; never used for HSKSwap."
+            "Alpaca brokerage execution is available only through the preserved legacy paper workflow."
         )

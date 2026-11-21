@@ -4,7 +4,6 @@ COPY --from=uv /uv /bin/uv
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PATH=/app/.venv/bin:$PATH
 WORKDIR /app
 COPY pyproject.toml uv.lock ./
-COPY agent agent
 RUN uv sync --frozen --extra platform --no-dev --no-cache
 COPY backend backend
 COPY tradingagents tradingagents

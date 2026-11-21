@@ -61,7 +61,7 @@ def assess(
         proposal.mode == Mode.SIMULATION,
         proposal.mode,
         "SIMULATION",
-        "HSKSwap live and paper execution are not validated.",
+        "Live exchange execution is not validated.",
     )
     check(
         "TOKEN_IDENTITY",

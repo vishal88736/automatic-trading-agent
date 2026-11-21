@@ -1,12 +1,10 @@
 from decimal import Decimal
 
-import httpx
 import pytest
 from langchain_core.messages import AIMessage
 
 from backend.data import Providers, fixture_market
 from backend.engine import Engine
-from backend.exchanges import HSKSwapAdapter, IntegrationUnavailable
 from backend.models import NewsScoring, RunRequest
 from backend.research import ResearchBridge
 from backend.storage import Store
@@ -66,70 +64,6 @@ async def test_configured_research_failure_blocks_candidate():
     await engine.close()
     store.close()
 
-
-async def test_hsk_receipts_distinguish_pending_reverted_and_confirmed():
-    receipt_status = [None, "0x0", "0x1"]
-
-    async def handler(request):
-        import json
-
-        payload = json.loads(request.content)
-        if payload["method"] == "eth_chainId":
-            return httpx.Response(200, json={"result": "0xb1"})
-        status = receipt_status.pop(0)
-        return httpx.Response(
-            200,
-            json={"result": None if status is None else {"status": status, "blockNumber": "0x123"}},
-        )
-
-    adapter = HSKSwapAdapter(httpx.MockTransport(handler))
-    tx_hash = "0x" + "a" * 64
-    assert (await adapter.transaction_status(tx_hash))["status"] == "PENDING_OR_UNKNOWN"
-    assert (await adapter.transaction_status(tx_hash))["status"] == "REVERTED"
-    confirmed = await adapter.transaction_status(tx_hash)
-    assert confirmed["status"] == "CONFIRMED" and not confirmed["balance_reconciled"]
-    with pytest.raises(IntegrationUnavailable):
-        await adapter.rpc("eth_sendTransaction", [])
-    with pytest.raises(IntegrationUnavailable):
-        await adapter.submit("fixture-intent", None)
-    await adapter.close()
-
-
-async def test_wrong_chain_wallet_and_missing_connection_remain_blocked():
-    adapter = HSKSwapAdapter(
-        httpx.MockTransport(lambda request: httpx.Response(200, json={"result": "0x1"}))
-    )
-    with pytest.raises(IntegrationUnavailable, match="chain mismatch"):
-        await adapter.wallet("0x" + "1" * 40)
-    with pytest.raises(ValueError):
-        await adapter.wallet("")
-    await adapter.close()
-
-
-async def test_wallet_balance_is_bound_to_the_reported_block():
-    import json
-
-    calls = []
-
-    async def handle(request):
-        packet = json.loads(request.content)
-        calls.append(packet)
-        values = {
-            "eth_chainId": "0xb1",
-            "eth_blockNumber": "0x123",
-            "eth_getBalance": "0xde0b6b3a7640000",
-        }
-        return httpx.Response(200, json={"result": values[packet["method"]]})
-
-    adapter = HSKSwapAdapter(httpx.MockTransport(handle))
-    try:
-        wallet = await adapter.wallet("0x" + "1" * 40)
-        request = next(c for c in calls if c["method"] == "eth_getBalance")
-        assert request["params"][1] == "0x123"
-        assert wallet["block"] == 291 and wallet["native_balance"] == "1"
-        assert wallet["read_only"] and not wallet["ownership_verified"]
-    finally:
-        await adapter.close()
 
 
 def test_news_scoring_is_validated_and_indicators_do_not_invent_flat_momentum():

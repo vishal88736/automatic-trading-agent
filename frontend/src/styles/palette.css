@@ -1,64 +1,59 @@
-/* Shared color roles for the terminal, desks, and authenticated workspaces. */
+/* Krono color roles. Every surface reads these tokens; light-dark() follows the
+   color-scheme that ThemeToggle sets on <html data-theme>. */
 :root {
   color-scheme: light dark;
-  --sapphire-ink: #08121c;
-  --sapphire-navy: #163148;
-  --sapphire-blue: #2e5878;
-  --sapphire-steel: #5e86a8;
-  --sapphire-mist: #adc5d8;
-  --sapphire-ice: #eef4f8;
-  --bg: light-dark(var(--sapphire-ice), var(--sapphire-ink));
-  --sidebar: light-dark(var(--sapphire-ice), var(--sapphire-navy));
-  --panel: light-dark(
-    white,
-    color-mix(in srgb, var(--sapphire-navy) 52%, var(--sapphire-ink))
+
+  --bg: light-dark(#f4f6fa, #0a0d14);
+  --sidebar: light-dark(#ffffff, #0d1119);
+  --panel: light-dark(#ffffff, #111622);
+  --raised: light-dark(#f1f3f8, #171d2b);
+  --border: light-dark(#e3e7ef, #1f2736);
+  --border-strong: light-dark(#cad1de, #2d384b);
+  --text: light-dark(#0e1424, #e8ecf4);
+  --muted: light-dark(#5b6578, #8b95a9);
+  --subtle: light-dark(#7a8396, #6c7689);
+
+  --accent: light-dark(#5b3df5, #8b74ff);
+  --accent-strong: light-dark(#4a2de0, #a08dff);
+  --accent-hover: light-dark(#4426d6, #a594ff);
+  --accent-bg: light-dark(#efebff, #1d1838);
+  --accent-border: light-dark(#cfc4ff, #3b3170);
+  --on-accent: #ffffff;
+  --accent-2: light-dark(#0891b2, #22d3ee);
+  --gradient-brand: linear-gradient(135deg, #7c5cff 0%, #4f7bff 50%, #22d3ee 100%);
+
+  --positive: light-dark(#059669, #16d49a);
+  --positive-bg: light-dark(#e6f7f0, #0f2a22);
+  --positive-border: light-dark(#a7e3cb, #1c4a3b);
+  --negative: light-dark(#e11d48, #ff5c7a);
+  --negative-bg: light-dark(#fdeef1, #2e141c);
+  --negative-border: light-dark(#f6b8c6, #5a2533);
+  --warning: light-dark(#b45309, #fbbf24);
+  --warning-bg: light-dark(#fef5e6, #2b2110);
+  --warning-border: light-dark(#f2d39c, #5a451c);
+  --info: var(--accent-2);
+  --info-bg: light-dark(#e6f7fb, #0c2630);
+  --info-border: light-dark(#a5dfec, #18485a);
+
+  --surface-inset: light-dark(#f6f7fb, #0c1018);
+  --surface-hover: light-dark(#eef1f7, #1a2131);
+  --solid-light: #f4f6fa;
+  --scrim: light-dark(rgb(14 20 36 / 45%), rgb(0 0 0 / 65%));
+  --shadow-sm: light-dark(
+    0 1px 2px rgb(14 20 36 / 6%),
+    0 1px 2px rgb(0 0 0 / 40%)
   );
-  --raised: light-dark(
-    color-mix(in srgb, var(--sapphire-mist) 25%, var(--sapphire-ice)),
-    var(--sapphire-navy)
+  --shadow-md: light-dark(
+    0 8px 24px -12px rgb(14 20 36 / 18%),
+    0 12px 32px -16px rgb(0 0 0 / 70%)
   );
-  --border: light-dark(
-    color-mix(in srgb, var(--sapphire-mist) 64%, var(--sapphire-ice)),
-    color-mix(in srgb, var(--sapphire-blue) 57%, var(--sapphire-navy))
-  );
-  --border-strong: light-dark(
-    var(--sapphire-steel),
-    color-mix(in srgb, var(--sapphire-steel) 70%, var(--sapphire-blue))
-  );
-  --text: light-dark(var(--sapphire-ink), var(--sapphire-ice));
-  --muted: light-dark(var(--sapphire-blue), var(--sapphire-mist));
-  --subtle: light-dark(var(--sapphire-blue), var(--sapphire-mist));
-  --accent: light-dark(var(--sapphire-blue), var(--sapphire-mist));
-  --accent-strong: light-dark(
-    var(--sapphire-blue),
-    color-mix(in srgb, var(--sapphire-steel) 65%, var(--sapphire-mist))
-  );
-  --accent-hover: light-dark(var(--sapphire-navy), var(--sapphire-ice));
-  --accent-bg: light-dark(
-    color-mix(in srgb, var(--sapphire-mist) 44%, var(--sapphire-ice)),
-    var(--sapphire-navy)
-  );
-  --accent-border: var(--sapphire-steel);
-  --on-accent: light-dark(var(--sapphire-ice), var(--sapphire-ink));
-  --positive: light-dark(#116348, #9fe0be);
-  --positive-bg: light-dark(#e7f2e9, #1f382d);
-  --positive-border: light-dark(#92b6a1, #486754);
-  --negative: light-dark(#982c40, #ffb5bf);
-  --negative-bg: light-dark(#f9eaec, #42292b);
-  --negative-border: light-dark(#d4a0a8, #875258);
-  --warning: light-dark(#845014, #f6cb8b);
-  --warning-bg: light-dark(#f9efde, #382d1f);
-  --warning-border: light-dark(#c4a877, #866641);
-  --info: var(--accent);
-  --info-bg: var(--accent-bg);
-  --info-border: var(--accent-border);
-  --surface-inset: light-dark(var(--sapphire-ice), var(--sapphire-ink));
-  --surface-hover: light-dark(
-    color-mix(in srgb, var(--sapphire-mist) 32%, var(--sapphire-ice)),
-    color-mix(in srgb, var(--sapphire-blue) 30%, var(--sapphire-navy))
-  );
-  --solid-light: var(--sapphire-ice);
-  --scrim: color-mix(in srgb, var(--sapphire-ink) 66%, transparent);
+
+  --allocation-cash: var(--accent);
+  --allocation-btc: #f7931a;
+  --allocation-eth: light-dark(#4f6bdc, #7b93f0);
+  --allocation-sol: light-dark(#0f9f6e, #14f195);
+
+  --font-mono: "JetBrains Mono", "SFMono-Regular", ui-monospace, Menlo, monospace;
 }
 :root[data-theme="light"] {
   color-scheme: light;
@@ -71,42 +66,18 @@
   flex: none;
   display: inline-grid;
   place-items: center;
-  width: 38px;
-  min-height: 38px;
+  width: 36px;
+  min-height: 36px;
   padding: 0;
-  border: 1px solid var(--border-strong);
-  border-radius: 50%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
   color: var(--text);
   background: var(--raised);
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 .theme-toggle:hover {
   color: var(--accent);
   background: var(--accent-bg);
-}
-@media (max-width: 390px) {
-  .theme-toggle {
-    width: 34px;
-    min-height: 34px;
-  }
-}
-@media (max-width: 360px) {
-  .rail-shell .topbar {
-    padding-inline: 10px;
-    gap: 6px;
-  }
-  .rail-shell .header-controls {
-    gap: 5px;
-  }
-  .rail-shell .mobile-brand {
-    gap: 6px;
-    font-size: 19px;
-  }
-  .rail-shell .mobile-brand .krono-mark {
-    width: 24px;
-    height: 24px;
-  }
-  .rail-shell .mode-label {
-    padding-inline: 6px;
-    font-size: 10px;
-  }
 }

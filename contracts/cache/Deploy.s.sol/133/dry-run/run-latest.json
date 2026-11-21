@@ -1,0 +1,17 @@
+{
+  "transactions": [
+    {
+      "rpc": "https://testnet.hsk.xyz"
+    },
+    {
+      "rpc": "https://testnet.hsk.xyz"
+    },
+    {
+      "rpc": "https://testnet.hsk.xyz"
+    },
+    {
+      "rpc": "https://testnet.hsk.xyz"
+    }
+  ],
+  "recovery_generation": "0x565f804693c7085a2ec5caab6bf1851c81050da7131616f2aa15de67a27ab97d"
+}

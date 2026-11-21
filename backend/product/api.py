@@ -27,8 +27,10 @@ from backend.product.agents import (
     AgentCommand,
     AgentStart,
     DraftAgentStart,
+    LeaderboardScope,
     close_agent_position,
     control_agent,
+    leaderboard,
     list_agents,
     position_asset,
     start_agent,
@@ -62,11 +64,13 @@ from backend.product.strategies import (
     strategy_history,
     update_strategy,
 )
+from backend.product.users import Credentials, Registration, authenticate, get_user, register
 from backend.product.worker import heartbeat_fresh
 from backend.storage import Store
 from backend.strategies import indicators
 
 KEY_ENV = "KRONO_PRODUCT_API_KEY"
+SERVICE_SUBJECT = UUID(int=0)
 BODY_LIMIT = 65536
 OpeningCredit = Annotated[Decimal, Field(gt=0, le=100000000, decimal_places=6)]
 Version = Annotated[int, Field(ge=1, le=2**31 - 1)]
@@ -243,6 +247,45 @@ def create_product_api(
 
     Principal = Annotated[UUID, Depends(owner)]
     Database = Annotated[Connection, Depends(database)]
+
+    def gateway_service(subject: Principal) -> None:
+        # Account routes are reserved for the gateway, which signs them as the nil subject.
+        if subject != SERVICE_SUBJECT:
+            raise ProductError(403, "FORBIDDEN", "Gateway service route")
+
+    Service = Annotated[None, Depends(gateway_service)]
+
+    @app.post("/platform/internal/users", status_code=201)
+    def user_register(request: Registration, _: Service, db: Database):
+        try:
+            return {"user": register(db, request)}
+        except ValueError as exc:
+            raise ProductError(409, "ACCOUNT_EXISTS", str(exc)) from None
+
+    @app.post("/platform/internal/sessions")
+    def user_login(credentials: Credentials, _: Service, db: Database):
+        user = authenticate(db, credentials)
+        if user is None:
+            raise ProductError(401, "INVALID_CREDENTIALS", "Email or password is incorrect")
+        return {"user": user}
+
+    @app.get("/platform/internal/users/{user_id}")
+    def user_profile(user_id: UUID, _: Service, db: Database):
+        user = get_user(db, user_id)
+        if user is None:
+            raise ProductError(404, "NOT_FOUND", "Account is unavailable")
+        return {"user": user}
+
+    @app.get("/platform/leaderboard")
+    def agent_leaderboard(
+        subject: Principal,
+        db: Database,
+        scope: LeaderboardScope = "active",
+        limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    ):
+        return financial(
+            {"items": leaderboard(db, subject, scope, limit), "worker_online": heartbeat_fresh(db)}
+        )
 
     @app.get("/platform/paper-account")
     def paper_account(subject: Principal, db: Database) -> dict[str, PaperAccount | None]:

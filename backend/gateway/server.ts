@@ -7,7 +7,14 @@ import { pathToFileURL } from "node:url";
 import { randomUUID } from "node:crypto";
 import { loadConfig, type Config } from "./config.js";
 import { CognitoAuth, type Authenticator } from "./auth/cognito.js";
-import { DynamoTenantStore, type TenantStore } from "./storage/tenant-store.js";
+import {
+  DynamoTenantStore,
+  MemoryTenantStore,
+  type TenantStore,
+} from "./storage/tenant-store.js";
+import { LocalAuth } from "./auth/local.js";
+import { RulesProvider } from "./integrations/llm/rules.provider.js";
+import { productClient } from "./product/client.js";
 import { ProfileService } from "./profiles/profile.service.js";
 import { AgentService } from "./agents/agent.service.js";
 import { AwsRuntime } from "./runtime/aws-runtime.js";
@@ -51,20 +58,28 @@ export function createPlatform(
     new DynamoDBClient({ region: c.AWS_REGION, maxAttempts: 3 }),
     { marshallOptions: { removeUndefinedValues: true } },
   );
+  const local = c.KRONO_AUTH_MODE === "local";
+  // Local mode keeps the control-plane records (token budgets, chat history) in memory;
+  // durable product state lives in PostgreSQL behind the product API.
   const store =
-      overrides?.store ?? new DynamoTenantStore(db, c.KRONO_CONTROL_TABLE),
+      overrides?.store ??
+      (local
+        ? new MemoryTenantStore()
+        : new DynamoTenantStore(db, c.KRONO_CONTROL_TABLE)),
     profiles = new ProfileService(store);
   const runtime = overrides?.runtime ?? new AwsRuntime(c, db),
     agents = new AgentService(store, runtime, c, profiles);
   const llm =
     overrides?.llm ??
-    (c.KRONO_LLM_PROVIDER === "groq"
-      ? new GroqProvider(c, new TokenUsageService(store, c))
-      : new MiniMaxProvider(
-          createBedrockClient(c),
-          c,
-          new TokenUsageService(store, c),
-        ));
+    (c.KRONO_LLM_PROVIDER === "rules"
+      ? new RulesProvider()
+      : c.KRONO_LLM_PROVIDER === "groq"
+        ? new GroqProvider(c, new TokenUsageService(store, c))
+        : new MiniMaxProvider(
+            createBedrockClient(c),
+            c,
+            new TokenUsageService(store, c),
+          ));
   const tools = new ToolRegistry(agents, profiles),
     conversations = new ConversationService(
       store,
@@ -73,7 +88,9 @@ export function createPlatform(
       tools,
       c.KRONO_MESSAGE_RETENTION_DAYS,
     );
-  const auth = overrides?.auth ?? new CognitoAuth(c);
+  const auth =
+    overrides?.auth ??
+    (local ? new LocalAuth(c, productClient(c)) : new CognitoAuth(c));
   const app = Fastify({
     genReqId: () => randomUUID(),
     logger: {
@@ -250,11 +267,18 @@ export function createPlatform(
   );
   if (auth instanceof CognitoAuth)
     auth.routes(app, (p, identity) => profiles.syncIdentity(p, identity));
+  if (auth instanceof LocalAuth) auth.routes(app);
   app.get("/platform/health", async () => ({
     service: "KRONO control plane",
     configured: true,
     environment: c.KRONO_ENV,
-    model: c.BEDROCK_MODEL_ID,
+    model:
+      c.KRONO_LLM_PROVIDER === "rules"
+        ? "krono-rules"
+        : c.KRONO_LLM_PROVIDER === "groq"
+          ? c.GROQ_MODEL
+          : c.BEDROCK_MODEL_ID,
+    authMode: c.KRONO_AUTH_MODE,
     region: c.AWS_REGION,
     liveEnabled: false,
     productConfigured: Boolean(

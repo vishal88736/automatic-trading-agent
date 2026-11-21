@@ -1,27 +1,3 @@
-.unified-workspace {
-  --bg: light-dark(#f7f3eb, #101012);
-  --sidebar: light-dark(#f0e9dc, #151416);
-  --panel: light-dark(#fffdf8, #1b1a1e);
-  --raised: light-dark(#f3ede1, #252428);
-  --border: light-dark(#ded2bd, #37343a);
-  --border-strong: light-dark(#a78b59, #776750);
-  --text: light-dark(#261f16, #f5efe6);
-  --muted: light-dark(#665642, #beb5a7);
-  --subtle: light-dark(#685747, #ab9e8c);
-  --accent: light-dark(#765422, #e6c991);
-  --accent-strong: light-dark(#765422, #d9b980);
-  --accent-hover: light-dark(#553b19, #f3dab0);
-  --accent-bg: light-dark(#eee2ca, #30271c);
-  --accent-border: light-dark(#ad8c50, #90764e);
-  --on-accent: light-dark(#fffaf0, #241a10);
-  --surface-inset: light-dark(#f5efe3, #151417);
-  --surface-hover: light-dark(#eee5d5, #2b272a);
-  --allocation-cash: light-dark(#ae8542, #dfbd81);
-  --allocation-btc: light-dark(#684824, #f4dfb8);
-  --allocation-eth: light-dark(#77726a, #9e8465);
-  --allocation-sol: light-dark(#45565e, #7a8992);
-}
-
 .rail-shell.unified-workspace[data-authenticated="true"] .workspace {
   display: grid;
   grid-template:

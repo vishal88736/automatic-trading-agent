@@ -12,9 +12,11 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from pydantic import AwareDatetime, Field, model_validator
 
-from aegis.risk.policy import CAPS as REVIEWED_TRADE_CAPS
 from backend.models import Model, RiskConfig, now
 from backend.product.accounts import PaperAccount, get_account
+
+# Account-wide trade frequency limits applied to every manual and agent order.
+REVIEWED_TRADE_CAPS = {"max_trades_per_hour": 6, "max_trades_per_day": 20}
 
 Asset = Literal["BTC", "ETH", "SOL"]
 Quantity = Annotated[Decimal, Field(gt=0, le=1000000, decimal_places=12)]

@@ -14,16 +14,12 @@
 .reference
 .tools
 kavach-main
-contracts/out
-contracts/cache
-contracts/broadcast
 .python
 node_modules
 artifacts
 test-results
 tests
 backend/tests
-agent/tests
 docs/references
 frontend/dist
 backend/dist

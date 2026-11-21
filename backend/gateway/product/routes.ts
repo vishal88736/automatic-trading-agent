@@ -1,10 +1,10 @@
-import { createHash, createHmac } from "node:crypto";
 import { Readable } from "node:stream";
 import type { ReadableStream } from "node:stream/web";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { Config } from "../config.js";
 import { PlatformError } from "../domain/errors.js";
+import { productClient } from "./client.js";
 import type { LLMProvider } from "../integrations/llm/llm.interface.js";
 import {
   bedrockSchema,
@@ -53,47 +53,7 @@ export function registerProductRoutes(
   config: Config,
   llm: LLMProvider,
 ) {
-  const api = config.KRONO_PRODUCT_API_URL;
-  const key = config.KRONO_PRODUCT_API_KEY;
-  async function forward(
-    subject: string,
-    method: string,
-    path: string,
-    payload?: unknown,
-    timeout = 8000,
-  ) {
-    if (!api || !key) {
-      throw new PlatformError(
-        "PRODUCT_API_UNAVAILABLE",
-        "Paper accounts and custom strategies are unavailable",
-        503,
-      );
-    }
-    if (!path.startsWith("/platform/")) {
-      throw new PlatformError(
-        "INVALID_HTTP_REQUEST",
-        "Invalid request path",
-        400,
-      );
-    }
-    const expires = String(Math.floor(Date.now() / 1000) + 20);
-    const body = payload === undefined ? "" : JSON.stringify(payload);
-    const digest = createHash("sha256").update(body).digest("hex");
-    const message = [expires, subject, method, path, digest].join("\n");
-    const signature = createHmac("sha256", key).update(message).digest("hex");
-    return fetch(new URL(api).origin + path, {
-      method: method,
-      headers: {
-        "x-krono-product-sub": subject,
-        "x-krono-product-expires": expires,
-        "x-krono-product-signature": signature,
-        ...(body && { "content-type": "application/json" }),
-      },
-      body: body || undefined,
-      redirect: "error",
-      signal: AbortSignal.timeout(timeout),
-    });
-  }
+  const forward = productClient(config);
 
   app.post("/platform/market-insights/:asset", async (req) => {
     const { asset } = z
@@ -298,6 +258,7 @@ export function registerProductRoutes(
     { method: "POST", url: "/platform/paper-agents/:id/control" },
     { method: "POST", url: "/platform/paper-agents/:id/close-position" },
     { method: "GET", url: "/platform/paper-agents/:id/events" },
+    { method: "GET", url: "/platform/leaderboard" },
     { method: ["GET", "POST"], url: "/platform/custom-strategies" },
     { method: ["GET", "PUT"], url: "/platform/custom-strategies/:id" },
     { method: "POST", url: "/platform/custom-strategies/:id/archive" },

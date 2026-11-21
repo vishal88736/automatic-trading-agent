@@ -46,9 +46,6 @@ Thumbs.db
 kavach-main/
 .cache/
 .tools/
-contracts/out/
-contracts/cache/
-contracts/broadcast/
 .runtime/
 .python/
 artifacts/

@@ -106,28 +106,12 @@ class SchedulerSettings(SettingsModel):
     default_asset: str
 
 
-class DocumentedToken(SettingsModel):
-    address: str = Field(pattern=r"^0x[0-9a-fA-F]{40}$")
-    name: str = Field(min_length=1, max_length=80)
-
-
-class NetworkSettings(SettingsModel):
-    chain_id: int = Field(gt=0)
-    rpc_url: Endpoint
-    explorer: Endpoint
-    native_symbol: str = Field(pattern=r"^[A-Z0-9]{2,20}$")
-    native_decimals: int = Field(ge=0, le=36)
-    network_source: Endpoint
-    token_source: Endpoint
-    tokens: dict[str, DocumentedToken]
-
 
 class RuntimeSettings(SettingsModel):
     schema_version: Literal[1]
     providers: DataSettings
     simulation: SimulationSettings
     scheduler: SchedulerSettings
-    hsk: NetworkSettings
 
     @model_validator(mode="after")
     def default_asset_available(self):

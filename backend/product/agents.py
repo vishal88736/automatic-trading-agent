@@ -104,6 +104,62 @@ def list_agents(db, owner: UUID):
         ).fetchall()
 
 
+LeaderboardScope = Literal["active", "all"]
+
+
+def leaderboard(db, viewer: UUID, scope: LeaderboardScope = "active", limit: int = 50):
+    """Rank agents from every account by return on their own allocation.
+
+    Equity comes from the worker's marks, so a ranking never depends on a browser session.
+    Owners are shown by their self-hosted display name, or by a short anonymous handle.
+    """
+    statuses = ("RUNNING", "PAUSED") if scope == "active" else ("RUNNING", "PAUSED", "STOPPED")
+    with db.cursor(row_factory=dict_row) as cursor:
+        rows = cursor.execute(
+            """
+            SELECT a.id, a.owner_id = %s AS mine, a.name, a.status, a.stage, a.capital,
+              a.created_at, v.document->>'name' AS strategy,
+              v.document->'definition'->>'asset' AS asset,
+              coalesce(u.display_name, 'Trader ' || upper(left(a.owner_id::text, 4))) AS owner,
+              totals.fills, totals.realized_pnl,
+              coalesce(last.equity, a.capital + totals.delta) AS equity,
+              last.observed_at AS marked_at, curve.max_drawdown, curve.samples
+            FROM paper_agents a
+            JOIN platform_strategy_versions v
+              ON (v.owner_id, v.strategy_id, v.version) = (a.owner_id, a.strategy_id, a.strategy_version)
+            LEFT JOIN platform_credentials u ON u.user_id = a.owner_id
+            CROSS JOIN LATERAL (
+                SELECT count(*) AS fills, coalesce(sum(l.realized_pnl), 0) AS realized_pnl,
+                    coalesce(sum(l.amount), 0) AS delta
+                FROM paper_orders o JOIN paper_ledger_entries l ON l.order_id = o.id
+                WHERE o.owner_id = a.owner_id AND o.agent_id = a.id
+            ) totals
+            LEFT JOIN LATERAL (
+                SELECT equity, observed_at FROM paper_agent_equity
+                WHERE owner_id = a.owner_id AND agent_id = a.id
+                ORDER BY observed_at DESC LIMIT 1
+            ) last ON TRUE
+            CROSS JOIN LATERAL (
+                SELECT coalesce(max(1 - equity / nullif(peak, 0)), 0) AS max_drawdown,
+                    count(*) AS samples
+                FROM (
+                    SELECT equity, greatest(a.capital, max(equity) OVER (ORDER BY observed_at))
+                        AS peak
+                    FROM paper_agent_equity WHERE owner_id = a.owner_id AND agent_id = a.id
+                ) marks
+            ) curve
+            WHERE a.status = ANY(%s)
+            """,
+            (viewer, list(statuses)),
+        ).fetchall()
+    for row in rows:
+        row["return_pct"] = (row["equity"] - row["capital"]) / row["capital"]
+        if not row["mine"]:
+            row["id"] = None
+    rows.sort(key=lambda row: (row["return_pct"], -row["max_drawdown"]), reverse=True)
+    return [{"rank": index + 1, **row} for index, row in enumerate(rows[:limit])]
+
+
 def timeline(db, owner: UUID, agent: UUID, after: int = 0):
     with db.cursor(row_factory=dict_row) as cursor:
         return cursor.execute(

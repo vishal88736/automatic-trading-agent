@@ -14,6 +14,9 @@ const envSchema = z.object({
   KRONO_PORT: z.coerce.number().int().min(1).max(65535).default(8790),
   KRONO_HOST: z.string().default("127.0.0.1"),
   KRONO_PUBLIC_ORIGIN: z.string().url().default("http://127.0.0.1:5173"),
+  // "local" signs users in against the product database instead of Cognito and needs no AWS.
+  KRONO_AUTH_MODE: z.enum(["cognito", "local"]).default("cognito"),
+  KRONO_SESSION_SECRET: z.string().min(32).optional(),
   COGNITO_USER_POOL_ID: z.string().min(8),
   COGNITO_CLIENT_ID: z.string().min(8),
   KRONO_CONTROL_TABLE: z.string().min(3),
@@ -39,7 +42,9 @@ const envSchema = z.object({
   KRONO_PRODUCT_API_URL: z.string().url().optional(),
   KRONO_PRODUCT_API_KEY: z.string().min(32).optional(),
   // Model backend for platform conversations: Bedrock (MiniMax) or Groq's OpenAI-compatible API.
-  KRONO_LLM_PROVIDER: z.enum(["bedrock", "groq"]).default("bedrock"),
+  // GROQ_* also accepts any OpenAI-compatible endpoint (OpenAI, OpenRouter, Ollama).
+  // "rules" drafts strategies with the built-in parser and needs no model key.
+  KRONO_LLM_PROVIDER: z.enum(["bedrock", "groq", "rules"]).default("bedrock"),
   GROQ_API_KEY: z.string().optional(),
   GROQ_MODEL: z.string().min(3).default("openai/gpt-oss-120b"),
   GROQ_BASE_URL: z.string().url().default("https://api.groq.com/openai/v1"),
@@ -108,8 +113,33 @@ export const runtimeSettingsSchema = envSchema.pick({
   KRONO_BEDROCK_OUTPUT_USD_PER_MILLION: true,
   KRONO_PRICING_SOURCE: true,
 });
+// Local mode never calls AWS. These inert values satisfy the shared AWS field shapes so the
+// Cognito deployment keeps its strict validation without a second config type.
+const localAwsPlaceholders = {
+  COGNITO_USER_POOL_ID: "local-unused",
+  COGNITO_CLIENT_ID: "local-unused",
+  KRONO_CONTROL_TABLE: "local-unused",
+  KRONO_RUNTIME_TABLE: "local-unused",
+  KRONO_AGENT_CONTROL_TABLE: "local-unused",
+  KRONO_ARTIFACT_BUCKET: "local-unused",
+  KRONO_CLUSTER_ARN: "local-unused",
+  KRONO_DEPLOYMENT_WORKFLOW_ARN: "local-unused",
+  KRONO_PROVISIONER_ROLE_ARN: "local-unused",
+  KRONO_TASK_EXECUTION_ROLE_ARN: "local-unused",
+  KRONO_AGENT_BOUNDARY_ARN: "local-unused",
+  KRONO_AGENT_IMAGE: `000000000000.dkr.ecr.local-unused-1.amazonaws.com/unused@sha256:${"0".repeat(64)}`,
+  KRONO_PRIVATE_SUBNETS: "local-unused",
+  KRONO_AGENT_SECURITY_GROUP: "local-unused",
+  KRONO_RUNTIME_KMS_ARN: "local-unused",
+  KRONO_AGENT_LOG_GROUP: "local-unused",
+  KRONO_COORDINATION_QUEUE_URL: "http://127.0.0.1/unused",
+};
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
-  const result = envSchema.safeParse(env);
+  const local = env.KRONO_AUTH_MODE === "local";
+  const result = envSchema.safeParse(
+    local ? { ...localAwsPlaceholders, ...env } : env,
+  );
   if (!result.success)
     throw new Error(
       `Missing or invalid platform environment fields: ${result.error.issues.map((i) => i.path.join(".")).join(", ")}`,
@@ -126,6 +156,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     !c.KRONO_PRICING_SOURCE
   )
     throw Error("Cost estimates require a documented pricing source");
+  if (local && !c.KRONO_PRODUCT_API_URL)
+    throw Error("Local sign-in stores accounts through the product API");
+  if (local && c.NODE_ENV === "production" && !c.KRONO_SESSION_SECRET)
+    throw Error("Production local sign-in requires KRONO_SESSION_SECRET");
   if (Boolean(c.KRONO_PRODUCT_API_URL) !== Boolean(c.KRONO_PRODUCT_API_KEY))
     throw Error("Configure the product API URL and key together");
   if (c.KRONO_PRODUCT_API_URL) {

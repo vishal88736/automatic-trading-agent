@@ -22,6 +22,7 @@ export const config: Config = {
   KRONO_PORT: 8790,
   KRONO_HOST: "127.0.0.1",
   KRONO_PUBLIC_ORIGIN: "http://localhost:5173",
+  KRONO_AUTH_MODE: "cognito",
   COGNITO_USER_POOL_ID: "ap-south-1_fixture",
   COGNITO_CLIENT_ID: "fixtureclient",
   KRONO_CONTROL_TABLE: "control",
