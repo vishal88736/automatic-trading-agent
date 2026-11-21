@@ -86,7 +86,7 @@ test("the home orbit rotates, respects reduced motion, and leaves the desk actio
   ).toBeVisible();
 });
 
-test("the sapphire landing fits the viewport and opens a separate sign-in screen", async ({
+test("the landing uses the workspace palette, fits the viewport and opens sign-in", async ({
   page,
 }) => {
   await stubSignedOutSession(page);
@@ -103,7 +103,8 @@ test("the sapphire landing fits the viewport and opens a separate sign-in screen
   const landing = page.locator(".krono-landing");
   const artwork = page.locator(".landing-art img");
   const start = page.getByRole("link", { name: "Get started" });
-  await expect(landing).toHaveCSS("background-color", "rgb(8, 18, 28)");
+  await expect(landing).toHaveCSS("background-color", "rgb(16, 16, 18)");
+  await expect(start).toHaveCSS("background-color", "rgb(217, 185, 128)");
   await expect(landing.locator("canvas")).toHaveCount(0);
   await expect
     .poll(() =>
@@ -135,7 +136,8 @@ test("the sapphire landing fits the viewport and opens a separate sign-in screen
     await expect(start).toBeInViewport({ ratio: 1 });
   }
   await page.getByRole("button", { name: "Switch to light theme" }).click();
-  await expect(landing).toHaveCSS("background-color", "rgb(238, 244, 248)");
+  await expect(landing).toHaveCSS("background-color", "rgb(247, 243, 235)");
+  await expect(start).toHaveCSS("background-color", "rgb(118, 84, 34)");
   await expect(artwork).toBeVisible();
   await expect(page.getByLabel("Email", { exact: true })).toHaveCount(0);
   await start.click();
@@ -144,6 +146,10 @@ test("the sapphire landing fits the viewport and opens a separate sign-in screen
     page.getByRole("heading", { name: "Welcome to your workspace" }),
   ).toBeVisible();
   await expect(page.getByLabel("Email", { exact: true })).toBeFocused();
+  await expect(page.locator(".unified-workspace")).toHaveCSS(
+    "background-color",
+    "rgb(247, 243, 235)",
+  );
   await expect(hero).toHaveCount(0);
   await expect(artwork).toHaveCount(0);
   await page.goBack();

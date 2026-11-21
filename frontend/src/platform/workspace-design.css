@@ -1,4 +1,4 @@
-.unified-workspace[data-authenticated="true"] {
+.unified-workspace {
   --bg: light-dark(#f7f3eb, #101012);
   --sidebar: light-dark(#f0e9dc, #151416);
   --panel: light-dark(#fffdf8, #1b1a1e);
@@ -24,11 +24,9 @@
 
 .rail-shell.unified-workspace[data-authenticated="true"] .workspace {
   display: grid;
-  grid-template: "rail header" auto "rail content" 1fr / clamp(
-      178px,
-      15vw,
-      228px
-    ) minmax(0, 1fr);
+  grid-template:
+    "rail header" auto "rail content" 1fr / clamp(178px, 15vw, 228px)
+    minmax(0, 1fr);
   background: radial-gradient(
     ellipse 68% 420px at 68% -5%,
     color-mix(in srgb, var(--accent-bg) 52%, transparent),
