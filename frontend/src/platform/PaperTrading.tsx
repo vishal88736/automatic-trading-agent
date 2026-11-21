@@ -355,8 +355,13 @@ export default function PaperAccount({
             <h3>{dashboard ? "Recent paper orders" : "Order history"}</h3>
             {dashboard && <a href={workspaceHref("paper")}>Paper trading</a>}
           </div>
-          {data.orders.length || dashboard ? (
-            <div className="platform-backtest-table">
+          {data.orders.length ? (
+            <div
+              className="platform-backtest-table"
+              tabIndex={0}
+              role="region"
+              aria-label="Paper orders"
+            >
               <table>
                 <thead>
                   <tr>
@@ -371,13 +376,6 @@ export default function PaperAccount({
                   </tr>
                 </thead>
                 <tbody>
-                  {!data.orders.length && (
-                    <tr>
-                      <td colSpan={7} className="paper-orders-empty">
-                        No paper orders.
-                      </td>
-                    </tr>
-                  )}
                   {(dashboard ? data.orders.slice(0, 5) : data.orders).map(
                     (order) => (
                       <tr key={order.id}>

@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import {
   Activity,
   ArrowUpRight,
@@ -29,7 +29,6 @@ const equityAxis = new Intl.NumberFormat("en-US", {
 export function PortfolioPerformance({ rows }: { rows: EquityMark[] }) {
   const [period, setPeriod] = useState<keyof typeof periods>("latest");
   const [selectedAt, setSelectedAt] = useState<string>();
-  const controlId = useId();
   const cutoff = Date.now() - (period === "day" ? 1 : 7) * 86400000;
   const marks =
     period === "latest"
@@ -48,11 +47,8 @@ export function PortfolioPerformance({ rows }: { rows: EquityMark[] }) {
         <h3>
           <ChartNoAxesColumn size={17} aria-hidden /> Portfolio performance
         </h3>
-        <label className="visually-hidden" htmlFor={controlId}>
-          Equity period
-        </label>
         <select
-          id={controlId}
+          aria-label="Equity period"
           value={period}
           onChange={(event) => {
             setPeriod(event.target.value as keyof typeof periods);
@@ -76,7 +72,12 @@ export function PortfolioPerformance({ rows }: { rows: EquityMark[] }) {
             </div>
             {change !== null && (
               <div className="dashboard-equity-change">
-                <Delta value={change} /> <small>Period change</small>
+                {change === 0 ? (
+                  <span>{percent(change)}</span>
+                ) : (
+                  <Delta value={change} />
+                )}
+                <small>Period change</small>
               </div>
             )}
           </div>

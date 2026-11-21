@@ -26,6 +26,10 @@
   box-shadow: inset 0 1px color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
+.rail-shell.unified-workspace .paper-overview > .dashboard-performance {
+  border-color: color-mix(in srgb, var(--accent) 29%, var(--border));
+}
+
 .dashboard-performance {
   grid-area: performance;
 }
@@ -149,6 +153,22 @@
   accent-color: var(--accent);
   border: 0;
   background: transparent;
+}
+
+.dashboard-equity-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--accent-bg);
+}
+
+.dashboard-equity-slider::-webkit-slider-thumb {
+  margin-top: -6px;
+}
+
+.dashboard-equity-slider::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--accent-bg);
 }
 
 .dashboard-empty {
@@ -381,11 +401,6 @@
 .dashboard-agent-counts dd {
   margin: 3px 0 0;
   font-size: 22px;
-}
-
-.paper-overview .paper-orders-empty {
-  padding: 16px;
-  color: var(--muted);
 }
 
 .dashboard-scene[data-replay="true"] {

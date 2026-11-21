@@ -81,21 +81,25 @@ export function EquityChart({
   const left = 12,
     right = width - 72,
     plotWidth = Math.max(1, right - left);
+  const plotTop = area ? 22 : 50;
+  const plotBottom = area ? 170 : 225;
+  const gridTop = area ? plotTop : 48;
+  const height = area ? 207 : 270;
   const values = rows.map((r) => Number(r.equity));
   const minimum = Math.min(...values, baseline) - padding,
     maximum = Math.max(...values, baseline) + padding,
     range = maximum - minimum;
   const coordinates = values.map((equity, index) => ({
     x: left + (index * plotWidth) / Math.max(1, rows.length - 1),
-    y: 225 - ((equity - minimum) * 175) / range,
+    y: plotBottom - ((equity - minimum) * (plotBottom - plotTop)) / range,
   }));
   const points = coordinates.map(({ x, y }) => `${x},${y}`).join(" ");
   return (
     <div className="equity-chart" ref={ref}>
       <svg
-        viewBox={`0 0 ${width} 270`}
+        viewBox={`0 0 ${width} ${height}`}
         role="img"
-        aria-label={`${label}, ${rows.length} snapshots`}
+        aria-label={`${label}, ${rows.length} ${rows.length === 1 ? "snapshot" : "snapshots"}`}
       >
         {area && rows.length > 1 && (
           <>
@@ -110,31 +114,29 @@ export function EquityChart({
               </linearGradient>
             </defs>
             <polygon
-              points={`${left},225 ${points} ${right},225`}
+              points={`${left},${plotBottom} ${points} ${right},${plotBottom}`}
               fill={`url(#${fill})`}
             />
           </>
         )}
-        {[0, 1, 2, 3].map((i) => (
-          <g key={i}>
-            <line
-              x1={left}
-              x2={right}
-              y1={48 + i * 59}
-              y2={48 + i * 59}
-              stroke="var(--border)"
-              strokeDasharray="3 5"
-            />
-            <text
-              x={right + 10}
-              y={53 + i * 59}
-              fill="var(--muted)"
-              fontSize="12"
-            >
-              {format(maximum - (i * range) / 3)}
-            </text>
-          </g>
-        ))}
+        {[0, 1, 2, 3].map((i) => {
+          const y = gridTop + (i * (plotBottom - gridTop)) / 3;
+          return (
+            <g key={i}>
+              <line
+                x1={left}
+                x2={right}
+                y1={y}
+                y2={y}
+                stroke="var(--border)"
+                strokeDasharray="3 5"
+              />
+              <text x={right + 10} y={y + 5} fill="var(--muted)" fontSize="12">
+                {format(maximum - (i * range) / 3)}
+              </text>
+            </g>
+          );
+        })}
         {rows.length > 0 && (
           <polyline
             points={points}
@@ -144,27 +146,30 @@ export function EquityChart({
             strokeLinejoin="round"
           />
         )}
-        {rows.map((r, i) => (
-          <circle
-            key={i}
-            cx={coordinates[i].x}
-            cy={coordinates[i].y}
-            r={i === selectedIndex ? 5 : area ? 2 : 3}
-            fill="var(--accent)"
-            stroke={i === selectedIndex ? "var(--panel)" : undefined}
-            strokeWidth={i === selectedIndex ? 2 : undefined}
-          >
-            <title>
-              {r.at}: {formatPoint(Number(r.equity))}
-            </title>
-          </circle>
-        ))}
-        <text x={left} y="259" fill="var(--muted)" fontSize="12">
+        {rows.map(
+          (r, i) =>
+            (!area || i === selectedIndex || rows.length <= 16) && (
+              <circle
+                key={i}
+                cx={coordinates[i].x}
+                cy={coordinates[i].y}
+                r={i === selectedIndex ? 5 : area ? 2 : 3}
+                fill="var(--accent)"
+                stroke={i === selectedIndex ? "var(--panel)" : undefined}
+                strokeWidth={i === selectedIndex ? 2 : undefined}
+              >
+                <title>
+                  {r.at}: {formatPoint(Number(r.equity))}
+                </title>
+              </circle>
+            ),
+        )}
+        <text x={left} y={height - 11} fill="var(--muted)" fontSize="12">
           {width < 480 ? "First mark" : "First recorded mark"}
         </text>
         <text
           x={right}
-          y="259"
+          y={height - 11}
           fill="var(--muted)"
           fontSize="12"
           textAnchor="end"
