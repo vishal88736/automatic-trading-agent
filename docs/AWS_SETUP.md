@@ -98,8 +98,8 @@ Databases, buckets, encryption keys, logs and ECR repositories use retain polici
 - Python indicator/strategy/risk/execution code is reused. Ranking is recalculated from measured features, strategy evaluation, valid holdout performance when available, disclosed simulation costs and bounded model advice. Switching preserves owned-position exit management and applies hold/cooldown policies.
 - Research agents publish opportunities into an encrypted queue. The broker resolves a stored record and verifies ownership/current deployment before delivering it to explicitly linked agents. The trading graph records the opportunity reference and still independently generates its signal and risk result.
 - Every agent currently has its own **simulated** ledger and virtual initial equity. Combined P&L sums those ledgers only when snapshots are fresh/complete. Shared real-wallet capital allocation, cloud manual order tickets and live custody are not implemented.
-- BTC/ETH/SOL hourly strategy data are supported. Four-hour/daily charts are descriptive. HSK news relevance is supported; HSK market/whale monitoring needs a verified provider. No token address or router contract has been invented.
-- HSKSwap live routing, wallet authorization, on-chain reconciliation, exchange PAPER mode, OAuth/MFA challenges, custom code sandboxes, ElastiCache, time-series archival, OpenTelemetry tracing, paid subscription billing and a dedicated WebSocket service remain unavailable. Core persistence uses DynamoDB/S3 rather than provisioning unused Redis infrastructure.
+- BTC/ETH/SOL hourly strategy data are supported. Four-hour/daily charts are descriptive.
+- Live exchange execution (see [live trading design](LIVE_TRADING.md)), exchange PAPER mode, OAuth/MFA challenges, custom code sandboxes, ElastiCache, time-series archival, OpenTelemetry tracing, paid subscription billing and a dedicated WebSocket service remain unavailable. Core persistence uses DynamoDB/S3 rather than provisioning unused Redis infrastructure.
 
 ## AWS acceptance run
 

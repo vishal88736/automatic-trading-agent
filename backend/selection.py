@@ -12,7 +12,7 @@ from backend.strategies import indicators
 
 
 def selection_inputs(store, symbol: str, market: Market) -> dict:
-    """Evidence every caller passes to `rank_strategies`, so the research engine and the AEGIS
+    """Evidence every caller passes to `rank_strategies`, so the research engine and the paper
     bridge rank the same market with the same out-of-sample performance and model review."""
     review = (store.config("model_reviews")[0] or {}).get(symbol) or (
         store.config("model_review")[0] or {}

@@ -60,3 +60,6 @@ cdk.out/
 cdk.context.json
 infra/dist/
 deploy/aws/outputs*.json
+
+# Leftover local Foundry outputs from the removed HashKey contracts.
+contracts/

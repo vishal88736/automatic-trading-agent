@@ -74,7 +74,7 @@ export class ToolRegistry {
           agents: await agents.store.list(p, "AGENT", 50),
           usage: await agents.store.list(p, "USAGE", 7),
           limitations: [
-            "HSKSwap live execution disabled",
+            "Live exchange execution disabled",
             "Only simulation fills; AWS deployment status must be queried",
           ],
         }),

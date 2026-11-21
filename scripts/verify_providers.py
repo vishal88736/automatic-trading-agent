@@ -7,7 +7,6 @@ import json
 from pathlib import Path
 
 from backend.data import Providers
-from backend.exchanges import HSKSwapAdapter
 from backend.models import now
 from backend.storage import Store
 
@@ -15,7 +14,6 @@ from backend.storage import Store
 async def verify(output: str):
     store = Store(":memory:")
     providers = Providers(store, market_provider="coinbase", news_provider="cryptocurrency.cv")
-    exchange = HSKSwapAdapter()
     report = {
         "retrieved_at": now().isoformat(),
         "execution_mode": "READ_ONLY_PROBE",
@@ -69,30 +67,12 @@ async def verify(output: str):
                 "status": "UNAVAILABLE",
                 "error_type": type(exc).__name__,
             }
-        try:
-            chain, block = await asyncio.gather(
-                exchange.rpc("eth_chainId", []), exchange.rpc("eth_blockNumber", [])
-            )
-            report["providers"]["hsk_rpc"] = {
-                "status": "AVAILABLE" if int(chain, 16) == 177 else "CHAIN_MISMATCH",
-                "source": exchange.rpc_url,
-                "chain_id": int(chain, 16),
-                "block": int(block, 16),
-            }
-        except Exception as exc:
-            report["providers"]["hsk_rpc"] = {
-                "status": "UNAVAILABLE",
-                "source": exchange.rpc_url,
-                "error_type": type(exc).__name__,
-            }
-        report["hsk_live_blockers"] = exchange.missing
         target = Path(output)
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(json.dumps(report, indent=2) + "\n")
         print(json.dumps(report, indent=2))
     finally:
         await providers.close()
-        await exchange.close()
         store.close()
 
 

@@ -233,7 +233,7 @@ export const specSchema = z
       reject("A trading agent needs at least one strategy");
     if (s.execution.mode !== "SIMULATION")
       reject(
-        "Only explicitly disclosed simulated fills are supported; HSKSwap live and exchange paper execution are not verified",
+        "Only explicitly disclosed simulated fills are supported; Live exchange and exchange paper execution are not verified",
       );
     if (s.execution.automaticSimulationFills && !s.permissions.executeTrades)
       reject(
