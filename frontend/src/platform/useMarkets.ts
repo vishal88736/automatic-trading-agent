@@ -1,91 +1,114 @@
 import { useEffect, useState } from "react";
-import type { Candle } from "../types";
 import { platform } from "./client";
 import { marketAssets, type MarketAsset } from "./market-assets";
 
-export interface MarketQuote {
-  source: string;
-  status: string;
-  price: string | null;
-  as_of: string | null;
-  candles: Candle[];
+interface PriceQuote {
+  asset: MarketAsset;
+  price: string;
+  open_24h: string;
+  high_24h: string;
+  low_24h: string;
+  volume_24h_usdt: string;
+  change_24h: string | null;
+  at: string;
 }
 
 export interface MarketSummary {
   asset: MarketAsset;
-  quote: MarketQuote | null;
   live: boolean;
   price: number | null;
   change24h: number | null;
-  closes: number[];
+  high24h: number | null;
+  low24h: number | null;
+  direction: "up" | "down" | null;
 }
 
-const REFRESH_MS = 30_000;
-let cache: { at: number; data: MarketSummary[] } | null = null;
-let inflight: Promise<MarketSummary[]> | null = null;
+// One shared snapshot and SSE connection for every component on the page.
+let state: Record<string, MarketSummary> = {};
+let source: EventSource | null = null;
+let users = 0;
+let retry: number | undefined;
 const listeners = new Set<(data: MarketSummary[]) => void>();
 
-function summarize(
-  asset: MarketAsset,
-  quote: MarketQuote | null,
-): MarketSummary {
-  const live = quote?.status === "AVAILABLE" || quote?.status === "FIXTURE";
-  const closes = (quote?.candles ?? []).slice(-24).map((c) => Number(c.close));
-  const price = live && quote?.price != null ? Number(quote.price) : null;
-  const first = closes[0];
-  return {
-    asset,
-    quote,
-    live,
-    price,
-    closes,
-    change24h: price !== null && first ? (price - first) / first : null,
+function list(): MarketSummary[] {
+  return marketAssets.map(
+    (asset) =>
+      state[asset] ?? {
+        asset,
+        live: false,
+        price: null,
+        change24h: null,
+        high24h: null,
+        low24h: null,
+        direction: null,
+      },
+  );
+}
+
+function apply(item: PriceQuote) {
+  const previous = state[item.asset]?.price ?? null;
+  const price = Number(item.price);
+  state = {
+    ...state,
+    [item.asset]: {
+      asset: item.asset,
+      live: true,
+      price,
+      change24h: item.change_24h === null ? null : Number(item.change_24h),
+      high24h: Number(item.high_24h),
+      low24h: Number(item.low_24h),
+      direction:
+        previous === null || previous === price
+          ? (state[item.asset]?.direction ?? null)
+          : price > previous
+            ? "up"
+            : "down",
+    },
   };
 }
 
-async function load(): Promise<MarketSummary[]> {
-  const results = await Promise.allSettled(
-    marketAssets.map((asset) =>
-      platform<{ market: MarketQuote }>(`/public/market/${asset}`),
-    ),
-  );
-  return marketAssets.map((asset, i) => {
-    const result = results[i];
-    return summarize(
-      asset,
-      result.status === "fulfilled" ? result.value.market : null,
-    );
-  });
+function publish() {
+  const data = list();
+  listeners.forEach((listener) => listener(data));
 }
 
-function refresh(force = false) {
-  if (!force && cache && Date.now() - cache.at < REFRESH_MS)
-    return Promise.resolve(cache.data);
-  inflight ??= load()
-    .then((data) => {
-      cache = { at: Date.now(), data };
-      listeners.forEach((listener) => listener(data));
-      return data;
+function connect() {
+  void platform<{ prices: Record<string, PriceQuote> }>("/public/prices")
+    .then(({ prices }) => {
+      Object.values(prices).forEach(apply);
+      publish();
     })
-    .finally(() => {
-      inflight = null;
-    });
-  return inflight;
+    .catch(() => undefined);
+  if (typeof EventSource === "undefined") return;
+  source = new EventSource("/platform/public/prices/stream");
+  source.addEventListener("price", (event) => {
+    apply(JSON.parse((event as MessageEvent).data) as PriceQuote);
+    publish();
+  });
+  source.onerror = () => {
+    // EventSource retries by itself; if it gives up, reconnect and reload the snapshot.
+    if (source?.readyState === EventSource.CLOSED) {
+      source = null;
+      retry = window.setTimeout(() => users && connect(), 3000);
+    }
+  };
 }
 
-/** Shared, cached quotes for BTC, ETH and SOL. Components re-render on each refresh. */
+/** Live Binance prices for BTC, ETH and SOL, shared across components. */
 export function useMarkets() {
-  const [data, setData] = useState<MarketSummary[] | null>(cache?.data ?? null);
+  const [data, setData] = useState<MarketSummary[] | null>(
+    Object.keys(state).length ? list() : null,
+  );
   useEffect(() => {
     listeners.add(setData);
-    void refresh().catch(() => undefined);
-    const timer = setInterval(
-      () => void refresh(true).catch(() => undefined),
-      REFRESH_MS,
-    );
+    if (users++ === 0) connect();
     return () => {
       listeners.delete(setData);
-      clearInterval(timer);
+      if (--users === 0) {
+        source?.close();
+        source = null;
+        clearTimeout(retry);
+      }
     };
   }, []);
   return data;

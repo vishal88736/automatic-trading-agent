@@ -55,26 +55,38 @@ export function registerProductRoutes(
 ) {
   const forward = productClient(config);
 
-  // Public, read-only reference prices for the landing and sign-in tickers. No account data.
-  app.get("/platform/public/market/:asset", async (req, reply) => {
-    const { asset } = z
-      .object({ asset: z.enum(["BTC", "ETH", "SOL"]) })
-      .parse(req.params);
-    const response = await forward(
-      SERVICE_SUBJECT,
-      "GET",
-      `/platform/paper-market/${asset}`,
-      undefined,
-      22000,
-    );
+  // Public, read-only live prices for every page, including the landing and sign-in.
+  app.get("/platform/public/prices", async () => {
+    const response = await forward(SERVICE_SUBJECT, "GET", "/platform/prices");
     if (!response.ok)
       throw new PlatformError(
         "MARKET_UNAVAILABLE",
-        "Current market data is unavailable",
+        "Live prices are unavailable",
         503,
       );
-    const { market } = (await response.json()) as { market: unknown };
-    return reply.header("cache-control", "public, max-age=15").send({ market });
+    return response.json();
+  });
+  app.get("/platform/public/prices/stream", async (_req, reply) => {
+    const response = await forward(
+      SERVICE_SUBJECT,
+      "GET",
+      "/platform/prices/stream",
+      undefined,
+      150000,
+    );
+    if (!response.ok || !response.body)
+      throw new PlatformError(
+        "STREAM_UNAVAILABLE",
+        "Live price stream unavailable",
+        503,
+      );
+    const stream = Readable.fromWeb(response.body as unknown as ReadableStream);
+    reply.raw.once("close", () => stream.destroy());
+    return reply
+      .header("cache-control", "no-store")
+      .header("x-accel-buffering", "no")
+      .type("text/event-stream")
+      .send(stream);
   });
 
   app.post("/platform/market-insights/:asset", async (req) => {

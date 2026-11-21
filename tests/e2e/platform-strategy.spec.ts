@@ -55,7 +55,9 @@ test("Fund, version, backtest, and isolate a tenant strategy", async ({
   await page
     .getByRole("combobox", { name: "Filter by cryptocurrency" })
     .selectOption("BTC");
-  await expect(page.getByText(/FIXTURE.*Retrieved/)).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: /Fixture research: Bitcoin adoption/ }),
+  ).toBeVisible();
 
   await page
     .getByRole("link", { name: "AI Strategy Builder", exact: true })

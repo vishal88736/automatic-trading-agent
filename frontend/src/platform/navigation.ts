@@ -38,7 +38,7 @@ export const moduleSubtitles: Partial<Record<Module, string>> = {
   backtests:
     "Replay a strategy version on historical candles before risking funds.",
   markets: "Live prices, indicators and an AI read of current conditions.",
-  news: "Crypto headlines tagged by asset.",
+  news: "Live headlines from 300+ sources, streamed as they are published.",
 };
 
 export const landingSections = [

@@ -13,7 +13,9 @@ export function MarketTicker() {
           href={
             item ? workspaceHref("markets", `?asset=${item.asset}`) : undefined
           }
-          data-loading={!item || undefined}
+          data-loading={!item?.live || undefined}
+          data-tick={item?.direction ?? undefined}
+          title={item?.live ? `${item.asset}/USDT on Binance` : undefined}
         >
           {item && <Coin symbol={item.asset} />}
           <span className="kx-ticker-symbol">{item?.asset ?? "···"}</span>

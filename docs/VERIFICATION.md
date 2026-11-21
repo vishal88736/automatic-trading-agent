@@ -26,6 +26,7 @@ KRONO_TEST_DATABASE_DSN=postgresql://krono:<dbPassword from .runtime/dev.json>@1
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Background agents     | `tests/e2e/paper-autonomy.spec.ts` closes the browser, stops the API and kills the worker; the agent keeps trading and resumes without duplicate fills |
 | Strategy chat         | `backend/tests/platform/local.test.ts` (rules drafter), `tests/e2e/platform-strategy.spec.ts` (draft, revise, save)                                    |
+| Live news             | `backend/tests/test_news_hub.py` (stream parsing, de-duplication, fan-out, fallback, pulse), `platform-strategy.spec.ts` (News page)                   |
 | Leaderboard           | `test_leaderboard_ranks_every_tenant_by_return_without_exposing_other_ids`                                                                             |
 | Local sign-in         | `local.test.ts` (signed sessions, CSRF, forged cookies), `test_self_hosted_accounts_are_unique_and_reserved_for_the_gateway`                           |
 | Tenant isolation      | `test_platform_postgres.py`, `backend/tests/platform/isolation.test.ts`                                                                                |

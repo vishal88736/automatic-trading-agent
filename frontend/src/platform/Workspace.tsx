@@ -41,6 +41,7 @@ const PaperAccount = lazy(() => import("./PaperTrading"));
 const Strategies = lazy(() => import("./Strategies"));
 const Leaderboard = lazy(() => import("./Leaderboard"));
 const LiveTrading = lazy(() => import("./LiveTrading"));
+const LiveNews = lazy(() => import("./LiveNews"));
 
 const moduleIcons = {
   dashboard: LayoutDashboard,
@@ -467,9 +468,8 @@ export function Workspace() {
               {page === "settings" && (
                 <PaperAccount key="settings" view="settings" />
               )}
-              {(page === "markets" || page === "news") && (
-                <MarketResearch news={page === "news"} key={route.href} />
-              )}
+              {page === "markets" && <MarketResearch key={route.href} />}
+              {page === "news" && <LiveNews />}
             </Suspense>
           )}
         </main>

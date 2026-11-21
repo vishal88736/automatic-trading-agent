@@ -4,17 +4,11 @@ const DARK_BG = "rgb(10, 13, 20)";
 const LIGHT_BG = "rgb(244, 246, 250)";
 
 async function stubMarkets(page: Page) {
-  await page.route("**/platform/public/market/*", (route) =>
-    route.fulfill({
-      json: {
-        market: {
-          status: "STALE",
-          source: "fixture",
-          price: null,
-          candles: [],
-        },
-      },
-    }),
+  await page.route("**/platform/public/prices", (route) =>
+    route.fulfill({ json: { source: "fixture", live: false, prices: {} } }),
+  );
+  await page.route("**/platform/public/prices/stream", (route) =>
+    route.fulfill({ status: 204, body: "" }),
   );
 }
 

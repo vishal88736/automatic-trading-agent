@@ -38,6 +38,8 @@ from backend.product.agents import (
     timeline,
 )
 from backend.product.backtests import get_replay, save_replay
+from backend.product.binance import BinanceError
+from backend.product.credentials import CredentialVault
 from backend.product.database import DSN_ENV, open_database
 from backend.product.execution import (
     Asset,
@@ -54,8 +56,24 @@ from backend.product.execution import (
     submit_order,
 )
 from backend.product.history import HistoricalBacktestRequest, load_candles
+from backend.product.live import (
+    ClientFactory,
+    LinkRequest,
+    LiveCommand,
+    LiveOrderRequest,
+    account_summary,
+    control_connection,
+    default_client,
+    link_connection,
+    list_connections,
+    list_orders,
+    place_order,
+    revoke_connection,
+    safe_message,
+)
 from backend.product.market import load_quotes
 from backend.product.news_hub import NewsHub, fixture_pulse
+from backend.product.price_hub import PriceHub, quote
 from backend.product.rules import StrategyDraft, authoring_options
 from backend.product.strategies import (
     archive_strategy,
@@ -117,6 +135,8 @@ def create_product_api(
     quote_source=load_quotes,
     fixture_feeds=False,
     news_hub=True,
+    credential_vault: CredentialVault | None = None,
+    live_client_factory: ClientFactory = default_client,
 ) -> FastAPI:
     if not dsn or len(key.encode()) < 32:
         raise ValueError(
@@ -141,9 +161,17 @@ def create_product_api(
         elif news_hub:
             await hub.start()
         application.state.news = hub
+        prices = PriceHub(stream=not fixture_feeds)
+        if fixture_feeds:
+            for asset, price in (("BTC", 50000), ("ETH", 2500), ("SOL", 130)):
+                prices.update(quote(asset, price, price, price, price, 0, time.time() * 1000))
+        elif news_hub:
+            await prices.start()
+        application.state.prices = prices
         try:
             yield
         finally:
+            await prices.stop()
             await hub.stop()
             await feeds.close()
             cache.close()
@@ -472,6 +500,119 @@ def create_product_api(
                 }
             )
         return feed
+
+    vault = credential_vault or CredentialVault.from_environment()
+
+    def live_vault() -> CredentialVault:
+        if vault is None:
+            raise ProductError(
+                503,
+                "LIVE_NOT_CONFIGURED",
+                "Live trading is not configured on this server (set KRONO_CREDENTIAL_KEY)",
+            )
+        return vault
+
+    def exchange_call(action):
+        try:
+            return action()
+        except LookupError:
+            raise ProductError(404, "NOT_FOUND", "Exchange connection is unavailable") from None
+        except ValueError as exc:
+            raise ProductError(422, "LIVE_REJECTED", str(exc)) from None
+        except BinanceError as exc:
+            raise ProductError(
+                502, "EXCHANGE_ERROR", f"Binance: {safe_message(exc.message)}"
+            ) from None
+
+    @app.get("/platform/live/connections")
+    def live_connections(subject: Principal, db: Database):
+        return financial({"items": list_connections(db, subject), "configured": vault is not None})
+
+    @app.post("/platform/live/connections", status_code=201)
+    def live_link(request: LinkRequest, subject: Principal, db: Database):
+        secrets = live_vault()
+        return financial(
+            exchange_call(
+                lambda: link_connection(db, subject, request, secrets, live_client_factory)
+            ),
+            201,
+        )
+
+    @app.delete("/platform/live/connections/{connection_id}", status_code=204)
+    def live_revoke(connection_id: UUID, subject: Principal, db: Database):
+        exchange_call(lambda: revoke_connection(db, subject, connection_id))
+
+    @app.get("/platform/live/connections/{connection_id}/account")
+    def live_account(connection_id: UUID, request: Request, subject: Principal, db: Database):
+        secrets = live_vault()
+        return financial(
+            exchange_call(
+                lambda: account_summary(
+                    db,
+                    subject,
+                    connection_id,
+                    secrets,
+                    live_client_factory,
+                    request.app.state.prices.price,
+                )
+            )
+        )
+
+    @app.get("/platform/live/connections/{connection_id}/orders")
+    def live_order_history(connection_id: UUID, subject: Principal, db: Database):
+        return financial({"items": exchange_call(lambda: list_orders(db, subject, connection_id))})
+
+    @app.post("/platform/live/connections/{connection_id}/orders", status_code=201)
+    def live_order(connection_id: UUID, order: LiveOrderRequest, subject: Principal, db: Database):
+        secrets = live_vault()
+        return financial(
+            exchange_call(
+                lambda: place_order(db, subject, connection_id, order, secrets, live_client_factory)
+            ),
+            201,
+        )
+
+    @app.post("/platform/live/connections/{connection_id}/control")
+    def live_control(connection_id: UUID, command: LiveCommand, subject: Principal, db: Database):
+        secrets = live_vault()
+        return exchange_call(
+            lambda: control_connection(
+                db, subject, connection_id, command.action, secrets, live_client_factory
+            )
+        )
+
+    @app.get("/platform/prices")
+    def price_snapshot(request: Request, subject: Principal):
+        return financial(request.app.state.prices.snapshot())
+
+    @app.get("/platform/prices/stream")
+    async def price_stream(request: Request, subject: Principal):
+        hub: PriceHub = request.app.state.prices
+        queue = hub.subscribe()
+
+        async def events():
+            try:
+                yield ": connected\n\n"
+                until = time.monotonic() + 120
+                while time.monotonic() < until and not await request.is_disconnected():
+                    try:
+                        item = await asyncio.wait_for(queue.get(), timeout=15)
+                    except TimeoutError:
+                        yield ": heartbeat\n\n"
+                        continue
+                    data = json.dumps(
+                        jsonable_encoder(item, custom_encoder={Decimal: str}),
+                        separators=(",", ":"),
+                    )
+                    yield f"event: price\ndata: {data}\n\n"
+            finally:
+                hub.unsubscribe(queue)
+
+        return StreamingResponse(
+            events(),
+            media_type="text/event-stream",
+            headers={"cache-control": "no-store", "x-accel-buffering": "no"},
+        )
 
     @app.get("/platform/news/live")
     def news_live(
