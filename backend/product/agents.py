@@ -140,7 +140,7 @@ def leaderboard(db, viewer: UUID, scope: LeaderboardScope = "active", limit: int
                 ORDER BY observed_at DESC LIMIT 1
             ) last ON TRUE
             CROSS JOIN LATERAL (
-                SELECT coalesce(max(1 - equity / nullif(peak, 0)), 0) AS max_drawdown,
+                SELECT round(coalesce(max(1 - equity / nullif(peak, 0)), 0), 6) AS max_drawdown,
                     count(*) AS samples
                 FROM (
                     SELECT equity, greatest(a.capital, max(equity) OVER (ORDER BY observed_at))
@@ -153,7 +153,7 @@ def leaderboard(db, viewer: UUID, scope: LeaderboardScope = "active", limit: int
             (viewer, list(statuses)),
         ).fetchall()
     for row in rows:
-        row["return_pct"] = (row["equity"] - row["capital"]) / row["capital"]
+        row["return_pct"] = round((row["equity"] - row["capital"]) / row["capital"], 6)
         if not row["mine"]:
             row["id"] = None
     rows.sort(key=lambda row: (row["return_pct"], -row["max_drawdown"]), reverse=True)

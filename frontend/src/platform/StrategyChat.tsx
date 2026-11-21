@@ -1,4 +1,4 @@
-import { Bot, Send } from "lucide-react";
+import { Bot, Send, Sparkles, UserRound } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { percent } from "../ui";
 import { platform, PlatformRequestError } from "./client";
@@ -28,6 +28,13 @@ interface Proposal {
   saved?: StrategyRevision;
   agentId?: string;
 }
+
+const suggestions = [
+  "Buy ETH when RSI drops below 30 and sell above 70. Use 5% per trade with a 3% stop loss.",
+  "MACD crossover on BTC with a 6% take profit and 2% trailing stop.",
+  "Aggressive SOL breakout strategy.",
+  "Conservative BTC trend following with a 2% stop loss.",
+];
 
 const comparisons: Record<string, string> = {
   lt: "below",
@@ -96,9 +103,9 @@ export function StrategyChat({
     }
   }
 
-  function send(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const objective = prompt.trim();
+  function send(event?: FormEvent<HTMLFormElement>, text?: string) {
+    event?.preventDefault();
+    const objective = (text ?? prompt).trim();
     if (busy || !objective) return;
     setShowSettings(false);
     setProposal(undefined);
@@ -183,49 +190,73 @@ export function StrategyChat({
 
   const definition = proposal?.document.definition;
   return (
-    <section className="strategy-chat" aria-label="Strategy chat">
+    <section className="strategy-chat kx-chat" aria-label="Strategy chat">
       <div
         ref={conversation}
-        className="strategy-chat-messages"
+        className="strategy-chat-messages kx-chat-log"
         role="log"
         aria-label="Conversation"
       >
         {messages.length === 0 && (
-          <p className="strategy-chat-welcome">
-            <Bot size={20} aria-hidden />
-            Describe a strategy to save its rules or start a paper agent.
-          </p>
+          <div className="kx-chat-welcome">
+            <span className="kx-chat-orb">
+              <Sparkles size={22} aria-hidden />
+            </span>
+            <h3>What should your agent trade?</h3>
+            <p>
+              Describe the market, when to buy, when to sell and how much to
+              risk. You can refine the draft in follow-up messages.
+            </p>
+            <div className="kx-chips">
+              {suggestions.map((text) => (
+                <button
+                  key={text}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => send(undefined, text)}
+                >
+                  {text}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
         {messages.map((message) => (
           <div
             key={message.id}
-            className="strategy-chat-message"
+            className="strategy-chat-message kx-bubble"
             data-role={message.role}
           >
-            <strong>
-              {message.role === "user" ? "You" : "Strategy assistant"}
-            </strong>
-            {message.model && <small>{message.model}</small>}
-            <p>{message.text}</p>
+            <span className="kx-bubble-avatar" aria-hidden>
+              {message.role === "user" ? (
+                <UserRound size={15} />
+              ) : (
+                <Bot size={15} />
+              )}
+            </span>
+            <div>
+              <strong className="visually-hidden">
+                {message.role === "user" ? "You" : "Strategy assistant"}
+              </strong>
+              <p>{message.text}</p>
+              {message.model && <small>{message.model}</small>}
+            </div>
           </div>
         ))}
+        {pending && (
+          <div className="kx-bubble" data-role="assistant" role="status">
+            <span className="kx-bubble-avatar" aria-hidden>
+              <Bot size={15} />
+            </span>
+            <div className="kx-typing">
+              <span />
+              <span />
+              <span />
+              <small>{pending}</small>
+            </div>
+          </div>
+        )}
       </div>
-      <form onSubmit={send} className="strategy-chat-compose">
-        <label htmlFor="strategy-prompt">Trading prompt</label>
-        <textarea
-          id="strategy-prompt"
-          rows={3}
-          maxLength={2000}
-          value={prompt}
-          placeholder="Buy BTC below RSI 30 and exit above 65. Use 2% of cash with a 4% stop loss."
-          disabled={busy}
-          onChange={(event) => setPrompt(event.target.value)}
-        />
-        <button className="primary" disabled={busy || !prompt.trim()}>
-          <Send size={15} aria-hidden /> Send prompt
-        </button>
-      </form>
-      {pending && <p role="status">{pending}</p>}
       {error && (
         <p role="alert" className="platform-error">
           {error}
@@ -233,7 +264,7 @@ export function StrategyChat({
       )}
       {proposal && definition && (
         <section
-          className="strategy-chat-preview"
+          className="strategy-chat-preview kx-strategy-card"
           aria-label="Validated strategy draft"
         >
           <h4>{proposal.document.name}</h4>
@@ -328,6 +359,37 @@ export function StrategyChat({
           )}
         </section>
       )}
+      <form onSubmit={send} className="strategy-chat-compose kx-composer">
+        <label htmlFor="strategy-prompt" className="visually-hidden">
+          Trading prompt
+        </label>
+        <textarea
+          id="strategy-prompt"
+          rows={2}
+          maxLength={2000}
+          value={prompt}
+          placeholder={
+            proposal
+              ? "Refine it: “use 3% per trade”, “switch to SOL”, “add a 5% take profit”…"
+              : "Describe your strategy…"
+          }
+          disabled={busy}
+          onChange={(event) => setPrompt(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.shiftKey) {
+              event.preventDefault();
+              send();
+            }
+          }}
+        />
+        <button
+          className="primary"
+          aria-label="Send prompt"
+          disabled={busy || !prompt.trim()}
+        >
+          <Send size={16} aria-hidden />
+        </button>
+      </form>
     </section>
   );
 }

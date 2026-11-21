@@ -7,9 +7,9 @@ import "./styles/theme.css";
 import "./styles/palette.css";
 import "./styles/shell.css";
 import "./platform/product-design.css";
-import "./platform/landing.css";
 import "./platform/workspace-design.css";
 import "./platform/dashboard.css";
+import "./styles/app.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

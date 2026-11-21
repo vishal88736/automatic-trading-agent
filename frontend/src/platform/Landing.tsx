@@ -73,6 +73,7 @@ function HeroPreview() {
     .join(" ");
   return (
     <div className="kx-preview" aria-hidden>
+      <small className="kx-preview-caption">Illustrative preview</small>
       <div className="kx-preview-head">
         <span className="kx-dot" />
         <strong>ETH dip buyer</strong>
