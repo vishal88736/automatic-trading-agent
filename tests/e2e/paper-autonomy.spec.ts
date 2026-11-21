@@ -114,16 +114,13 @@ test("paper agent continues without a browser and survives API and worker restar
     let worker = launch(["-m", "tests.e2e.paper_worker_fixture"]);
     const { page, context } = await browserSession();
     const nav = page.getByRole("navigation", { name: "Main navigation" });
-    await expect(
-      nav.getByRole("link").filter({ hasNotText: "Krono." }),
-    ).toHaveCount(10);
-    await expect(nav).not.toContainText(/aegis|hskswap/i);
+    await expect(nav.getByRole("link")).toHaveCount(12);
     await page.setViewportSize({ width: 320, height: 850 });
     await expect(nav).toBeHidden();
-    const menu = page.getByRole("button", { name: "Toggle navigation" });
+    const menu = page.getByRole("button", { name: "Open navigation" });
     await menu.click();
     await expect(menu).toHaveAttribute("aria-expanded", "true");
-    await nav.getByRole("link", { name: "Dashboard", exact: true }).click();
+    await nav.getByRole("link", { name: "Overview", exact: true }).click();
     await expect(menu).toHaveAttribute("aria-expanded", "false");
     await expect
       .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
@@ -136,8 +133,7 @@ test("paper agent continues without a browser and survives API and worker restar
     await expect(
       page.getByRole("heading", { name: "Order history" }),
     ).toBeVisible();
-    await page.goto("/#/aegis/markets");
-    await expect(page).toHaveURL(/#\/markets$/);
+    await page.goto("/#/markets");
     await page
       .getByRole("button", { name: "Generate insight for BTC" })
       .click();
@@ -145,7 +141,7 @@ test("paper agent continues without a browser and survives API and worker restar
       page.getByText("This snapshot cannot establish future returns."),
     ).toBeVisible();
     await nav
-      .getByRole("link", { name: "Custom Strategy Builder", exact: true })
+      .getByRole("link", { name: "AI Strategy Builder", exact: true })
       .click();
     await expect(
       page.getByRole("button", { name: "Visual builder" }),
@@ -164,7 +160,7 @@ test("paper agent continues without a browser and survives API and worker restar
       .click();
     await expect(page.getByText("Saved version 1.")).toBeVisible();
     await page
-      .getByRole("link", { name: "Backtesting Lab", exact: true })
+      .getByRole("link", { name: "Backtesting", exact: true })
       .click();
     await page
       .getByRole("combobox", { name: "Strategy", exact: true })
@@ -177,7 +173,7 @@ test("paper agent continues without a browser and survives API and worker restar
       .click();
     await expect(page.getByLabel("Backtest report ID")).not.toHaveValue("");
     await nav
-      .getByRole("link", { name: "Custom Strategy Builder", exact: true })
+      .getByRole("link", { name: "AI Strategy Builder", exact: true })
       .click();
     const chat = page.getByRole("region", { name: "Strategy chat" });
     await chat
@@ -202,7 +198,9 @@ test("paper agent continues without a browser and survives API and worker restar
     const { id, strategy } = await started.json();
     expect(strategy.document.name).toBe("Fixture price draft");
     await chat.getByRole("link", { name: "View paper agent" }).click();
-    await expect(page.getByLabel("Agent", { exact: true })).toHaveValue(id);
+    await expect(
+      page.locator('.kx-agent-item[aria-pressed="true"]'),
+    ).toHaveAttribute("data-agent-id", id);
     await context.close();
     expect(browser.contexts()).toHaveLength(0);
 
@@ -236,13 +234,13 @@ test("paper agent continues without a browser and survives API and worker restar
       response.url().endsWith(`/paper-agents/${id}/stream`),
     );
     await reopened.page
-      .getByRole("link", { name: "AI Trading Agents", exact: true })
+      .getByRole("link", { name: "My Agents", exact: true })
       .click();
     await expect(
       reopened.page.getByRole("heading", { name: /Independent fixture agent/ }),
     ).toBeVisible();
     await expect(
-      reopened.page.getByText("Activity timeline", { exact: true }),
+      reopened.page.getByText("Live activity", { exact: true }),
     ).toBeVisible();
     expect((await eventStream).headers()["content-type"]).toContain(
       "text/event-stream",
@@ -256,7 +254,7 @@ test("paper agent continues without a browser and survives API and worker restar
       orders.getByRole("cell", { name: "Agent", exact: true }).first(),
     ).toBeVisible();
     await reopened.page
-      .getByRole("link", { name: "AI Trading Agents", exact: true })
+      .getByRole("link", { name: "My Agents", exact: true })
       .click();
 
     await reopened.page

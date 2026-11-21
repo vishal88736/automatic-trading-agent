@@ -213,7 +213,12 @@ export function draftStrategy(objective: string, current?: Strategy) {
     named?.trim() ??
     (template
       ? `${asset} ${template.label}`
-      : (current?.name ?? `${asset} strategy`));
+      : current
+        ? current.name.replace(
+            new RegExp(`\\b${current.definition.asset}\\b`),
+            asset,
+          )
+        : `${asset} strategy`);
   const strategy: Strategy = {
     name,
     description: (current && !template

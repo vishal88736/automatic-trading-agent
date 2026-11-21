@@ -355,6 +355,7 @@ export default function PaperAgents() {
                   key={item.id}
                   type="button"
                   className="kx-agent-item"
+                  data-agent-id={item.id}
                   aria-pressed={item.id === selected}
                   onClick={() => setSelected(item.id)}
                 >

@@ -26,7 +26,7 @@ test("Fund, version, backtest, and isolate a tenant strategy", async ({
   await expect(page.getByText("Order filled.")).toBeVisible();
   await expect(page.getByText("BUY 0.001 BTC", { exact: false })).toBeVisible();
   await expect(page.getByText("0.001 ·", { exact: false })).toBeVisible();
-  await page.getByRole("link", { name: "Dashboard", exact: true }).click();
+  await page.getByRole("link", { name: "Overview", exact: true }).click();
   const paper = page.getByRole("region", { name: "Paper trading portfolio" });
   await expect(paper.getByRole("cell", { name: "Manual" })).toBeVisible();
   await expect(
@@ -37,7 +37,7 @@ test("Fund, version, backtest, and isolate a tenant strategy", async ({
   await expect(live.getByRole("table")).toHaveCount(0);
 
   await page
-    .getByRole("link", { name: "Market Analysis and AI Insights", exact: true })
+    .getByRole("link", { name: "Markets & AI Insights", exact: true })
     .click();
   await expect(
     page.getByRole("heading", { name: "Bitcoin (BTC/USD)" }),
@@ -58,7 +58,7 @@ test("Fund, version, backtest, and isolate a tenant strategy", async ({
   await expect(page.getByText(/FIXTURE.*Retrieved/)).toBeVisible();
 
   await page
-    .getByRole("link", { name: "Custom Strategy Builder", exact: true })
+    .getByRole("link", { name: "AI Strategy Builder", exact: true })
     .click();
   const chat = page.getByRole("region", { name: "Strategy chat" });
   await chat
@@ -133,9 +133,9 @@ test("Fund, version, backtest, and isolate a tenant strategy", async ({
   await expect(
     page.getByRole("button", { name: "Reviewed RSI · BTC · v2" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Toggle navigation" }).click();
+  await page.getByRole("button", { name: "Open navigation" }).click();
   await page
-    .getByRole("link", { name: "Backtesting Lab", exact: true })
+    .getByRole("link", { name: "Backtesting", exact: true })
     .click();
   await page
     .getByRole("combobox", { name: "Strategy", exact: true })
@@ -161,13 +161,15 @@ test("Fund, version, backtest, and isolate a tenant strategy", async ({
     page.getByRole("heading", { name: "Replay report" }),
   ).toBeVisible();
 
+  await page.getByRole("button", { name: "Open navigation" }).click();
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
+  await page.goto(report);
   await signIn(page, "bob");
   await expect(page.getByRole("alert")).toContainText(
     "Backtest is unavailable",
   );
   expect(page.url()).toBe(report);
-  await page.getByRole("button", { name: "Toggle navigation" }).click();
+  await page.getByRole("button", { name: "Open navigation" }).click();
   await page.getByRole("link", { name: "Strategies", exact: true }).click();
   await expect(page.getByText("No saved strategies.")).toBeVisible();
   await expect(

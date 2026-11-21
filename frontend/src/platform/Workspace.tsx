@@ -219,6 +219,7 @@ export function Workspace() {
     setAccountError("");
     try {
       await platform("/auth/logout", "POST", {});
+      setMenuOpen(false);
       setAuth({ state: "signed-out" });
       setAccountReady(false);
     } catch (error) {
@@ -281,7 +282,7 @@ export function Workspace() {
         id="kx-sidebar"
         className="kx-sidebar"
         data-open={menuOpen}
-        aria-label="Main navigation"
+        aria-label="Sidebar"
         onKeyDown={(event) => {
           if (event.key === "Escape" && menuOpen) closeNavigation();
         }}
@@ -299,7 +300,7 @@ export function Workspace() {
             <X size={18} />
           </button>
         </div>
-        <nav className="kx-nav">
+        <nav className="kx-nav" aria-label="Main navigation">
           {moduleGroups.map((group) => (
             <div key={group.label} className="kx-nav-group">
               <span className="kx-nav-label">{group.label}</span>
