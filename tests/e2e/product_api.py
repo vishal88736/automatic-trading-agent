@@ -5,11 +5,11 @@ from datetime import timezone
 
 from backend.backtesting import RULE_WARMUP_HOURS
 from backend.data import FIXTURE_START, fixture_market
-from backend.historical_data import HOUR
 from backend.models import now
-from backend.paper_execution import PaperQuote
-from backend.platform_db import DSN_ENV
-from backend.platform_product_api import KEY_ENV, create_product_api
+from backend.product.api import KEY_ENV, create_product_api
+from backend.product.database import DSN_ENV
+from backend.product.execution import PaperQuote
+from backend.product.history import HOUR
 
 
 def history(symbol, start, end):

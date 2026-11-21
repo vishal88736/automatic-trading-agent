@@ -5,8 +5,8 @@ from datetime import datetime, timezone
 from aegis.connectors.mock import MockConnector
 from aegis.history import TradeFilters
 from aegis.store.db import PaperLedger
+from backend.operator.trade_history import research_history
 from backend.storage import Store
-from backend.trade_history import research_history
 
 
 def test_through_date_keeps_fractional_last_second_and_normalizes_offsets(tmp_path):

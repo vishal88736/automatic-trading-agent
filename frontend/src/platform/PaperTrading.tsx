@@ -8,7 +8,7 @@ import {
 import { EquityChart } from "../charts";
 import { money, percent, timestamp } from "../ui";
 import { platform } from "./client";
-import { legacyFixture, workspaceHref } from "./navigation";
+import { workspaceHref } from "./navigation";
 import {
   AssetAllocation,
   DashboardLivePortfolio,
@@ -465,62 +465,60 @@ export default function PaperAccount({
         </section>
       )}
       {dashboard && dashboardAgents}
-      {account &&
-        value &&
-        (view === "settings" || (view === "trade" && legacyFixture)) && (
-          <section className="platform-product-panel">
-            <h3>Paper trading controls</h3>
-            {value.emergency_stop && (
-              <p role="alert">
-                Emergency stop active. Clearing it keeps agents paused.
+      {account && value && view === "settings" && (
+        <section className="platform-product-panel">
+          <h3>Paper trading controls</h3>
+          {value.emergency_stop && (
+            <p role="alert">
+              Emergency stop active. Clearing it keeps agents paused.
+            </p>
+          )}
+          <div className="platform-product-actions">
+            <button
+              disabled={busy}
+              onClick={() =>
+                void act(async () => {
+                  await platform("/paper-account/emergency", "PUT", {
+                    enabled: !value.emergency_stop,
+                  });
+                })
+              }
+            >
+              {value.emergency_stop
+                ? "Clear paper emergency stop"
+                : "Emergency stop paper trading"}
+            </button>
+            <button
+              disabled={busy}
+              onClick={() => setConfirmReset(!confirmReset)}
+            >
+              Reset virtual funds
+            </button>
+          </div>
+          {confirmReset && (
+            <div>
+              <p>
+                Reset closes this account epoch and cancels its open orders.
+                Previous fills remain in the order history.
               </p>
-            )}
-            <div className="platform-product-actions">
               <button
                 disabled={busy}
                 onClick={() =>
                   void act(async () => {
-                    await platform("/paper-account/emergency", "PUT", {
-                      enabled: !value.emergency_stop,
+                    await platform("/paper-account/reset", "POST", {
+                      epoch: account.epoch,
+                      acknowledge: "RESET_PAPER_ACCOUNT",
                     });
+                    setConfirmReset(false);
                   })
                 }
               >
-                {value.emergency_stop
-                  ? "Clear paper emergency stop"
-                  : "Emergency stop paper trading"}
-              </button>
-              <button
-                disabled={busy}
-                onClick={() => setConfirmReset(!confirmReset)}
-              >
-                Reset virtual funds
+                Confirm reset
               </button>
             </div>
-            {confirmReset && (
-              <div>
-                <p>
-                  Reset closes this account epoch and cancels its open orders.
-                  Previous fills remain in the order history.
-                </p>
-                <button
-                  disabled={busy}
-                  onClick={() =>
-                    void act(async () => {
-                      await platform("/paper-account/reset", "POST", {
-                        epoch: account.epoch,
-                        acknowledge: "RESET_PAPER_ACCOUNT",
-                      });
-                      setConfirmReset(false);
-                    })
-                  }
-                >
-                  Confirm reset
-                </button>
-              </div>
-            )}
-          </section>
-        )}
+          )}
+        </section>
+      )}
     </div>
   );
 }

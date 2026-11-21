@@ -17,7 +17,7 @@ from typing import Literal
 from fastapi import Depends, FastAPI, Query, Request
 from fastapi.encoders import ENCODERS_BY_TYPE
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import JSONResponse
 from pydantic import Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
@@ -26,9 +26,6 @@ from aegis.data import field_bounds
 from aegis.history import TradeDetail, TradeFilters, TradePage
 from aegis.market_details import MarketDetails
 from aegis.service import AegisService
-from backend.analytics import aggregate, chart_indicators, correlations
-from backend.assistant_tools import execute as execute_website_tool
-from backend.assistant_tools import run_backtest
 from backend.data import ASSETS, Providers
 from backend.desk import AlertRequest, sizing_preview
 from backend.engine import Engine
@@ -49,12 +46,15 @@ from backend.models import (
     now,
     uid,
 )
-from backend.research_brief import ResearchBrief, build_brief
+from backend.operator.analytics import aggregate, chart_indicators, correlations
+from backend.operator.assistant_tools import execute as execute_website_tool
+from backend.operator.assistant_tools import run_backtest
+from backend.operator.research_brief import ResearchBrief, build_brief
+from backend.operator.trade_history import research_detail, research_history
 from backend.selection import SelectionConfig
 from backend.settings import ProviderRefresh, get_settings
 from backend.storage import Store
 from backend.strategies import REGISTRY, indicators
-from backend.trade_history import research_detail, research_history
 
 logger = logging.getLogger("terminal")
 logger.setLevel(logging.WARNING if os.getenv("TERMINAL_QUIET_LOGS") == "true" else logging.INFO)
@@ -63,7 +63,7 @@ if not logger.handlers:
 logger.propagate = False
 # Decimal quantities cross the JSON boundary as strings, preserving exact amounts.
 ENCODERS_BY_TYPE[Decimal] = str
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 TRUSTED_ORIGINS = {
     f"http://{host}:{port}" for host in ("localhost", "127.0.0.1") for port in (5173, 8787)
 }
@@ -146,15 +146,6 @@ class DecisionProof(Model):
     reveal_tx: str = Field(pattern=r"^0x[0-9a-fA-F]{64}$")
 
 
-def source_newer_than_bundle(root: Path) -> bool:
-    """A checkout whose frontend source changed after its last build. Images ship without source."""
-    index, source = root / "frontend/dist/index.html", root / "frontend/src"
-    if not index.is_file() or not source.is_dir():
-        return False
-    built = index.stat().st_mtime
-    return any(p.is_file() and p.stat().st_mtime > built for p in source.rglob("*"))
-
-
 def create_app(
     db_path=None,
     *,
@@ -175,15 +166,6 @@ def create_app(
     sessions = {}
     counters = {"requests": 0, "errors": 0}
     bearer_token = api_token if api_token is not None else os.getenv("TERMINAL_API_TOKEN", "")
-    stale_bundle = None
-
-    def bundle_is_stale() -> bool:
-        nonlocal stale_bundle
-        if stale_bundle is None:  # Once per process: a build needs a restart anyway.
-            stale_bundle = source_newer_than_bundle(ROOT)
-            if stale_bundle:
-                logger.warning("frontend/dist is older than frontend/src; run npm run build")
-        return stale_bundle
 
     ui_port = int(os.getenv("TERMINAL_UI_PORT", "5173"))
     if not 1 <= ui_port <= 65535:
@@ -244,7 +226,7 @@ def create_app(
             if db_path
             else Path(os.getenv("AEGIS_DB", str(ROOT / ".runtime/aegis-paper.sqlite3")))
         )
-        from backend.aegis_bridge import collect_library
+        from backend.operator.aegis_bridge import collect_library
 
         async def reference_source(state):
             return await collect_library(engine, state)
@@ -449,7 +431,7 @@ def create_app(
     @app.get("/api/aegis/state")
     async def aegis_state(request: Request):
         from aegis.nl.guide import entry_readiness
-        from backend.aegis_bridge import strategy_catalog
+        from backend.operator.aegis_bridge import strategy_catalog
 
         # Engine switches are local configuration, not the last market snapshot.
         # Reading this screen must not trigger a quote or an autonomous tick.
@@ -1348,28 +1330,9 @@ def create_app(
             "storage_policy": "Raw messages are not stored; typed tool audit events persist.",
         }
 
-    @app.get("/{path:path}")
-    async def frontend(path: str):
-        if path.startswith("api/"):
-            return JSONResponse(
-                {"error": {"code": "NOT_FOUND", "message": "Unknown API route"}}, 404
-            )
-        dist = ROOT / "frontend/dist"
-        if bundle_is_stale():
-            return JSONResponse(
-                {
-                    "message": "The built frontend is older than its source, so it would show outdated behavior. Run npm run build, or use make demo."
-                },
-                503,
-            )
-        candidate = (dist / path).resolve()
-        if candidate.is_relative_to(dist.resolve()) and candidate.is_file():
-            return FileResponse(candidate)
-        if (dist / "index.html").is_file():
-            return FileResponse(dist / "index.html")
-        return JSONResponse(
-            {"message": "Build the frontend with npm run build, or start npm run dev."}, 503
-        )
+    @app.get("/api/{path:path}")
+    async def unknown_api(path: str):
+        return JSONResponse({"error": {"code": "NOT_FOUND", "message": "Unknown API route"}}, 404)
 
     return app
 

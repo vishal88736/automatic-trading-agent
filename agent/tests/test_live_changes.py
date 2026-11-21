@@ -222,7 +222,7 @@ def test_library_tools_need_the_terminal_bridge(runtime):
 async def test_bridge_supplies_the_regime_multiplier_used_by_regime_scaling():
     from aegis.risk.policy import ALL_STRATEGIES
     from agent.tests.test_pipeline_integrity import bridge_engine
-    from backend.aegis_bridge import collect_library
+    from backend.operator.aegis_bridge import collect_library
 
     snapshot = await collect_library(
         bridge_engine(), {"params": {"active_strategies": list(ALL_STRATEGIES)}, "positions": []}

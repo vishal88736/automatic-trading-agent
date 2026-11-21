@@ -11,9 +11,6 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       "/platform": process.env.KRONO_PLATFORM_URL ?? "http://127.0.0.1:8790",
-      ...(process.env.TERMINAL_TEST_RUN === "1" && {
-        "/api": process.env.TERMINAL_BACKEND_URL ?? "http://127.0.0.1:8787",
-      }),
     },
   },
   build: { outDir: "dist", emptyOutDir: true },

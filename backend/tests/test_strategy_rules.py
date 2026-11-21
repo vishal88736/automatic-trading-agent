@@ -4,8 +4,8 @@ import pytest
 from pydantic import ValidationError
 
 from backend.data import fixture_market
+from backend.product.rules import StrategyDefinition, rule_signal
 from backend.strategies import indicators
-from backend.strategy_rules import StrategyDefinition, rule_signal
 
 
 def rule(indicator, operator, threshold):
@@ -85,7 +85,7 @@ def test_unsupported_inputs_fail_validation(invalid):
 
 
 def test_all_authoring_templates_use_the_runtime_strategy_schema():
-    from backend.strategy_rules import StrategyDraft, authoring_options
+    from backend.product.rules import StrategyDraft, authoring_options
 
     choice = authoring_options()
     assert len(choice["templates"]) == 5

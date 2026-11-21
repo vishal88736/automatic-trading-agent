@@ -18,15 +18,3 @@ export function KronoMark({ className = "" }: { className?: string }) {
     </svg>
   );
 }
-
-export function KronoBrand() {
-  return (
-    <>
-      <KronoMark />
-      <span className="brand-wordmark">
-        Krono<span className="brand-period">.</span>
-        <small>TRADING WORKSPACE</small>
-      </span>
-    </>
-  );
-}

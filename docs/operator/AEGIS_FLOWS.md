@@ -1,6 +1,8 @@
 # Connected AEGIS paper flow
 
-> Historical operator and regression reference. Krono's website uses the authenticated PostgreSQL workspace described in the [consolidation map](CONSOLIDATION.md). The former browser URLs below document the isolated legacy fixture.
+The operator API and testnet tools run separately from the Krono website. References to the original browser workspace describe historical verification.
+
+> Historical operator and regression reference. Krono's website uses the authenticated PostgreSQL workspace described in the [consolidation map](../CONSOLIDATION.md). The former browser URLs below document the isolated legacy fixture.
 
 AEGIS is available inside the existing Krono React application at `/#/aegis`; the root `/` retains the original home page and coin artwork. Its desk, markets, positions, executions, strategy, risk, wallet and settings routes share one frontend state provider; the existing interface and original research strategies are retained. This page reads an authenticated FastAPI service backed by the actual AEGIS ledger and connector. Its strategy uses live mainnet pool data and virtual balances and cannot sign public swaps. The separate owner panel prepares reviewed transactions for signing in the device wallet after a verified deployment is registered. Existing Krono simulation and AWS tenant agents remain separate runtimes and ledgers.
 
@@ -88,7 +90,7 @@ All routes use the existing session/CSRF or bearer boundary. The terminal-wide e
 
 ## Checks and external boundaries
 
-`agent/tests/test_runtime.py` exercises autonomous entry, rejected risk, pause during quote, stop-loss replay, emergency recovery, one-use close confirmation and persistence. `backend/tests/test_aegis_api.py` tests the authenticated HTTP path. `e2e/aegis.spec.ts` tests the actual API through desktop/mobile UI, including rejected controls and unavailable-service recovery. The isolated browser connector is visibly labeled `TEST_FIXTURE`.
+`agent/tests/test_runtime.py` exercises autonomous entry, rejected risk, pause during quote, stop-loss replay, emergency recovery, one-use close confirmation and persistence. `backend/tests/test_aegis_api.py` tests the authenticated HTTP path. Browser tests for the current product live in `tests/e2e/`.
 
 `python -m scripts.verify_aegis_flow --i-understand-paper --duration-seconds 3600` runs a separate real-mainnet-data HTTP check and one-hour unattended paper observation. It records a forced round trip separately from strategy performance, checks the shared ledger and language bounds, then verifies restart recovery. Evidence and screenshots are produced under ignored `artifacts/`; an in-progress run is not a passed acceptance result.
 
@@ -96,6 +98,6 @@ No owner key is required for this paper flow. Actual public deployment, funding 
 
 ## Demo and verification
 
-[Connection instructions](CONNECTIONS.md) cover networks, owner-device signing, registration and optional providers. The [three-minute demo](DEMO_SCRIPT.md) and [pitch](WHY_AEGIS.md) distinguish paper, fixture, local-fork and public evidence.
+[Connection instructions](CONNECTIONS.md) cover networks, owner-device signing, registration and optional providers. The [historical rationale](WHY_AEGIS.md) records the paper, local-fork and public evidence.
 
-[Verification](VERIFICATION.md) lists current commands and recorded evidence, including the strategy connection, earlier one-hour observation and local-fork execution. Each checkpoint retains its own source revision and limits.
+[Verification](../VERIFICATION.md) lists current commands and recorded evidence, including the strategy connection, earlier one-hour observation and local-fork execution. Each checkpoint retains its own source revision and limits.

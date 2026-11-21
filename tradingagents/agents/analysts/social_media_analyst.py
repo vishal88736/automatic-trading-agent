@@ -6,9 +6,9 @@ from tradingagents.prompts import load_prompt, render_prompt
 
 # Import prompt capture utility
 try:
-    from webui.utils.prompt_capture import capture_agent_prompt
+    from tradingagents.telemetry.prompt_capture import capture_agent_prompt
 except ImportError:
-    # Fallback for when webui is not available
+    # Fallback when research telemetry is unavailable
     def capture_agent_prompt(report_type, prompt_content, symbol=None):
         pass
 

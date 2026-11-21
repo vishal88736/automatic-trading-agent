@@ -2,17 +2,17 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
-import { AgentAnalysisService } from "../../src/integrations/llm/agent-analysis.service.js";
+import { AgentAnalysisService } from "../../gateway/integrations/llm/agent-analysis.service.js";
 import {
   MemoryTenantStore,
   DynamoTenantStore,
-} from "../../src/storage/tenant-store.js";
-import { AgentService } from "../../src/agents/agent.service.js";
-import { ProfileService } from "../../src/profiles/profile.service.js";
-import { bedrockSchema } from "../../src/integrations/llm/structured-output.js";
-import { specSchema } from "../../src/domain/schemas.js";
+} from "../../gateway/storage/tenant-store.js";
+import { AgentService } from "../../gateway/agents/agent.service.js";
+import { ProfileService } from "../../gateway/profiles/profile.service.js";
+import { bedrockSchema } from "../../gateway/integrations/llm/structured-output.js";
+import { specSchema } from "../../gateway/domain/schemas.js";
 import { alice, bob, config, spec, FixtureRuntime } from "./helpers.js";
-import type { LLMProvider } from "../../src/integrations/llm/llm.interface.js";
+import type { LLMProvider } from "../../gateway/integrations/llm/llm.interface.js";
 
 test("Autonomous model reviews cannot invent evidence, enable an ineligible strategy or escape the source tenant", async () => {
   const store = new MemoryTenantStore(),

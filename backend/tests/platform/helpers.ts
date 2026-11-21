@@ -1,15 +1,15 @@
 import { randomUUID } from "node:crypto";
-import type { Config } from "../../src/config.js";
+import type { Config } from "../../gateway/config.js";
 import {
   specSchema,
   type Agent,
   type Deployment,
   type Principal,
-} from "../../src/domain/schemas.js";
+} from "../../gateway/domain/schemas.js";
 import type {
   RuntimeProvider,
   RuntimeStatus,
-} from "../../src/runtime/runtime.interface.js";
+} from "../../gateway/runtime/runtime.interface.js";
 export const alice: Principal = { userId: randomUUID(), username: "alice" },
   bob: Principal = { userId: randomUUID(), username: "bob" };
 export const config: Config = {

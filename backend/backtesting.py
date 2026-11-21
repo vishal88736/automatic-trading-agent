@@ -10,8 +10,8 @@ from backend.models import (
     RiskConfig,
     StrategyConfig,
 )
+from backend.product.rules import StrategyDefinition, rule_signal
 from backend.strategies import evaluate, indicators
-from backend.strategy_rules import StrategyDefinition, rule_signal
 
 D = Decimal
 RULE_WARMUP_HOURS = 81

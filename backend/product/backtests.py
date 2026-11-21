@@ -11,9 +11,9 @@ from psycopg import Connection
 from psycopg.types.json import Jsonb
 
 from backend.backtesting import RULE_WARMUP_HOURS, backtest_rules
-from backend.historical_data import HOUR, HistoricalBacktestRequest
 from backend.models import Market
-from backend.strategy_repository import StoredStrategy
+from backend.product.history import HOUR, HistoricalBacktestRequest
+from backend.product.strategies import StoredStrategy
 
 REPLAY_VERSION = "krono-spot-hourly-v1"
 

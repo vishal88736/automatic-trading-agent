@@ -44,6 +44,7 @@ jobs:
           node-version: "22"
           package-manager-cache: false
       - run: npm ci
+      - run: npm run build
       - run: npx playwright install --with-deps chromium
       - name: Browser to API to PostgreSQL
         run: |
@@ -52,11 +53,11 @@ jobs:
           export KRONO_E2E_PRODUCT_API_KEY="$KRONO_PRODUCT_API_KEY"
           export KRONO_E2E_PRODUCT_API_URL="http://127.0.0.1:8794"
           .venv/bin/python -m scripts.platform_database
-          TERMINAL_TEST_RUN=1 .venv/bin/python -m uvicorn e2e.product_api:application --factory --host 127.0.0.1 --port 8794 &
+          TERMINAL_TEST_RUN=1 .venv/bin/python -m uvicorn tests.e2e.product_api:application --factory --host 127.0.0.1 --port 8794 &
           product_pid=$!
           trap 'kill "$product_pid" 2>/dev/null || true' EXIT
           curl --silent --show-error --retry 10 --retry-connrefused --retry-delay 1 --output /dev/null "$KRONO_E2E_PRODUCT_API_URL/platform/paper-account"
-          npm run test:e2e -- e2e/platform-strategy.spec.ts
+          npm run test:e2e -- tests/e2e/platform-strategy.spec.ts
 
       - name: Browser disconnect and process recovery
         run: |
@@ -65,7 +66,8 @@ jobs:
           export KRONO_E2E_PRODUCT_API_KEY="$KRONO_PRODUCT_API_KEY"
           export KRONO_E2E_PRODUCT_API_URL="http://127.0.0.1:8794"
           export KRONO_E2E_AUTONOMY=1
-          npm run test:e2e -- e2e/paper-autonomy.spec.ts
+          export KRONO_E2E_BUILD=1
+          npm run test:e2e -- tests/e2e/paper-autonomy.spec.ts
 
   validate:
     runs-on: ubuntu-latest
@@ -100,10 +102,10 @@ jobs:
         run: .venv/bin/python -m scripts.public_audit
       - name: Backend and AEGIS data style and tests
         run: |
-          .venv/bin/ruff check backend scripts agent
-          .venv/bin/ruff format --check backend scripts agent
+          .venv/bin/ruff check backend scripts agent tests/e2e
+          .venv/bin/ruff format --check backend scripts agent tests/e2e
           .venv/bin/python -m scripts.generate_code_reference --check
-          .venv/bin/python -m pytest backend/tests agent/tests legacy_tests/test_regime_detection.py legacy_tests/test_backtest_engine.py legacy_tests/test_portfolio_intelligence.py -q
+          .venv/bin/python -m pytest backend/tests agent/tests tests/inherited/test_regime_detection.py tests/inherited/test_backtest_engine.py tests/inherited/test_portfolio_intelligence.py -q
       - name: Pinned local contract toolchain and Guard tests
         run: |
           make contracts-setup
@@ -111,7 +113,7 @@ jobs:
           cd contracts && ../.tools/foundry/forge fmt --check src test script
       - name: Frontend formatting, strict types and production build
         run: |
-          node_modules/.bin/prettier --check frontend/src frontend/vite.config.ts frontend/tsconfig.json playwright.config.ts e2e scripts/dev.mjs package.json
+          node_modules/.bin/prettier --check frontend/src frontend/vite.config.ts frontend/tsconfig.json playwright.config.ts tests/e2e scripts/dev.mjs package.json
           npm run build
       - name: AWS control plane, isolation and infrastructure
         run: |
@@ -128,7 +130,5 @@ jobs:
           docker run --rm --read-only -v krono-agent-validation:/app/.runtime --entrypoint python krono-agent:validation -c "from pathlib import Path; from backend.engine import Engine; p=Path('/app/.runtime/check'); p.write_text('ok'); p.unlink(); print('Non-root worker imports and writable runtime volume verified')"
       - name: Install isolated browser
         run: npx playwright install --with-deps chromium
-      - name: Chromium simulation workflows
+      - name: Chromium product workspace
         run: npm run test:e2e
-      - name: Built application and restart persistence
-        run: .venv/bin/python -m scripts.production_smoke

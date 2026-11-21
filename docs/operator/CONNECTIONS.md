@@ -1,14 +1,12 @@
 # Connect AEGIS step by step
 
-## 1. Start with live data and virtual funds
+## 1. Operator entry points
 
-Run `make setup && make demo`, then open `http://127.0.0.1:5173/` for the original Command center and coin artwork. Choose **HSKSwap** in the workspace selector or open `/#/aegis` for HSKSwap. Its navigation uses the same backend session across screens; the existing network area also switches between workspaces. Refresh HSKSwap data, inspect the block and three pool links, and explicitly start the paper agent. No wallet, browser connection to HSKSwap, API key or faucet is needed for this path. Fresh data failure blocks fills and exposes unavailable valuation. Keep the backend bound to loopback and run one worker.
-
-The original five strategy rules and configured selector now feed AEGIS through a [typed reference-market adapter](STRATEGY_CONNECTION.md). Normal library execution requires **Settings → Data providers → Coinbase**; synthetic fixtures cannot drive it. Configure the original strategies in the existing library and inspect their current HSKSwap execution/blocking reasons in **AEGIS → Trading Desk**. BTC/ETH map to WBTC/WETH; SOL has no verified HSKSwap mapping. The existing Krono SIMULATION and AEGIS PAPER ledgers are separate. The AWS tenant worker still uses Krono simulation; it does not run AEGIS or accept wallet keys. Do not change its mode/tenant schema to bypass this boundary.
+Run `make setup` to install the tools. `make prices` reads public HSKSwap observations. `make verify-paper-flow` checks the operator's isolated paper loop. The operator API binds to loopback and keeps its SQLite records separate from the product's PostgreSQL accounts. See the [Krono development guide](../DEVELOPMENT.md) to open the website.
 
 ## 2. Add the correct wallet network
 
-Use an EVM account in Trust Wallet or another EVM wallet. The **public receive address** begins with `0x`; no recovery phrase or owner private key belongs in this project or chat. HashKey's [official network settings](https://docs.hskchain.net/docs/Build-on-HashKey-Chain/network-info) and the [verified local registry](../config/networks.yaml) are the sources for these values.
+Use an EVM account in Trust Wallet or another EVM wallet. The **public receive address** begins with `0x`; no recovery phrase or owner private key belongs in this project or chat. HashKey's [official network settings](https://docs.hskchain.net/docs/Build-on-HashKey-Chain/network-info) and the [verified local registry](../../config/networks.yaml) are the sources for these values.
 
 |                          | Testnet                                 | Mainnet                      |
 | ------------------------ | --------------------------------------- | ---------------------------- |

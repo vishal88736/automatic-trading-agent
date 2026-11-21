@@ -1,6 +1,6 @@
 import { App } from "aws-cdk-lib";
 import { KronoStack } from "./stack.js";
-import { runtimeSettingsSchema } from "../backend/src/config.js";
+import { runtimeSettingsSchema } from "../backend/gateway/config.js";
 const app = new App();
 const stage = process.env.KRONO_ENV ?? "development";
 if (!["development", "staging", "production"].includes(stage))

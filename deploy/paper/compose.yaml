@@ -61,13 +61,13 @@ services:
   worker:
     <<: *product-build
     restart: unless-stopped
-    command: ["python", "-m", "backend.paper_worker"]
+    command: ["python", "-m", "backend.product.worker"]
     environment: *database-env
     depends_on:
       migrate:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "python", "-m", "backend.paper_worker", "--health"]
+      test: ["CMD", "python", "-m", "backend.product.worker", "--health"]
       interval: 10s
       timeout: 6s
       retries: 5

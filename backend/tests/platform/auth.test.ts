@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { generateKeyPairSync, sign } from "node:crypto";
 import type { FastifyRequest } from "fastify";
-import { CognitoAuth } from "../../src/auth/cognito.js";
+import { CognitoAuth } from "../../gateway/auth/cognito.js";
 import { config, alice } from "./helpers.js";
 import Fastify from "fastify";
 import cookie from "@fastify/cookie";

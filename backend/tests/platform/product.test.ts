@@ -4,9 +4,9 @@ import { createHash, createHmac } from "node:crypto";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { once } from "node:events";
-import { createPlatform } from "../../src/server.js";
-import { PlatformError } from "../../src/domain/errors.js";
-import { MemoryTenantStore } from "../../src/storage/tenant-store.js";
+import { createPlatform } from "../../gateway/server.js";
+import { PlatformError } from "../../gateway/domain/errors.js";
+import { MemoryTenantStore } from "../../gateway/storage/tenant-store.js";
 import { alice, bob, config, FixtureRuntime } from "./helpers.js";
 
 test("Product gateway signs exact authenticated requests and discards incoming internal identity headers", async () => {

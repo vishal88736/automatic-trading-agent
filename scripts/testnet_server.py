@@ -133,7 +133,7 @@ def main() -> None:
     os.environ["AEGIS_TESTNET_DB"] = str(database)
 
     from aegis.testnet.runtime import TestnetRuntime
-    from backend.api import create_app
+    from backend.operator.api import create_app
 
     def factory(path, halted, emergency):
         return TestnetRuntime(

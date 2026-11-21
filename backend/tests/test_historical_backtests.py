@@ -6,9 +6,9 @@ import pytest
 
 from backend.backtesting import RULE_WARMUP_HOURS, backtest_rules
 from backend.data import fixture_market
-from backend.historical_data import HistoricalBacktestRequest, load_candles
 from backend.models import BacktestAssumptions, RiskConfig
-from backend.strategy_rules import StrategyDefinition
+from backend.product.history import HistoricalBacktestRequest, load_candles
+from backend.product.rules import StrategyDefinition
 
 
 def test_coinbase_history_trimmed_across_requests_and_rejects_gaps():

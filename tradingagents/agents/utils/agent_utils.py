@@ -267,7 +267,7 @@ def timing_wrapper(analyst_type, timeout_seconds=120, uses_web_search=False):
             
             # Notify the state management system of tool call execution
             try:
-                from webui.utils.state import app_state
+                from tradingagents.telemetry.state import app_state
                 import datetime
                 timestamp = datetime.datetime.now().strftime("%H:%M:%S")
                 
@@ -491,7 +491,7 @@ def timing_wrapper(analyst_type, timeout_seconds=120, uses_web_search=False):
                 
                 # Store the failed tool call information with enhanced details
                 try:
-                    from webui.utils.state import app_state
+                    from tradingagents.telemetry.state import app_state
                     import datetime
                     timestamp = datetime.datetime.now().strftime("%H:%M:%S")
                     

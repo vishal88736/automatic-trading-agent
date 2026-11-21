@@ -12,8 +12,8 @@ from aegis.nl.website import ARCHIVES, SCHEMAS, archive_result
 from backend.backtesting import backtest
 from backend.desk import AlertRequest
 from backend.models import BacktestRequest, RunRequest, StrategyConfig, now
+from backend.operator.trade_history import research_history
 from backend.strategies import REGISTRY
-from backend.trade_history import research_history
 
 
 async def run_backtest(engine, body: BacktestRequest):

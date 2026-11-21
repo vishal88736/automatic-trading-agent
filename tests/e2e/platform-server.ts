@@ -1,30 +1,17 @@
 // Isolated UI contract harness. Never selected by the production entry point.
-import { createPlatform } from "../backend/src/server.js";
-import { MemoryTenantStore } from "../backend/src/storage/tenant-store.js";
+import { createPlatform } from "../../backend/gateway/server.js";
+import { MemoryTenantStore } from "../../backend/gateway/storage/tenant-store.js";
 import {
   alice,
   bob,
   config,
-  spec,
   FixtureRuntime,
-} from "../backend/tests/platform/helpers.js";
-import { PlatformError } from "../backend/src/domain/errors.js";
-import type { LLMProvider } from "../backend/src/integrations/llm/llm.interface.js";
+} from "../../backend/tests/platform/helpers.js";
+import { PlatformError } from "../../backend/gateway/domain/errors.js";
+import type { LLMProvider } from "../../backend/gateway/integrations/llm/llm.interface.js";
 if (process.env.TERMINAL_TEST_RUN !== "1")
   throw Error("This server is restricted to browser fixture validation");
-class BrowserRuntime extends FixtureRuntime {
-  async deploy(
-    p: typeof alice,
-    a: Parameters<FixtureRuntime["deploy"]>[1],
-    d: Parameters<FixtureRuntime["deploy"]>[2],
-  ) {
-    const r = await super.deploy(p, a, d);
-    this.statuses.set(a.id, "RUNNING");
-    return r;
-  }
-}
-const runtime = new BrowserRuntime(),
-  store = new MemoryTenantStore();
+const store = new MemoryTenantStore();
 const auth = {
   authenticate: async (req: {
     cookies: Record<string, string>;
@@ -112,33 +99,7 @@ const llm: LLMProvider = {
         stopReason: "end_turn",
       };
     }
-    const done = request.messages
-      .at(-1)
-      ?.content.some((c) => "toolResult" in c);
-    return {
-      message: {
-        role: "assistant",
-        content: done
-          ? [
-              {
-                text: "Your validated draft is saved in the isolated test fixture. Review its configuration before a fixture deployment.",
-              },
-            ]
-          : [
-              {
-                toolUse: {
-                  toolUseId: "fixture-create",
-                  name: "create_agent_draft",
-                  input: spec({ name: "Browser fixture operator" }),
-                },
-              },
-            ],
-      },
-      modelId: "FIXTURE — no Bedrock call",
-      usage: { inputTokens: 0, outputTokens: 0 },
-      durationMs: 0,
-      stopReason: done ? "end_turn" : "tool_use",
-    };
+    throw new Error("Unexpected model request in the product browser fixture");
   },
 };
 const { app } = createPlatform(
@@ -149,7 +110,7 @@ const { app } = createPlatform(
     KRONO_PRODUCT_API_URL: process.env.KRONO_E2E_PRODUCT_API_URL,
     KRONO_PRODUCT_API_KEY: process.env.KRONO_E2E_PRODUCT_API_KEY,
   },
-  { store, runtime, auth, llm },
+  { store, runtime: new FixtureRuntime(), auth, llm },
 );
 app.post("/platform/auth/login", async (req, reply) => {
   const v = req.body as { email: string };

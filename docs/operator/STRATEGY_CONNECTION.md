@@ -1,6 +1,6 @@
 # Original strategies and guarded HSKSwap execution
 
-The original home page, dimensional coin artwork and five strategy implementations are retained. The existing strategy settings now feed the HSKSwap paper runtime through `backend/aegis_bridge.py`. This adapter calls the original numerical rules and selector; it does not copy or replace them.
+The five historical strategy implementations feed the HashKey operator runtime through `backend/operator/aegis_bridge.py`. This adapter calls the original numerical rules and selector; it does not copy or replace them.
 
 ## Connected flow
 
@@ -26,11 +26,11 @@ Exits run first; an exit in a tick defers entries to the next tick. Entry candid
 .venv/bin/python -m pytest agent/tests/test_library.py backend/tests/test_aegis_api.py -q
 npm run build
 npm run test:e2e
-.venv/bin/python -m scripts.verify_frontend --i-understand-paper --reference-markets
+make verify-paper-flow
 ```
 
 The replay tests explicitly rebase the existing synthetic fixture to a test connector, mark that data as a fixture, and exercise an original Momentum BUY through the actual paper gateway, accounting and restart/ATR-stop paths. Fixtures can authorize fills only in explicitly constructed isolated test runtimes. Browser checks include the original home, all five strategies, the new reference-entry path, existing controls and failure recovery. The optional final command requires actual Coinbase reference data and HSKSwap reads in a fresh, paused, virtual ledger. It sends no public transactions and does not invoke a paid model.
 
 Public deployment, funded signing, actual Claude/Telegram delivery and sustained profitability remain unverified. The strategy connection is paper-only.
 
-[Recorded validation](evidence/strategy-library-validation.json) includes 272 Python checks, 27 browser workflows, 20 focused adapter/API checks, a production restart smoke and the actual-reference/mainnet-data UI check. The [strategy screen](evidence/screenshots/strategy-library-controls.png) shows the five unchanged configurations. Positive fills and ATR-stop recovery were checked separately in explicit replay fixtures; the live-data check retained a paused ledger with zero fills and zero public transactions. The earlier one-hour observation does not cover this new adapter.
+[Recorded validation](../evidence/strategy-library-validation.json) includes 272 Python checks, 27 browser workflows, 20 focused adapter/API checks, a production restart smoke and the actual-reference/mainnet-data UI check. The [strategy screen](../evidence/screenshots/strategy-library-controls.png) shows the five unchanged configurations. Positive fills and ATR-stop recovery were checked separately in explicit replay fixtures; the live-data check retained a paused ledger with zero fills and zero public transactions. The earlier one-hour observation does not cover this new adapter.

@@ -170,7 +170,7 @@ class GraphSetup:
             # Check if UI state management is available
             ui_available = False
             try:
-                from webui.utils.state import app_state
+                from tradingagents.telemetry.state import app_state
                 ui_available = True
             except ImportError:
                 pass
@@ -387,7 +387,7 @@ class GraphSetup:
 
             ui_available = False
             try:
-                from webui.utils.state import app_state
+                from tradingagents.telemetry.state import app_state
                 ui_available = True
             except ImportError:
                 app_state = None

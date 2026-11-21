@@ -11,9 +11,9 @@ from aegis.strategy.library import LibrarySnapshot
 from aegis.strategy.mean_reversion import evaluate as pool_signal
 from agent.tests.test_runtime import ReplayConnector, mark_pools_active
 from agent.tests.test_runtime import runtime as runtime
-from backend.aegis_bridge import collect_library
 from backend.data import fixture_market
 from backend.models import StrategyConfig, now
+from backend.operator.aegis_bridge import collect_library
 from backend.selection import SelectionConfig
 from backend.strategies import REGISTRY
 

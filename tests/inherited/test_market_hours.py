@@ -1,18 +1,9 @@
 import datetime
-import importlib.util
-import pathlib
 import unittest
 
 import pytz
 
-MODULE_PATH = pathlib.Path(__file__).resolve().parents[1] / "webui" / "utils" / "market_hours.py"
-SPEC = importlib.util.spec_from_file_location("market_hours_under_test", MODULE_PATH)
-market_hours = importlib.util.module_from_spec(SPEC)
-assert SPEC.loader is not None
-SPEC.loader.exec_module(market_hours)
-
-get_next_market_datetime = market_hours.get_next_market_datetime
-is_market_open = market_hours.is_market_open
+from tradingagents.market_hours import get_next_market_datetime, is_market_open
 
 
 class MarketHoursTests(unittest.TestCase):

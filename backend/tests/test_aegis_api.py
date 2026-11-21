@@ -9,7 +9,7 @@ import pytest
 from aegis.runtime import PaperRuntime
 from agent.tests.test_library import fresh_fixture
 from agent.tests.test_runtime import ReplayConnector
-from backend.api import create_app
+from backend.operator.api import create_app
 
 
 @pytest.fixture
@@ -328,21 +328,8 @@ async def test_verifier_failures_are_explained_not_http_500(
     assert result.json()["error"]["code"] == code
 
 
-def test_stale_bundle_is_detected_only_when_source_is_newer(tmp_path):
-    import os
-
-    from backend.api import source_newer_than_bundle
-
-    assert source_newer_than_bundle(tmp_path) is False
-    index = tmp_path / "frontend/dist/index.html"
-    source = tmp_path / "frontend/src/App.tsx"
-    index.parent.mkdir(parents=True)
-    index.write_text("built")
-    assert source_newer_than_bundle(tmp_path) is False, "An image without source is not stale"
-    source.parent.mkdir(parents=True)
-    source.write_text("code")
-    os.utime(index, (100, 100))
-    os.utime(source, (50, 50))
-    assert source_newer_than_bundle(tmp_path) is False
-    os.utime(source, (200, 200))
-    assert source_newer_than_bundle(tmp_path) is True
+async def test_operator_api_does_not_serve_a_website(client):
+    assert (await client.get("/", headers=H)).status_code == 404
+    unknown = await client.get("/api/unknown", headers=H)
+    assert unknown.status_code == 404
+    assert unknown.json()["error"]["code"] == "NOT_FOUND"

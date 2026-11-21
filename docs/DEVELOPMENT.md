@@ -2,7 +2,7 @@
 
 ## Run the app
 
-Use `make setup`, then `uv sync --frozen --extra platform`. Run PostgreSQL, the private product API, and the independent worker using the [container topology](#container-topology-and-recovery). Run the [authenticated gateway](#authenticated-product-api) separately with your Cognito configuration and the same private API signing key. Then run the frontend:
+Run `make setup` from the project root. Run PostgreSQL, the private product API, and the independent worker using the [container topology](#container-topology-and-recovery). Run the [authenticated gateway](#authenticated-product-api) separately with your Cognito configuration and the same private API signing key. Then run the frontend:
 
 ```bash
 make demo
@@ -12,70 +12,32 @@ Open [Krono](http://127.0.0.1:5173/). The Vite development proxy sends `/platfor
 
 ## Code map
 
-| Location                                | Responsibility                                              |
-| --------------------------------------- | ----------------------------------------------------------- |
-| `frontend/src/platform/Workspace.tsx`   | Unified authenticated shell, routing, and account provision |
-| `frontend/src/platform/`                | Product modules using one tenant gateway                    |
-| `backend/platform_product_api.py`       | Private authenticated product endpoints                     |
-| `backend/paper_execution.py`            | Shared PostgreSQL order gate and portfolio accounting       |
-| `backend/paper_worker.py`               | Durable leases, activation, periodic replay and order loop  |
-| `frontend/src/App.tsx`                  | Historical UI for development regression fixtures           |
-| `frontend/src/aegis/`                   | Shared state, conversation, market analysis and route types |
-| `backend/api.py`                        | Authenticated local HTTP boundary                           |
-| `backend/aegis_bridge.py`               | Original strategy rules/selector to typed HSKSwap inputs    |
-| `backend/engine.py`                     | Research LangGraph and simulation scheduler                 |
-| `backend/strategies.py`                 | Original five-strategy implementation                       |
-| `agent/aegis/service.py`, `runtime.py`  | Single-writer paper orchestration and recovery              |
-| `agent/aegis/connectors/`               | Verified V3 RPC, routes, quotes and paper fills             |
-| `agent/aegis/execution/`                | Paper gateway and separate guarded signing/reconciliation   |
-| `agent/aegis/nl/`                       | Validated tools, optional Claude and Telegram               |
-| `contracts/`                            | Vault/oracle/log, tests and deployment recorder             |
-| `backend/src/`, `infra/`, `deploy/aws/` | Cognito gateway, model access, and retained AWS tooling     |
-| `tradingagents/`, `webui/`, `cli/`      | Retained framework and legacy compatibility                 |
+| Location                                    | Responsibility                                                  |
+| ------------------------------------------- | --------------------------------------------------------------- |
+| `frontend/src/platform/`                    | Unified workspace, sign-in and product pages                    |
+| `frontend/src/styles/`                      | Shared typography, themes and shell layout                      |
+| `backend/gateway/`                          | Fastify, Cognito sessions, model requests and signed forwarding |
+| `backend/product/`                          | Private API, strategy versions, replay, paper ledger and worker |
+| `backend/migrations/`                       | Ordered PostgreSQL migrations with checksum verification        |
+| `backend/operator/`, `agent/`, `contracts/` | Standalone HashKey and historical research APIs and tools       |
+| `tests/e2e/`                                | Browser checks that open the Krono website                      |
+| `backend/tests/`, `tests/inherited/`        | Product, operator and inherited numerical tests                 |
+| `deploy/`, `infra/`                         | Container definitions and AWS infrastructure                    |
 
-[Generated source reference](SOURCE_REFERENCE.md) indexes actual API routes and symbols. Regenerate it with `.venv/bin/python -m scripts.generate_code_reference`; CI checks it with `--check`.
+[Generated source reference](SOURCE_REFERENCE.md) links routes and symbols. Regenerate it with `.venv/bin/python -m scripts.generate_code_reference`.
 
-## Configuration and storage
-
-`config/runtime.json` supplies validated terminal defaults. `.env.example` lists supported local environment settings. Saved, versioned provider settings take precedence after first startup; update them in Settings. `config/networks.yaml` holds chain-specific verified identities, decimals, ABIs and code pins. Do not replace only the RPC URL when changing networks.
-
-The terminal database defaults to `.runtime/terminal.sqlite3`; AEGIS uses `.runtime/aegis-paper.sqlite3`. Runtime data, credentials, journals, downloaded tools, dependencies and generated artifacts are ignored by Git. Keep the existing database when restarting to retain balances, fills, preferences and emergency state. Changing market sources after simulation fills requires a separate database.
-
-## Single source of truth for limits
-
-Do not copy a limit, asset list or network URL into a second place. Read it from its source:
-
-| Value                                                                                         | Source                                                                                            | Consumers                                                                                        |
-| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Guard caps (sizing, trades/hour/day, loss, drawdown, exposure, cooldown, stops, holding time) | `CAPS` in `agent/aegis/risk/policy.py`, checked against `GUARD_LIMITS` in `agent/aegis/deploy.py` | `entry_check`, circuit breaker, `AgentParams` ceilings, chat tool schema, `state.caps` in the UI |
-| Preference bounds                                                                             | `AgentParams` → `PARAM_BOUNDS`                                                                    | `state.param_bounds` → AEGIS settings form `min`/`max`                                           |
-| Supported assets, native strategies                                                           | `SUPPORTED_ASSETS`, `NATIVE_STRATEGIES`                                                           | runtime market filter, chat schema, `state.supported_assets` / `state.native_strategies`         |
-| Risk-appetite presets, mean-reversion thresholds                                              | `RISK_PRESETS`, `MEAN_REVERSION_Z`                                                                | deterministic router and LLM tool path alike                                                     |
-| Paper costs                                                                                   | `PaperTerms`                                                                                      | gateway, signals, `state.costs`                                                                  |
-| Explorer URL                                                                                  | `config/networks.yaml`                                                                            | `state.explorer`                                                                                 |
-| Krono risk bounds                                                                             | `RiskConfig` in `backend/models.py`                                                               | `risk.bounds` in `/api/risk` and `/api/dashboard` → risk form                                    |
-
-`agent/tests/test_single_source.py` and `backend/tests/test_api_backtest.py::test_risk_bounds_are_served_from_the_model` fail when a value drifts. Fix the source, not the test.
-
-## Debugging and checks
-
-Use [verification commands](VERIFICATION.md) and the [connection guide](CONNECTIONS.md). A running agent may legitimately produce only skips. Check data freshness, required history, reference/DEX gaps, target assets, fees, cooldowns and stop state in the Trading Desk and Observatory.
-
-`SIMULATION` and `PAPER` are separate ledgers. Browser polling reads cached state and cannot submit a trade. An uncertain public transaction must be reconciled through its existing journal; never infer a new submission is safe from a timeout.
-
-For the original manual simulation demo, intentionally choose fixture providers in Settings, Analyze BTC, inspect the recorded strategy/risk stages, review the quote and explicitly authorize the simulated fill. Fixture history and liquidity assumptions remain labeled. Restore Coinbase for the normal HSKSwap library adapter.
-
-## Optional legacy environment
-
-The retained Dash/Alpaca entry points use additional broker, model, embedding and UI packages. They are separate from the locked main app and have not been fully validated here. Their original dependency list is retained in [config/legacy-requirements.txt](../config/legacy-requirements.txt):
+## Local checks
 
 ```bash
-UV_CACHE_DIR="$PWD/.cache/uv" uv venv .venv-legacy --python 3.12
-UV_CACHE_DIR="$PWD/.cache/uv" uv pip install --python .venv-legacy/bin/python -r config/legacy-requirements.txt
-ALPACA_USE_PAPER=True .venv-legacy/bin/python run_webui_dash.py
+npm run build
+npm run test:platform
+npm run test:e2e
+.venv/bin/python -m pytest -q
 ```
 
-This optional install downloads the legacy dependency set. Review provider compatibility and supply credentials locally. Alpaca is never an HSKSwap fallback. Attribution and component licenses are retained in [third-party notices](../THIRD_PARTY_NOTICES.md).
+The browser runner opens the same frontend used in production. It uses loopback ports 5180 and 8793 and supports overrides through `KRONO_E2E_UI_PORT` and `KRONO_E2E_GATEWAY_PORT`. Set `KRONO_E2E_BUILD=1` after a build to test the production bundle. PostgreSQL integration tests require a disposable `KRONO_TEST_DATABASE_DSN`.
+
+Krono shares the reviewed trade limits from `agent/aegis/risk/policy.py`. The separate operator API exposes chain and historical research operations. Its network settings, controls and proof records are documented in the [HashKey operator guide](operator/AEGIS_FLOWS.md). The optional inherited CLI has its own [dependency list](../config/legacy-requirements.txt).
 
 ## Tenant PostgreSQL foundation
 
@@ -101,7 +63,7 @@ Set `KRONO_TEST_DATABASE_DSN` to a disposable PostgreSQL database with permissio
 After applying the migrations, run the private FastAPI process with the database connection and a random `KRONO_PRODUCT_API_KEY` of at least 32 bytes in its server environment:
 
 ```bash
-.venv/bin/python -m uvicorn backend.platform_product_api:app_from_environment --factory --host 127.0.0.1 --port 8794
+.venv/bin/python -m uvicorn backend.product.api:app_from_environment --factory --host 127.0.0.1 --port 8794
 ```
 
 Set the same key and `KRONO_PRODUCT_API_URL=http://127.0.0.1:8794` in the Fastify process environment, then start the existing `npm run dev:platform` with its Cognito and AWS settings. For a hosted environment use a private HTTPS origin. The gateway verifies Cognito and CSRF, then signs the subject, expiration, HTTP method, raw path and payload digest. Keep both the key and database DSN server-side. The product API remains separately configured from the local operator API and AEGIS.
@@ -120,10 +82,10 @@ Retrieve the saved report with `GET /platform/backtests/{id}` and add `?include_
 
 With the gateway configured, sign in and open **Strategies**, **Backtesting Lab**, or **Paper Trading** from the unified workspace. Strategies supports JSON editing, copies, revision comparison and archiving. Backtesting Lab takes a saved version and a range of four to fourteen complete UTC days. Its persisted report shows in-sample and holdout metrics, charts, fills, assumptions, and the dataset digest. Paper Trading displays the backend balance after automatic account provisioning.
 
-The isolated browser test uses the same PostgreSQL-backed service with fixture identities. For reproducible candle inputs, run the test-only `e2e.product_api:application` Uvicorn factory with `TERMINAL_TEST_RUN=1` against a migrated disposable database. Set `KRONO_E2E_PRODUCT_API_URL` and `KRONO_E2E_PRODUCT_API_KEY` in the shell to match the private API, and run:
+The isolated browser test uses the same PostgreSQL-backed service with fixture identities. For reproducible candle inputs, run the test-only `tests.e2e.product_api:application` Uvicorn factory with `TERMINAL_TEST_RUN=1` against a migrated disposable database. Set `KRONO_E2E_PRODUCT_API_URL` and `KRONO_E2E_PRODUCT_API_KEY` in the shell to match the private API, and run:
 
 ```bash
-npm run test:e2e -- e2e/platform-strategy.spec.ts
+npm run test:e2e -- tests/e2e/platform-strategy.spec.ts
 ```
 
 ### Paper execution
@@ -134,11 +96,11 @@ The order API accepts market orders and quantity-based limit orders with an epoc
 
 ### Autonomous Paper Agents
 
-Run `.venv/bin/python -m backend.paper_worker` as a separate process with the same `KRONO_DATABASE_DSN` as the private product API. PostgreSQL stores each agent's next evaluation time, lease, checkpoint and decision timeline. The worker claims due agents with row locks, fences expired claims, and commits each order, decision and checkpoint together. The same process checks pending manual limit orders every 15 seconds when due.
+Run `.venv/bin/python -m backend.product.worker` as a separate process with the same `KRONO_DATABASE_DSN` as the private product API. PostgreSQL stores each agent's next evaluation time, lease, checkpoint and decision timeline. The worker claims due agents with row locks, fences expired claims, and commits each order, decision and checkpoint together. The same process checks pending manual limit orders every 15 seconds when due.
 
 Choose a saved strategy in **AI Trading Agents** or use an existing report from **Backtesting Lab**. When starting from a saved version, the worker records a reproducible seven-day replay before activation. The same holdout and risk validation applies to both paths. Every seven days it checks the same version against a fresh, non-overlapping evaluation window and records the new report. A failed validation stops autonomous orders and leaves any position available for operator review and close. Agents evaluate strategy rules on each newly closed hourly candle and evaluate protective exits against fresh ticker observations. The browser polls the backend for display. Closing it or restarting the API does not affect scheduled jobs. Pause, stop and account reset invalidate any outstanding claim. Pause and stop leave existing positions in the ledger, and reset closes the account epoch.
 
-The restarted worker resumes from the existing checkpoint. An interrupted claim can take up to 60 seconds to expire. Source failures retry with bounded exponential delay. Stopped and failed agents retain their order and decision history. Validate process recovery with `e2e/paper-autonomy.spec.ts` against a disposable database. The test launches and restarts its own product API and accelerated worker when `KRONO_E2E_AUTONOMY=1`, using the existing product API key and URL test settings.
+The restarted worker resumes from the existing checkpoint. An interrupted claim can take up to 60 seconds to expire. Source failures retry with bounded exponential delay. Stopped and failed agents retain their order and decision history. Validate process recovery with `tests/e2e/paper-autonomy.spec.ts` against a disposable database. The test launches and restarts its own product API and accelerated worker when `KRONO_E2E_AUTONOMY=1`, using the existing product API key and URL test settings.
 
 Open **Custom Strategy Builder** and paste an objective in **Strategy chat**. Each follow-up can revise the last validated draft. Use **Edit strategy** to open the visual builder or switch to structured JSON. Templates, manual edits and model drafts use the same hourly strategy schema.
 

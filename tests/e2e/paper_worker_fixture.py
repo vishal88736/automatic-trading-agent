@@ -6,9 +6,9 @@ import time
 from datetime import datetime, timedelta, timezone
 from threading import Event
 
-from backend.paper_worker import PaperWorker, service
-from backend.platform_db import DSN_ENV
-from e2e.product_api import history, quotes
+from backend.product.database import DSN_ENV
+from backend.product.worker import PaperWorker, service
+from tests.e2e.product_api import history, quotes
 
 
 def main():

@@ -8,7 +8,7 @@ import pytest
 from backend.data import Providers
 from backend.engine import Engine
 from backend.models import RunRequest
-from backend.research_brief import build_brief
+from backend.operator.research_brief import build_brief
 from backend.storage import Store
 
 

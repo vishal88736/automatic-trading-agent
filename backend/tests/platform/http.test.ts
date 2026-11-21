@@ -1,12 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
-import { createPlatform } from "../../src/server.js";
+import { createPlatform } from "../../gateway/server.js";
 import {
   DynamoTenantStore,
   MemoryTenantStore,
-} from "../../src/storage/tenant-store.js";
-import { ProfileService } from "../../src/profiles/profile.service.js";
+} from "../../gateway/storage/tenant-store.js";
+import { ProfileService } from "../../gateway/profiles/profile.service.js";
 import { config, alice, FixtureRuntime } from "./helpers.js";
 
 test("Malformed HTTP requests return safe 400/413 errors and unknown routes use the typed error envelope", async () => {

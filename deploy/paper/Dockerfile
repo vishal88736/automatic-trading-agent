@@ -9,7 +9,6 @@ RUN uv sync --frozen --extra platform --no-dev --no-cache
 COPY backend backend
 COPY tradingagents tradingagents
 COPY config config
-COPY migrations migrations
 COPY scripts/platform_database.py scripts/platform_database.py
 USER 10001:10001
-CMD ["python", "-m", "uvicorn", "backend.platform_product_api:app_from_environment", "--factory", "--host", "0.0.0.0", "--port", "8794"]
+CMD ["python", "-m", "uvicorn", "backend.product.api:app_from_environment", "--factory", "--host", "0.0.0.0", "--port", "8794"]

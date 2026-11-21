@@ -83,36 +83,6 @@
   color: var(--accent);
   background: var(--accent-bg);
 }
-
-.rail-shell .discovery-intro {
-  isolation: isolate;
-  border: 1px solid var(--border);
-  background: var(--panel);
-}
-.rail-shell .discovery-intro::before {
-  z-index: -1;
-  background:
-    radial-gradient(
-      ellipse at 82% 20%,
-      color-mix(in srgb, var(--sapphire-steel) 28%, transparent),
-      transparent 67%
-    ),
-    radial-gradient(
-        circle,
-        color-mix(in srgb, var(--sapphire-steel) 27%, transparent) 0.7px,
-        transparent 1px
-      )
-      0 0 / 15px 15px;
-  mask-image: linear-gradient(to bottom, black, transparent 92%);
-}
-.rail-shell .discovery-intro h1 {
-  font-size: clamp(32px, 4.3vw, 64px);
-  line-height: 1.05;
-  letter-spacing: -0.055em;
-}
-.rail-shell .hero-art img {
-  filter: sepia(0.64) saturate(1.35);
-}
 @media (max-width: 390px) {
   .theme-toggle {
     width: 34px;

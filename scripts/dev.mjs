@@ -15,32 +15,20 @@ if (
   );
 if (!testnet && args.length)
   throw new Error("Unknown development launcher arguments.");
-const fixtures = process.env.TERMINAL_TEST_RUN === "1";
 const python = ".venv/bin/python";
-if ((fixtures || testnet) && !existsSync(python))
+if (testnet && !existsSync(python))
   throw new Error("Run uv sync --python 3.12 first.");
-const backend =
-  fixtures || testnet
-    ? spawn(
-        python,
-        testnet
-          ? [
-              "-m",
-              "scripts.testnet_server",
-              ...args.filter((arg) => arg !== "--testnet"),
-            ]
-          : [
-              "-m",
-              "uvicorn",
-              "e2e.aegis_server:app",
-              "--host",
-              "127.0.0.1",
-              "--port",
-              process.env.TERMINAL_PORT ?? "8787",
-            ],
-        { stdio: "inherit", env: process.env },
-      )
-    : undefined;
+const backend = testnet
+  ? spawn(
+      python,
+      [
+        "-m",
+        "scripts.testnet_server",
+        ...args.filter((arg) => arg !== "--testnet"),
+      ],
+      { stdio: "inherit", env: process.env },
+    )
+  : undefined;
 const frontend = testnet
   ? undefined
   : spawn(

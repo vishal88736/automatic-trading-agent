@@ -1,9 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MemoryTenantStore } from "../../src/storage/tenant-store.js";
-import { ProfileService } from "../../src/profiles/profile.service.js";
-import { AgentService, digest } from "../../src/agents/agent.service.js";
-import { agentTemplate } from "../../src/runtime/agent-template.js";
+import { MemoryTenantStore } from "../../gateway/storage/tenant-store.js";
+import { ProfileService } from "../../gateway/profiles/profile.service.js";
+import { AgentService, digest } from "../../gateway/agents/agent.service.js";
+import { agentTemplate } from "../../gateway/runtime/agent-template.js";
 import { alice, bob, config, spec, FixtureRuntime } from "./helpers.js";
 test("Deployment requires a current digest; observed health controls state, configurations remain immutable", async () => {
   assert.equal(

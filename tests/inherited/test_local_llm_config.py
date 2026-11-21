@@ -3,7 +3,7 @@ import pathlib
 import importlib.util
 import unittest
 
-MODULE_PATH = pathlib.Path(__file__).resolve().parents[1] / "tradingagents" / "dataflows" / "config.py"
+MODULE_PATH = pathlib.Path(__file__).resolve().parents[2] / "tradingagents" / "dataflows" / "config.py"
 SPEC = importlib.util.spec_from_file_location("config_under_test", MODULE_PATH)
 config_module = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None

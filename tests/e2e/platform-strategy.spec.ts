@@ -12,7 +12,7 @@ async function signIn(page: Page, user: "alice" | "bob") {
 test("Fund, version, backtest, and isolate a tenant strategy", async ({
   page,
 }) => {
-  await page.goto("/workspace#/paper");
+  await page.goto("/#/paper");
   await signIn(page, "alice");
   await expect(
     page.getByRole("heading", { name: "Paper Trading" }),

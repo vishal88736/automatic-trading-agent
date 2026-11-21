@@ -472,7 +472,7 @@ class TradingAgentsGraph:
                 final_state["final_trade_decision"]
             )
             try:
-                from webui.utils.state import app_state
+                from tradingagents.telemetry.state import app_state
 
                 symbol_state = app_state.get_state(company_name) or {}
                 filtered_tool_calls = [

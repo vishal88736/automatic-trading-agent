@@ -11,8 +11,8 @@ from aegis.risk.policy import ALL_STRATEGIES
 from agent.tests.test_library import fresh_fixture, library_snapshot, start
 from agent.tests.test_runtime import runtime as runtime
 from agent.tests.test_runtime import seed_entry
-from backend.aegis_bridge import collect_library
 from backend.models import StrategyConfig, now
+from backend.operator.aegis_bridge import collect_library
 from backend.selection import SelectionConfig
 
 

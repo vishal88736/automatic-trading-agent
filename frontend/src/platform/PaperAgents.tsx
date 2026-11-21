@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { money, timestamp } from "../ui";
 import { platform } from "./client";
-import { legacyFixture, workspaceHref } from "./navigation";
+import { workspaceHref } from "./navigation";
 import { PaperAgentFields, paperAgentSettings } from "./PaperAgentFields";
 
 type AgentStatus = "RUNNING" | "PAUSED" | "STOPPED" | "FAILED";
@@ -79,14 +79,12 @@ export default function PaperAgents() {
   const params = new URLSearchParams(location.hash.split("?")[1] ?? "");
   const report = params.get("report") ?? "";
   const requestedAgent = params.get("agent");
-  const [source, setSource] = useState(
-    report || legacyFixture ? "report" : "strategy",
-  );
+  const [source, setSource] = useState(report ? "report" : "strategy");
   const [strategies, setStrategies] = useState<StrategyOption[]>([]);
   const [strategyError, setStrategyError] = useState("");
 
   useEffect(() => {
-    if (legacyFixture || source !== "strategy") return;
+    if (source !== "strategy") return;
     let active = true;
     async function loadStrategies() {
       try {
@@ -266,18 +264,16 @@ export default function PaperAgents() {
         )}
         <form onSubmit={start}>
           <div className="platform-backtest-fields">
-            {!legacyFixture && (
-              <label>
-                Validation source
-                <select
-                  value={source}
-                  onChange={(event) => setSource(event.target.value)}
-                >
-                  <option value="strategy">Backtest a saved strategy</option>
-                  <option value="report">Use a saved backtest report</option>
-                </select>
-              </label>
-            )}
+            <label>
+              Validation source
+              <select
+                value={source}
+                onChange={(event) => setSource(event.target.value)}
+              >
+                <option value="strategy">Backtest a saved strategy</option>
+                <option value="report">Use a saved backtest report</option>
+              </select>
+            </label>
             {source === "report" ? (
               <label>
                 Backtest report ID

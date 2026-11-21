@@ -5,11 +5,11 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from backend.analytics import aggregate, chart_indicators
-from backend.api import create_app
 from backend.data import fixture_market
 from backend.desk import AlertRequest, PriceAlerts, sizing_preview
 from backend.models import Candle, RiskConfig, now
+from backend.operator.analytics import aggregate, chart_indicators
+from backend.operator.api import create_app
 from backend.storage import Store
 from backend.strategies import indicators
 from backend.tests.test_strategy_risk import portfolio

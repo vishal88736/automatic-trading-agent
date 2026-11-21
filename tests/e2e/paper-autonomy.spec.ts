@@ -13,7 +13,7 @@ const python = ".venv/bin/python";
 const readState = `
 import json, os, sys
 from uuid import UUID
-from backend.platform_db import DSN_ENV, open_database
+from backend.product.database import DSN_ENV, open_database
 from psycopg.rows import dict_row
 with open_database(os.environ[DSN_ENV]) as db, db.cursor(row_factory=dict_row) as c:
     ident = UUID(sys.argv[1])
@@ -73,7 +73,7 @@ test("paper agent continues without a browser and survives API and worker restar
     const child = launch([
       "-m",
       "uvicorn",
-      "e2e.product_api:application",
+      "tests.e2e.product_api:application",
       "--factory",
       "--host",
       "127.0.0.1",
@@ -97,7 +97,7 @@ test("paper agent continues without a browser and survives API and worker restar
   async function browserSession() {
     const context = await browser.newContext({ baseURL });
     const page = await context.newPage();
-    await page.goto("/workspace#/strategies");
+    await page.goto("/#/strategies");
     await page.getByLabel("Email", { exact: true }).fill("alice@fixture.test");
     await page.getByLabel("Password", { exact: true }).fill("fixture");
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
@@ -109,7 +109,7 @@ test("paper agent continues without a browser and survives API and worker restar
 
   try {
     let service = await api();
-    let worker = launch(["-m", "e2e.paper_worker_fixture"]);
+    let worker = launch(["-m", "tests.e2e.paper_worker_fixture"]);
     const { page, context } = await browserSession();
     const nav = page.getByRole("navigation", { name: "Main navigation" });
     await expect(
@@ -134,7 +134,7 @@ test("paper agent continues without a browser and survives API and worker restar
     await expect(
       page.getByRole("heading", { name: "Order history" }),
     ).toBeVisible();
-    await page.goto("/workspace#/aegis/markets");
+    await page.goto("/#/aegis/markets");
     await expect(page).toHaveURL(/#\/markets$/);
     await page
       .getByRole("button", { name: "Generate insight for BTC" })
@@ -218,7 +218,7 @@ test("paper agent continues without a browser and survives API and worker restar
 
     const beforeCrash = await state(id);
     await stop(worker, "SIGKILL");
-    worker = launch(["-m", "e2e.paper_worker_fixture"]);
+    worker = launch(["-m", "tests.e2e.paper_worker_fixture"]);
     await expect
       .poll(async () => (await state(id)).decisions, { timeout: 22000 })
       .toBeGreaterThan(beforeCrash.decisions);

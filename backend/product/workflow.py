@@ -5,7 +5,7 @@ from typing import TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
-from backend.paper_execution import PaperTerms
+from backend.product.execution import PaperTerms
 
 
 class Activation(TypedDict, total=False):

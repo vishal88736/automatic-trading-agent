@@ -14,7 +14,7 @@ from pydantic import AwareDatetime, Field, model_validator
 
 from aegis.risk.policy import CAPS as REVIEWED_TRADE_CAPS
 from backend.models import Model, RiskConfig, now
-from backend.paper_accounts import PaperAccount, get_account
+from backend.product.accounts import PaperAccount, get_account
 
 Asset = Literal["BTC", "ETH", "SOL"]
 Quantity = Annotated[Decimal, Field(gt=0, le=1000000, decimal_places=12)]

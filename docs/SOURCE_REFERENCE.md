@@ -4,224 +4,147 @@ Generated from the active source. Regenerate with `.venv/bin/python -m scripts.g
 
 This tool reads source only. It does not load environment files, databases, AWS credentials, models or providers. [Development](DEVELOPMENT.md) explains the module layout; this index supplies exact code locations.
 
-## Local HTTP routes
+## Product HTTP routes
 
-Use the local session/CSRF client or configured bearer authentication. Health/readiness/session/schema routes have their documented local exceptions. `/api/*` is separate from cloud `/platform/*`.
+- `GET /healthz` → [health](../backend/product/api.py#L145)
+- `GET /platform/paper-account` → [paper_account](../backend/product/api.py#L248)
+- `POST /platform/paper-account` → [provision_paper_account](../backend/product/api.py#L252)
+- `GET /platform/paper-portfolio` → [paper_portfolio](../backend/product/api.py#L274)
+- `GET /platform/paper-orders` → [paper_order_history](../backend/product/api.py#L278)
+- `POST /platform/paper-orders` → [paper_order_submit](../backend/product/api.py#L287)
+- `POST /platform/paper-orders/{order_id}/cancel` → [paper_order_cancel](../backend/product/api.py#L292)
+- `POST /platform/paper-orders/{order_id}/evaluate` → [paper_order_evaluate](../backend/product/api.py#L299)
+- `POST /platform/paper-account/reset` → [paper_reset](../backend/product/api.py#L309)
+- `PUT /platform/paper-account/emergency` → [paper_emergency](../backend/product/api.py#L313)
+- `GET /platform/paper-agents` → [paper_agent_list](../backend/product/api.py#L317)
+- `POST /platform/paper-agents` → [paper_agent_start](../backend/product/api.py#L321)
+- `POST /platform/paper-agents/{agent_id}/control` → [paper_agent_control](../backend/product/api.py#L331)
+- `POST /platform/paper-agents/{agent_id}/close-position` → [paper_agent_close](../backend/product/api.py#L342)
+- `GET /platform/paper-agents/{agent_id}/events` → [paper_agent_timeline](../backend/product/api.py#L357)
+- `GET /platform/paper-agents/{agent_id}/stream` → [paper_agent_stream](../backend/product/api.py#L366)
+- `GET /platform/paper-market/{asset}` → [paper_market](../backend/product/api.py#L395)
+- `GET /platform/paper-news` → [paper_news](../backend/product/api.py#L406)
+- `GET /platform/paper-watchlist` → [paper_watchlist](../backend/product/api.py#L423)
+- `PUT /platform/paper-watchlist/{asset}` → [paper_watch](../backend/product/api.py#L431)
+- `GET /platform/strategy-authoring` → [strategy_authoring](../backend/product/api.py#L446)
+- `POST /platform/strategy-authoring/validate` → [validate_draft](../backend/product/api.py#L450)
+- `POST /platform/strategy-authoring/start-agent` → [start_agent_from_draft](../backend/product/api.py#L454)
+- `GET /platform/custom-strategies` → [strategies](../backend/product/api.py#L462)
+- `POST /platform/custom-strategies` → [new_strategy](../backend/product/api.py#L471)
+- `GET /platform/custom-strategies/{strategy_id}` → [strategy](../backend/product/api.py#L476)
+- `PUT /platform/custom-strategies/{strategy_id}` → [edit_strategy](../backend/product/api.py#L488)
+- `POST /platform/custom-strategies/{strategy_id}/archive` → [remove_strategy](../backend/product/api.py#L494)
+- `GET /platform/custom-strategies/{strategy_id}/versions` → [versions](../backend/product/api.py#L500)
+- `POST /platform/custom-strategies/{strategy_id}/backtests` → [create_backtest](../backend/product/api.py#L514)
+- `GET /platform/backtests/{run_id}` → [backtest_report](../backend/product/api.py#L531)
 
-- `GET /api/aegis/state` → [aegis_state](../backend/api.py#L450)
-- `GET /api/aegis/market-details` → [aegis_market_details](../backend/api.py#L465)
-- `GET /api/aegis/vault` → [aegis_vault](../backend/api.py#L471)
-- `POST /api/aegis/vault/prepare` → [aegis_owner_prepare](../backend/api.py#L477)
-- `POST /api/aegis/vault/receipt` → [aegis_owner_receipt](../backend/api.py#L490)
-- `POST /api/aegis/verify` → [aegis_verify](../backend/api.py#L496)
-- `POST /api/aegis/check` → [aegis_check](../backend/api.py#L533)
-- `PUT /api/aegis/settings` → [aegis_settings](../backend/api.py#L537)
-- `POST /api/aegis/settings/confirm` → [aegis_settings_confirm](../backend/api.py#L544)
-- `POST /api/aegis/settings/rollback` → [aegis_settings_rollback](../backend/api.py#L554)
-- `GET /api/selection` → [selection_config](../backend/api.py#L560)
-- `PUT /api/selection` → [update_selection](../backend/api.py#L565)
-- `POST /api/aegis/control` → [aegis_control](../backend/api.py#L573)
-- `GET /api/aegis/sessions` → [aegis_sessions](../backend/api.py#L582)
-- `GET /api/aegis/sessions/{session_id}` → [aegis_session](../backend/api.py#L586)
-- `POST /api/aegis/chat` → [aegis_chat](../backend/api.py#L595)
-- `POST /api/session` → [session](../backend/api.py#L601)
-- `GET /api/health` → [health](../backend/api.py#L640)
-- `GET /api/ready` → [ready](../backend/api.py#L644)
-- `GET /api/status` → [status](../backend/api.py#L682)
-- `GET /api/dashboard` → [dashboard](../backend/api.py#L725)
-- `GET /api/markets` → [markets](../backend/api.py#L748)
-- `GET /api/correlations` → [correlation_data](../backend/api.py#L752)
-- `GET /api/markets/{symbol}` → [market](../backend/api.py#L757)
-- `GET /api/desk/budget/{symbol}` → [desk_budget](../backend/api.py#L772)
-- `GET /api/alerts` → [alerts](../backend/api.py#L777)
-- `POST /api/alerts` → [create_alert](../backend/api.py#L781)
-- `DELETE /api/alerts/{alert_id}` → [delete_alert](../backend/api.py#L786)
-- `GET /api/news` → [news](../backend/api.py#L790)
-- `POST /api/news/refresh` → [refresh_news](../backend/api.py#L811)
-- `GET /api/news/{article_id}` → [article](../backend/api.py#L815)
-- `GET /api/strategies` → [strategies](../backend/api.py#L836)
-- `PUT /api/strategies/{strategy_id}` → [strategy_config](../backend/api.py#L853)
-- `POST /api/runs` → [run](../backend/api.py#L860)
-- `GET /api/runs/{run_id}` → [run_detail](../backend/api.py#L864)
-- `GET /api/runs/{run_id}/brief` → [run_brief](../backend/api.py#L871)
-- `GET /api/risk` → [risk](../backend/api.py#L878)
-- `PUT /api/risk` → [risk_config](../backend/api.py#L888)
-- `GET /api/portfolio` → [portfolio](../backend/api.py#L895)
-- `POST /api/positions/{symbol}/exit-preview` → [exit_preview](../backend/api.py#L900)
-- `GET /api/history/{kind}` → [history](../backend/api.py#L946)
-- `GET /api/trades` → [trades](../backend/api.py#L955)
-- `GET /api/trades/{workspace}/{trade_id}` → [trade_detail](../backend/api.py#L965)
-- `POST /api/execution/preview` → [preview](../backend/api.py#L973)
-- `POST /api/execution/authorize` → [authorize](../backend/api.py#L981)
-- `POST /api/execution/{intent_id}/reconcile` → [reconcile](../backend/api.py#L985)
-- `POST /api/agent/control` → [control](../backend/api.py#L989)
-- `POST /api/emergency-stop` → [emergency_stop](../backend/api.py#L993)
-- `POST /api/backtests` → [backtests](../backend/api.py#L1000)
-- `PUT /api/settings/providers` → [provider_settings](../backend/api.py#L1004)
-- `GET /api/settings/news-scoring` → [news_scoring](../backend/api.py#L1020)
-- `GET /api/settings/provider-refresh` → [provider_refresh](../backend/api.py#L1029)
-- `PUT /api/settings/provider-refresh` → [change_provider_refresh](../backend/api.py#L1034)
-- `PUT /api/settings/news-scoring` → [change_news_scoring](../backend/api.py#L1042)
-- `GET /api/wallet/{address}` → [wallet](../backend/api.py#L1049)
-- `POST /api/chat` → [chat](../backend/api.py#L1058)
-- `GET /{path:path}` → [frontend](../backend/api.py#L1352)
+## Operator HTTP routes
 
-## Cloud HTTP routes
+- `GET /api/aegis/state` → [aegis_state](../backend/operator/api.py#L432)
+- `GET /api/aegis/market-details` → [aegis_market_details](../backend/operator/api.py#L447)
+- `GET /api/aegis/vault` → [aegis_vault](../backend/operator/api.py#L453)
+- `POST /api/aegis/vault/prepare` → [aegis_owner_prepare](../backend/operator/api.py#L459)
+- `POST /api/aegis/vault/receipt` → [aegis_owner_receipt](../backend/operator/api.py#L472)
+- `POST /api/aegis/verify` → [aegis_verify](../backend/operator/api.py#L478)
+- `POST /api/aegis/check` → [aegis_check](../backend/operator/api.py#L515)
+- `PUT /api/aegis/settings` → [aegis_settings](../backend/operator/api.py#L519)
+- `POST /api/aegis/settings/confirm` → [aegis_settings_confirm](../backend/operator/api.py#L526)
+- `POST /api/aegis/settings/rollback` → [aegis_settings_rollback](../backend/operator/api.py#L536)
+- `GET /api/selection` → [selection_config](../backend/operator/api.py#L542)
+- `PUT /api/selection` → [update_selection](../backend/operator/api.py#L547)
+- `POST /api/aegis/control` → [aegis_control](../backend/operator/api.py#L555)
+- `GET /api/aegis/sessions` → [aegis_sessions](../backend/operator/api.py#L564)
+- `GET /api/aegis/sessions/{session_id}` → [aegis_session](../backend/operator/api.py#L568)
+- `POST /api/aegis/chat` → [aegis_chat](../backend/operator/api.py#L577)
+- `POST /api/session` → [session](../backend/operator/api.py#L583)
+- `GET /api/health` → [health](../backend/operator/api.py#L622)
+- `GET /api/ready` → [ready](../backend/operator/api.py#L626)
+- `GET /api/status` → [status](../backend/operator/api.py#L664)
+- `GET /api/dashboard` → [dashboard](../backend/operator/api.py#L707)
+- `GET /api/markets` → [markets](../backend/operator/api.py#L730)
+- `GET /api/correlations` → [correlation_data](../backend/operator/api.py#L734)
+- `GET /api/markets/{symbol}` → [market](../backend/operator/api.py#L739)
+- `GET /api/desk/budget/{symbol}` → [desk_budget](../backend/operator/api.py#L754)
+- `GET /api/alerts` → [alerts](../backend/operator/api.py#L759)
+- `POST /api/alerts` → [create_alert](../backend/operator/api.py#L763)
+- `DELETE /api/alerts/{alert_id}` → [delete_alert](../backend/operator/api.py#L768)
+- `GET /api/news` → [news](../backend/operator/api.py#L772)
+- `POST /api/news/refresh` → [refresh_news](../backend/operator/api.py#L793)
+- `GET /api/news/{article_id}` → [article](../backend/operator/api.py#L797)
+- `GET /api/strategies` → [strategies](../backend/operator/api.py#L818)
+- `PUT /api/strategies/{strategy_id}` → [strategy_config](../backend/operator/api.py#L835)
+- `POST /api/runs` → [run](../backend/operator/api.py#L842)
+- `GET /api/runs/{run_id}` → [run_detail](../backend/operator/api.py#L846)
+- `GET /api/runs/{run_id}/brief` → [run_brief](../backend/operator/api.py#L853)
+- `GET /api/risk` → [risk](../backend/operator/api.py#L860)
+- `PUT /api/risk` → [risk_config](../backend/operator/api.py#L870)
+- `GET /api/portfolio` → [portfolio](../backend/operator/api.py#L877)
+- `POST /api/positions/{symbol}/exit-preview` → [exit_preview](../backend/operator/api.py#L882)
+- `GET /api/history/{kind}` → [history](../backend/operator/api.py#L928)
+- `GET /api/trades` → [trades](../backend/operator/api.py#L937)
+- `GET /api/trades/{workspace}/{trade_id}` → [trade_detail](../backend/operator/api.py#L947)
+- `POST /api/execution/preview` → [preview](../backend/operator/api.py#L955)
+- `POST /api/execution/authorize` → [authorize](../backend/operator/api.py#L963)
+- `POST /api/execution/{intent_id}/reconcile` → [reconcile](../backend/operator/api.py#L967)
+- `POST /api/agent/control` → [control](../backend/operator/api.py#L971)
+- `POST /api/emergency-stop` → [emergency_stop](../backend/operator/api.py#L975)
+- `POST /api/backtests` → [backtests](../backend/operator/api.py#L982)
+- `PUT /api/settings/providers` → [provider_settings](../backend/operator/api.py#L986)
+- `GET /api/settings/news-scoring` → [news_scoring](../backend/operator/api.py#L1002)
+- `GET /api/settings/provider-refresh` → [provider_refresh](../backend/operator/api.py#L1011)
+- `PUT /api/settings/provider-refresh` → [change_provider_refresh](../backend/operator/api.py#L1016)
+- `PUT /api/settings/news-scoring` → [change_news_scoring](../backend/operator/api.py#L1024)
+- `GET /api/wallet/{address}` → [wallet](../backend/operator/api.py#L1031)
+- `POST /api/chat` → [chat](../backend/operator/api.py#L1040)
+- `GET /api/{path:path}` → [unknown_api](../backend/operator/api.py#L1334)
+
+## Gateway HTTP routes
 
 Cognito access-token identity and tenant-aware repositories protect application resources. Authentication endpoints establish or clear sessions; `/platform/health` is public and does not attest AWS account availability.
 
-- `GET /platform/health` → [server.ts:253](../backend/src/server.ts#L253)
-- `GET /platform/ready` → [server.ts:265](../backend/src/server.ts#L265)
-- `GET /platform/emergency` → [server.ts:273](../backend/src/server.ts#L273)
-- `POST /platform/emergency-stop` → [server.ts:281](../backend/src/server.ts#L281)
-- `POST /platform/emergency-clear` → [server.ts:284](../backend/src/server.ts#L284)
-- `GET /platform/profile` → [server.ts:324](../backend/src/server.ts#L324)
-- `POST /platform/profile/preview` → [server.ts:326](../backend/src/server.ts#L326)
-- `GET /platform/agents` → [server.ts:343](../backend/src/server.ts#L343)
-- `GET /platform/portfolio` → [server.ts:347](../backend/src/server.ts#L347)
-- `POST /platform/agents` → [server.ts:348](../backend/src/server.ts#L348)
-- `GET /platform/agent-templates` → [server.ts:349](../backend/src/server.ts#L349)
-- `POST /platform/agent-templates/:id/instantiate` → [server.ts:352](../backend/src/server.ts#L352)
-- `GET /platform/agents/:id` → [server.ts:360](../backend/src/server.ts#L360)
-- `GET /platform/agents/:id/preview` → [server.ts:363](../backend/src/server.ts#L363)
-- `POST /platform/agents/:id/deploy` → [server.ts:366](../backend/src/server.ts#L366)
-- `POST /platform/agents/:id/configuration/preview` → [server.ts:369](../backend/src/server.ts#L369)
-- `POST /platform/agents/:id/rollback/preview` → [server.ts:391](../backend/src/server.ts#L391)
-- `POST /platform/agents/:id/control` → [server.ts:413](../backend/src/server.ts#L413)
-- `GET /platform/agents/:id/events` → [server.ts:437](../backend/src/server.ts#L437)
-- `GET /platform/agents/:id/logs` → [server.ts:442](../backend/src/server.ts#L442)
-- `GET /platform/agents/:id/metrics` → [server.ts:447](../backend/src/server.ts#L447)
-- `GET /platform/agents/:id/versions` → [server.ts:456](../backend/src/server.ts#L456)
-- `POST /platform/conversations` → [server.ts:462](../backend/src/server.ts#L462)
-- `GET /platform/conversations` → [server.ts:465](../backend/src/server.ts#L465)
-- `GET /platform/conversations/:id/messages` → [server.ts:469](../backend/src/server.ts#L469)
-- `POST /platform/conversations/:id/messages` → [server.ts:475](../backend/src/server.ts#L475)
-- `GET /platform/conversations/:id/requests/:requestId` → [server.ts:484](../backend/src/server.ts#L484)
-- `POST /platform/actions/:id/approve` → [server.ts:494](../backend/src/server.ts#L494)
-- `GET /platform/history/:kind` → [server.ts:504](../backend/src/server.ts#L504)
-- `GET /platform/strategies` → [server.ts:519](../backend/src/server.ts#L519)
-- `POST /platform/auth/register` → [cognito.ts:112](../backend/src/auth/cognito.ts#L112)
-- `POST /platform/auth/verify` → [cognito.ts:133](../backend/src/auth/cognito.ts#L133)
-- `POST /platform/auth/login` → [cognito.ts:144](../backend/src/auth/cognito.ts#L144)
-- `POST /platform/auth/refresh` → [cognito.ts:158](../backend/src/auth/cognito.ts#L158)
-- `POST /platform/auth/forgot` → [cognito.ts:171](../backend/src/auth/cognito.ts#L171)
-- `POST /platform/auth/reset` → [cognito.ts:183](../backend/src/auth/cognito.ts#L183)
-- `POST /platform/auth/logout` → [cognito.ts:195](../backend/src/auth/cognito.ts#L195)
-- `GET /platform/auth/session` → [cognito.ts:219](../backend/src/auth/cognito.ts#L219)
+- `GET /platform/health` → [server.ts:253](../backend/gateway/server.ts#L253)
+- `GET /platform/ready` → [server.ts:265](../backend/gateway/server.ts#L265)
+- `GET /platform/emergency` → [server.ts:273](../backend/gateway/server.ts#L273)
+- `POST /platform/emergency-stop` → [server.ts:281](../backend/gateway/server.ts#L281)
+- `POST /platform/emergency-clear` → [server.ts:284](../backend/gateway/server.ts#L284)
+- `GET /platform/profile` → [server.ts:324](../backend/gateway/server.ts#L324)
+- `POST /platform/profile/preview` → [server.ts:326](../backend/gateway/server.ts#L326)
+- `GET /platform/agents` → [server.ts:343](../backend/gateway/server.ts#L343)
+- `GET /platform/portfolio` → [server.ts:347](../backend/gateway/server.ts#L347)
+- `POST /platform/agents` → [server.ts:348](../backend/gateway/server.ts#L348)
+- `GET /platform/agent-templates` → [server.ts:349](../backend/gateway/server.ts#L349)
+- `POST /platform/agent-templates/:id/instantiate` → [server.ts:352](../backend/gateway/server.ts#L352)
+- `GET /platform/agents/:id` → [server.ts:360](../backend/gateway/server.ts#L360)
+- `GET /platform/agents/:id/preview` → [server.ts:363](../backend/gateway/server.ts#L363)
+- `POST /platform/agents/:id/deploy` → [server.ts:366](../backend/gateway/server.ts#L366)
+- `POST /platform/agents/:id/configuration/preview` → [server.ts:369](../backend/gateway/server.ts#L369)
+- `POST /platform/agents/:id/rollback/preview` → [server.ts:391](../backend/gateway/server.ts#L391)
+- `POST /platform/agents/:id/control` → [server.ts:413](../backend/gateway/server.ts#L413)
+- `GET /platform/agents/:id/events` → [server.ts:437](../backend/gateway/server.ts#L437)
+- `GET /platform/agents/:id/logs` → [server.ts:442](../backend/gateway/server.ts#L442)
+- `GET /platform/agents/:id/metrics` → [server.ts:447](../backend/gateway/server.ts#L447)
+- `GET /platform/agents/:id/versions` → [server.ts:456](../backend/gateway/server.ts#L456)
+- `POST /platform/conversations` → [server.ts:462](../backend/gateway/server.ts#L462)
+- `GET /platform/conversations` → [server.ts:465](../backend/gateway/server.ts#L465)
+- `GET /platform/conversations/:id/messages` → [server.ts:469](../backend/gateway/server.ts#L469)
+- `POST /platform/conversations/:id/messages` → [server.ts:475](../backend/gateway/server.ts#L475)
+- `GET /platform/conversations/:id/requests/:requestId` → [server.ts:484](../backend/gateway/server.ts#L484)
+- `POST /platform/actions/:id/approve` → [server.ts:494](../backend/gateway/server.ts#L494)
+- `GET /platform/history/:kind` → [server.ts:504](../backend/gateway/server.ts#L504)
+- `GET /platform/strategies` → [server.ts:519](../backend/gateway/server.ts#L519)
+- `POST /platform/auth/register` → [cognito.ts:112](../backend/gateway/auth/cognito.ts#L112)
+- `POST /platform/auth/verify` → [cognito.ts:133](../backend/gateway/auth/cognito.ts#L133)
+- `POST /platform/auth/login` → [cognito.ts:144](../backend/gateway/auth/cognito.ts#L144)
+- `POST /platform/auth/refresh` → [cognito.ts:158](../backend/gateway/auth/cognito.ts#L158)
+- `POST /platform/auth/forgot` → [cognito.ts:171](../backend/gateway/auth/cognito.ts#L171)
+- `POST /platform/auth/reset` → [cognito.ts:183](../backend/gateway/auth/cognito.ts#L183)
+- `POST /platform/auth/logout` → [cognito.ts:195](../backend/gateway/auth/cognito.ts#L195)
+- `GET /platform/auth/session` → [cognito.ts:219](../backend/gateway/auth/cognito.ts#L219)
+- `POST /platform/market-insights/:asset` → [routes.ts:98](../backend/gateway/product/routes.ts#L98)
+- `POST /platform/strategy-authoring/generate` → [routes.ts:171](../backend/gateway/product/routes.ts#L171)
+- `GET /platform/paper-agents/:id/stream` → [routes.ts:260](../backend/gateway/product/routes.ts#L260)
 
 ## Python classes and functions
-
-### backend/aegis_bridge.py
-
-- [strategy_catalog](../backend/aegis_bridge.py#L18) — `strategy_catalog(store)`
-- [collect_library](../backend/aegis_bridge.py#L39) — `async collect_library(engine, state: dict)`
-
-### backend/analytics.py
-
-- [ChartPoint](../backend/analytics.py#L11) — class
-- [ChartIndicators](../backend/analytics.py#L21) — class
-- [chart_indicators](../backend/analytics.py#L30) — `chart_indicators(market: Market)`
-- [aggregate](../backend/analytics.py#L78) — `aggregate(market: Market, timeframe: str)`
-- [correlations](../backend/analytics.py#L117) — `correlations(markets: dict[str, Market])`
-
-### backend/api.py
-
-- [PreviewRequest](../backend/api.py#L72) — class
-- [ProviderSettings](../backend/api.py#L76) — class
-- [RefreshSettings](../backend/api.py#L82) — class
-- [AegisControl](../backend/api.py#L87) — class
-- [AegisSettings](../backend/api.py#L101) — class
-- [AegisSettingsConfirm](../backend/api.py#L106) — class
-- [AegisRollback](../backend/api.py#L113) — class
-- [VersionedSelection](../backend/api.py#L118) — class
-- [diff](../backend/api.py#L123) — `diff(before: dict, after: dict)`
-- [OwnerRequest](../backend/api.py#L129) — class
-- [OwnerReceipt](../backend/api.py#L137) — class
-- [DecisionProof](../backend/api.py#L143) — class
-- [source_newer_than_bundle](../backend/api.py#L149) — `source_newer_than_bundle(root: Path)`
-- [create_app](../backend/api.py#L158) — `create_app(db_path=None, *, testing=False, transport=None, api_token=None, aegis_factory=None, testnet_factory=None)`
-- [create_app.bundle_is_stale](../backend/api.py#L180) — `bundle_is_stale()`
-- [create_app.lifespan](../backend/api.py#L196) — `async lifespan(app)`
-- [create_app.lifespan.reference_source](../backend/api.py#L249) — `async reference_source(state)`
-- [create_app.lifespan.terminal_tool](../backend/api.py#L252) — `async terminal_tool(name: str, args: dict)`
-- [create_app.error](../backend/api.py#L311) — `error(request, code, message, status=400, details=None)`
-- [create_app.origin_allowed](../backend/api.py#L324) — `origin_allowed(request)`
-- [create_app.authorize_api](../backend/api.py#L332) — `async authorize_api(request: Request)`
-- [create_app.boundary](../backend/api.py#L348) — `async boundary(request: Request, call_next)`
-- [create_app.chain_data_error](../backend/api.py#L425) — `async chain_data_error(request, exc)`
-- [create_app.value_error](../backend/api.py#L430) — `async value_error(request, exc)`
-- [create_app.validation_error](../backend/api.py#L434) — `async validation_error(request, exc)`
-- [create_app.engine](../backend/api.py#L446) — `engine(request: Request)`
-- [create_app.aegis_state](../backend/api.py#L450) — `async aegis_state(request: Request)`
-- [create_app.aegis_market_details](../backend/api.py#L465) — `async aegis_market_details(request: Request, asset: Literal['WHSK', 'WETH', 'WBTC']='WHSK')`
-- [create_app.aegis_vault](../backend/api.py#L471) — `async aegis_vault(network: Literal['testnet', 'mainnet']='testnet')`
-- [create_app.aegis_owner_prepare](../backend/api.py#L477) — `async aegis_owner_prepare(body: OwnerRequest)`
-- [create_app.aegis_owner_receipt](../backend/api.py#L490) — `async aegis_owner_receipt(body: OwnerReceipt)`
-- [create_app.aegis_verify](../backend/api.py#L496) — `async aegis_verify(body: DecisionProof, request: Request)`
-- [create_app.aegis_verify.verify](../backend/api.py#L501) — `verify()`
-- [create_app.aegis_check](../backend/api.py#L533) — `async aegis_check(request: Request)`
-- [create_app.aegis_settings](../backend/api.py#L537) — `async aegis_settings(body: AegisSettings, request: Request)`
-- [create_app.aegis_settings_confirm](../backend/api.py#L544) — `async aegis_settings_confirm(body: AegisSettingsConfirm, request: Request)`
-- [create_app.aegis_settings_rollback](../backend/api.py#L554) — `async aegis_settings_rollback(body: AegisRollback, request: Request)`
-- [create_app.selection_config](../backend/api.py#L560) — `async selection_config(e: Engine=Depends(engine))`
-- [create_app.update_selection](../backend/api.py#L565) — `async update_selection(body: VersionedSelection, e: Engine=Depends(engine))`
-- [create_app.aegis_control](../backend/api.py#L573) — `async aegis_control(body: AegisControl, request: Request)`
-- [create_app.aegis_sessions](../backend/api.py#L582) — `async aegis_sessions(request: Request)`
-- [create_app.aegis_session](../backend/api.py#L586) — `async aegis_session(session_id: str, request: Request)`
-- [create_app.aegis_chat](../backend/api.py#L595) — `async aegis_chat(body: ChatRequest, request: Request)`
-- [create_app.session](../backend/api.py#L601) — `async session(request: Request)`
-- [create_app.health](../backend/api.py#L640) — `async health()`
-- [create_app.ready](../backend/api.py#L644) — `async ready(e: Engine=Depends(engine))`
-- [create_app.market_summary](../backend/api.py#L653) — `market_summary(market)`
-- [create_app.status](../backend/api.py#L682) — `async status(request: Request, e: Engine=Depends(engine))`
-- [create_app.dashboard](../backend/api.py#L725) — `async dashboard(e: Engine=Depends(engine))`
-- [create_app.markets](../backend/api.py#L748) — `async markets(e: Engine=Depends(engine))`
-- [create_app.correlation_data](../backend/api.py#L752) — `async correlation_data(e: Engine=Depends(engine))`
-- [create_app.market](../backend/api.py#L757) — `async market(symbol: Literal['BTC', 'ETH', 'SOL'], timeframe: Literal['1h', '4h', '1d']='1h', e: Engine=Depends(engine))`
-- [create_app.desk_budget](../backend/api.py#L772) — `async desk_budget(symbol: Literal['BTC', 'ETH', 'SOL'], e: Engine=Depends(engine))`
-- [create_app.alerts](../backend/api.py#L777) — `async alerts(e: Engine=Depends(engine))`
-- [create_app.create_alert](../backend/api.py#L781) — `async create_alert(body: AlertRequest, e: Engine=Depends(engine))`
-- [create_app.delete_alert](../backend/api.py#L786) — `async delete_alert(alert_id: str, e: Engine=Depends(engine))`
-- [create_app.news](../backend/api.py#L790) — `async news(breaking: bool=False, q: str=Query(default='', max_length=200), asset: str=Query(default='', max_length=20), e: Engine=Depends(engine))`
-- [create_app.refresh_news](../backend/api.py#L811) — `async refresh_news(breaking: bool=False, e: Engine=Depends(engine))`
-- [create_app.article](../backend/api.py#L815) — `async article(article_id: str, e: Engine=Depends(engine))`
-- [create_app.strategies](../backend/api.py#L836) — `async strategies(e: Engine=Depends(engine))`
-- [create_app.save_strategy](../backend/api.py#L839) — `save_strategy(e: Engine, strategy_id: str, config: StrategyConfig, expected_version: int)`
-- [create_app.strategy_config](../backend/api.py#L853) — `async strategy_config(strategy_id: str, body: VersionedStrategy, e: Engine=Depends(engine))`
-- [create_app.run](../backend/api.py#L860) — `async run(body: RunRequest, e: Engine=Depends(engine))`
-- [create_app.run_detail](../backend/api.py#L864) — `async run_detail(run_id: str, e: Engine=Depends(engine))`
-- [create_app.run_brief](../backend/api.py#L871) — `async run_brief(run_id: str, e: Engine=Depends(engine))`
-- [create_app.risk](../backend/api.py#L878) — `async risk(e: Engine=Depends(engine))`
-- [create_app.risk_config](../backend/api.py#L888) — `async risk_config(body: VersionedRisk, e: Engine=Depends(engine))`
-- [create_app.portfolio](../backend/api.py#L895) — `async portfolio(e: Engine=Depends(engine))`
-- [create_app.exit_preview](../backend/api.py#L900) — `async exit_preview(symbol: Literal['BTC', 'ETH', 'SOL'], e: Engine=Depends(engine))`
-- [create_app.history](../backend/api.py#L946) — `async history(kind: Literal['runs', 'risks', 'intents', 'ledger', 'audit', 'snapshots'], limit: int=Query(default=50, ge=1, le=200), offset: int=Query(default=0, ge=0), e: E...`
-- [create_app.trades](../backend/api.py#L955) — `async trades(request: Request, workspace: Literal['research', 'aegis']='research', filters: TradeFilters=Depends())`
-- [create_app.trade_detail](../backend/api.py#L965) — `async trade_detail(workspace: Literal['research', 'aegis'], trade_id: str, request: Request)`
-- [create_app.preview](../backend/api.py#L973) — `async preview(body: PreviewRequest, e: Engine=Depends(engine))`
-- [create_app.authorize](../backend/api.py#L981) — `async authorize(body: Authorize, e: Engine=Depends(engine))`
-- [create_app.reconcile](../backend/api.py#L985) — `async reconcile(intent_id: str, e: Engine=Depends(engine))`
-- [create_app.control](../backend/api.py#L989) — `async control(body: SchedulerAction, e: Engine=Depends(engine))`
-- [create_app.emergency_stop](../backend/api.py#L993) — `async emergency_stop(request: Request, e: Engine=Depends(engine))`
-- [create_app.backtests](../backend/api.py#L1000) — `async backtests(body: BacktestRequest, e: Engine=Depends(engine))`
-- [create_app.provider_settings](../backend/api.py#L1004) — `async provider_settings(body: ProviderSettings, e: Engine=Depends(engine))`
-- [create_app.news_scoring](../backend/api.py#L1020) — `async news_scoring(e: Engine=Depends(engine))`
-- [create_app.provider_refresh](../backend/api.py#L1029) — `async provider_refresh(e: Engine=Depends(engine))`
-- [create_app.change_provider_refresh](../backend/api.py#L1034) — `async change_provider_refresh(body: RefreshSettings, e: Engine=Depends(engine))`
-- [create_app.change_news_scoring](../backend/api.py#L1042) — `async change_news_scoring(body: VersionedNewsScoring, e: Engine=Depends(engine))`
-- [create_app.wallet](../backend/api.py#L1049) — `async wallet(address: str, request: Request)`
-- [create_app.chat](../backend/api.py#L1058) — `async chat(body: ChatRequest, request: Request, e: Engine=Depends(engine))`
-- [create_app.frontend](../backend/api.py#L1352) — `async frontend(path: str)`
-
-### backend/assistant_tools.py
-
-- [run_backtest](../backend/assistant_tools.py#L19) — `async run_backtest(engine, body: BacktestRequest)`
-- [execute](../backend/assistant_tools.py#L60) — `async execute(engine, name: str, arguments: dict, *, save_strategy)`
-
-### backend/backtest_repository.py
-
-- [save_replay](../backend/backtest_repository.py#L21) — `save_replay(db: Connection, owner_id: UUID, strategy: StoredStrategy, request: HistoricalBacktestRequest, market: Market)`
-- [get_replay](../backend/backtest_repository.py#L70) — `get_replay(db: Connection, owner_id: UUID, run_id: UUID, *, include_dataset: bool)`
 
 ### backend/backtesting.py
 
@@ -350,12 +273,6 @@ Cognito access-token identity and tenant-aware repositories protect application 
 - [Execution.recover](../backend/execution.py#L281) — `recover(self)`
 - [Execution.reconcile](../backend/execution.py#L301) — `reconcile(self, intent_id)`
 
-### backend/historical_data.py
-
-- [HistoricalBacktestRequest](../backend/historical_data.py#L20) — class
-- [HistoricalBacktestRequest.validate_window](../backend/historical_data.py#L27) — `validate_window(self)`
-- [load_candles](../backend/historical_data.py#L39) — `load_candles(symbol: str, start: datetime, end: datetime, *, transport=None)`
-
 ### backend/models.py
 
 - [now](../backend/models.py#L15) — `now()`
@@ -396,142 +313,130 @@ Cognito access-token identity and tenant-aware repositories protect application 
 - [BacktestAssumptions](../backend/models.py#L438) — class
 - [BacktestRequest](../backend/models.py#L449) — class
 
-### backend/paper_accounts.py
+### backend/operator/aegis_bridge.py
 
-- [PaperAccount](../backend/paper_accounts.py#L15) — class
-- [get_account](../backend/paper_accounts.py#L22) — `get_account(db: Connection, owner_id: UUID)`
-- [ensure_account](../backend/paper_accounts.py#L40) — `ensure_account(db: Connection, owner_id: UUID, initial_usdt: Decimal=DEFAULT_INITIAL_USDT)`
+- [strategy_catalog](../backend/operator/aegis_bridge.py#L18) — `strategy_catalog(store)`
+- [collect_library](../backend/operator/aegis_bridge.py#L39) — `async collect_library(engine, state: dict)`
 
-### backend/paper_agents.py
+### backend/operator/analytics.py
 
-- [AgentStart](../backend/paper_agents.py#L27) — class
-- [AgentStart.select_validation_source](../backend/paper_agents.py#L40) — `select_validation_source(self)`
-- [AgentCommand](../backend/paper_agents.py#L50) — class
-- [event](../backend/paper_agents.py#L54) — `event(db, owner, agent, kind, detail)`
-- [list_agents](../backend/paper_agents.py#L61) — `list_agents(db, owner: UUID)`
-- [timeline](../backend/paper_agents.py#L99) — `timeline(db, owner: UUID, agent: UUID, after: int=0)`
-- [start_agent](../backend/paper_agents.py#L111) — `start_agent(db, owner: UUID, request: AgentStart)`
-- [_validate_allocation](../backend/paper_agents.py#L200) — `_validate_allocation(db, owner, epoch, cash, capital, exclude=None)`
-- [control_agent](../backend/paper_agents.py#L225) — `control_agent(db, owner: UUID, agent: UUID, action: str)`
-- [claim_agent](../backend/paper_agents.py#L258) — `claim_agent(db, lease_seconds=60)`
-- [fence](../backend/paper_agents.py#L299) — `fence(db, work)`
-- [checkpoint](../backend/paper_agents.py#L312) — `checkpoint(db, work, *, stage='MONITOR', status='RUNNING', failures=0, delay=None, candle=None, quote=None, peak=None)`
-- [mark_agent](../backend/paper_agents.py#L345) — `mark_agent(db, work, quantity, price, at)`
-- [position_asset](../backend/paper_agents.py#L379) — `position_asset(db, owner, agent)`
-- [close_agent_position](../backend/paper_agents.py#L394) — `close_agent_position(db, owner, agent, request_key, epoch, quotes)`
+- [ChartPoint](../backend/operator/analytics.py#L11) — class
+- [ChartIndicators](../backend/operator/analytics.py#L21) — class
+- [chart_indicators](../backend/operator/analytics.py#L30) — `chart_indicators(market: Market)`
+- [aggregate](../backend/operator/analytics.py#L78) — `aggregate(market: Market, timeframe: str)`
+- [correlations](../backend/operator/analytics.py#L117) — `correlations(markets: dict[str, Market])`
 
-### backend/paper_execution.py
+### backend/operator/api.py
 
-- [OrderRequest](../backend/paper_execution.py#L27) — class
-- [PaperQuote](../backend/paper_execution.py#L36) — class
-- [PaperTerms](../backend/paper_execution.py#L43) — class
-- [PaperTerms.costs_within_policy](../backend/paper_execution.py#L49) — `costs_within_policy(self)`
-- [lock_account](../backend/paper_execution.py#L58) — `lock_account(db: Connection, owner: UUID)`
-- [positions](../backend/paper_execution.py#L68) — `positions(db: Connection, owner: UUID, epoch: int, *, actor_only=False, agent_id: UUID | None=None)`
-- [reservations](../backend/paper_execution.py#L86) — `reservations(db: Connection, owner: UUID, epoch: int, exclude: UUID | None=None, agent_id: UUID | None=None)`
-- [agent_cash_reserved](../backend/paper_execution.py#L108) — `agent_cash_reserved(db, owner, epoch, exclude=None)`
-- [_fresh](../backend/paper_execution.py#L124) — `_fresh(quotes: dict[str, PaperQuote], asset: str, at: datetime, max_age: int)`
-- [_cost](../backend/paper_execution.py#L132) — `_cost(quantity: Decimal, price: Decimal, terms: PaperTerms)`
-- [_finish](../backend/paper_execution.py#L138) — `_finish(db: Connection, order_id: UUID, status: str, reason: str | None, at: datetime)`
-- [_buy_risk](../backend/paper_execution.py#L148) — `_buy_risk(db, owner, account, asset, gross, fee, held, quotes, at, terms)`
-- [get_order](../backend/paper_execution.py#L214) — `get_order(db: Connection, owner: UUID, order_id: UUID)`
-- [_evaluate](../backend/paper_execution.py#L228) — `_evaluate(db, owner, account, stopped, order_id, request, quotes, terms, at, *, pending, agent_id=None)`
-- [submit_order](../backend/paper_execution.py#L330) — `submit_order(db, owner: UUID, request: OrderRequest, quotes, terms: PaperTerms, *, clock=now, agent_id=None)`
-- [process_limit](../backend/paper_execution.py#L382) — `process_limit(db, owner: UUID, order_id: UUID, quotes, terms: PaperTerms, *, clock=now)`
-- [cancel_order](../backend/paper_execution.py#L396) — `cancel_order(db, owner: UUID, order_id: UUID)`
-- [set_emergency](../backend/paper_execution.py#L406) — `set_emergency(db, owner: UUID, enabled: bool)`
-- [_halt_agents](../backend/paper_execution.py#L418) — `_halt_agents(db, owner, epoch, status, reason)`
-- [_cancel_open](../backend/paper_execution.py#L433) — `_cancel_open(db, owner, epoch, reason)`
-- [reset_account](../backend/paper_execution.py#L444) — `reset_account(db, owner: UUID, expected_epoch: int, opening_credit: Decimal)`
-- [portfolio](../backend/paper_execution.py#L469) — `portfolio(db, owner: UUID, quotes: dict[str, PaperQuote], *, clock=now, max_age=20)`
-- [order_history](../backend/paper_execution.py#L552) — `order_history(db, owner: UUID, *, epoch: int | None=None, limit=50)`
+- [PreviewRequest](../backend/operator/api.py#L72) — class
+- [ProviderSettings](../backend/operator/api.py#L76) — class
+- [RefreshSettings](../backend/operator/api.py#L82) — class
+- [AegisControl](../backend/operator/api.py#L87) — class
+- [AegisSettings](../backend/operator/api.py#L101) — class
+- [AegisSettingsConfirm](../backend/operator/api.py#L106) — class
+- [AegisRollback](../backend/operator/api.py#L113) — class
+- [VersionedSelection](../backend/operator/api.py#L118) — class
+- [diff](../backend/operator/api.py#L123) — `diff(before: dict, after: dict)`
+- [OwnerRequest](../backend/operator/api.py#L129) — class
+- [OwnerReceipt](../backend/operator/api.py#L137) — class
+- [DecisionProof](../backend/operator/api.py#L143) — class
+- [create_app](../backend/operator/api.py#L149) — `create_app(db_path=None, *, testing=False, transport=None, api_token=None, aegis_factory=None, testnet_factory=None)`
+- [create_app.lifespan](../backend/operator/api.py#L178) — `async lifespan(app)`
+- [create_app.lifespan.reference_source](../backend/operator/api.py#L231) — `async reference_source(state)`
+- [create_app.lifespan.terminal_tool](../backend/operator/api.py#L234) — `async terminal_tool(name: str, args: dict)`
+- [create_app.error](../backend/operator/api.py#L293) — `error(request, code, message, status=400, details=None)`
+- [create_app.origin_allowed](../backend/operator/api.py#L306) — `origin_allowed(request)`
+- [create_app.authorize_api](../backend/operator/api.py#L314) — `async authorize_api(request: Request)`
+- [create_app.boundary](../backend/operator/api.py#L330) — `async boundary(request: Request, call_next)`
+- [create_app.chain_data_error](../backend/operator/api.py#L407) — `async chain_data_error(request, exc)`
+- [create_app.value_error](../backend/operator/api.py#L412) — `async value_error(request, exc)`
+- [create_app.validation_error](../backend/operator/api.py#L416) — `async validation_error(request, exc)`
+- [create_app.engine](../backend/operator/api.py#L428) — `engine(request: Request)`
+- [create_app.aegis_state](../backend/operator/api.py#L432) — `async aegis_state(request: Request)`
+- [create_app.aegis_market_details](../backend/operator/api.py#L447) — `async aegis_market_details(request: Request, asset: Literal['WHSK', 'WETH', 'WBTC']='WHSK')`
+- [create_app.aegis_vault](../backend/operator/api.py#L453) — `async aegis_vault(network: Literal['testnet', 'mainnet']='testnet')`
+- [create_app.aegis_owner_prepare](../backend/operator/api.py#L459) — `async aegis_owner_prepare(body: OwnerRequest)`
+- [create_app.aegis_owner_receipt](../backend/operator/api.py#L472) — `async aegis_owner_receipt(body: OwnerReceipt)`
+- [create_app.aegis_verify](../backend/operator/api.py#L478) — `async aegis_verify(body: DecisionProof, request: Request)`
+- [create_app.aegis_verify.verify](../backend/operator/api.py#L483) — `verify()`
+- [create_app.aegis_check](../backend/operator/api.py#L515) — `async aegis_check(request: Request)`
+- [create_app.aegis_settings](../backend/operator/api.py#L519) — `async aegis_settings(body: AegisSettings, request: Request)`
+- [create_app.aegis_settings_confirm](../backend/operator/api.py#L526) — `async aegis_settings_confirm(body: AegisSettingsConfirm, request: Request)`
+- [create_app.aegis_settings_rollback](../backend/operator/api.py#L536) — `async aegis_settings_rollback(body: AegisRollback, request: Request)`
+- [create_app.selection_config](../backend/operator/api.py#L542) — `async selection_config(e: Engine=Depends(engine))`
+- [create_app.update_selection](../backend/operator/api.py#L547) — `async update_selection(body: VersionedSelection, e: Engine=Depends(engine))`
+- [create_app.aegis_control](../backend/operator/api.py#L555) — `async aegis_control(body: AegisControl, request: Request)`
+- [create_app.aegis_sessions](../backend/operator/api.py#L564) — `async aegis_sessions(request: Request)`
+- [create_app.aegis_session](../backend/operator/api.py#L568) — `async aegis_session(session_id: str, request: Request)`
+- [create_app.aegis_chat](../backend/operator/api.py#L577) — `async aegis_chat(body: ChatRequest, request: Request)`
+- [create_app.session](../backend/operator/api.py#L583) — `async session(request: Request)`
+- [create_app.health](../backend/operator/api.py#L622) — `async health()`
+- [create_app.ready](../backend/operator/api.py#L626) — `async ready(e: Engine=Depends(engine))`
+- [create_app.market_summary](../backend/operator/api.py#L635) — `market_summary(market)`
+- [create_app.status](../backend/operator/api.py#L664) — `async status(request: Request, e: Engine=Depends(engine))`
+- [create_app.dashboard](../backend/operator/api.py#L707) — `async dashboard(e: Engine=Depends(engine))`
+- [create_app.markets](../backend/operator/api.py#L730) — `async markets(e: Engine=Depends(engine))`
+- [create_app.correlation_data](../backend/operator/api.py#L734) — `async correlation_data(e: Engine=Depends(engine))`
+- [create_app.market](../backend/operator/api.py#L739) — `async market(symbol: Literal['BTC', 'ETH', 'SOL'], timeframe: Literal['1h', '4h', '1d']='1h', e: Engine=Depends(engine))`
+- [create_app.desk_budget](../backend/operator/api.py#L754) — `async desk_budget(symbol: Literal['BTC', 'ETH', 'SOL'], e: Engine=Depends(engine))`
+- [create_app.alerts](../backend/operator/api.py#L759) — `async alerts(e: Engine=Depends(engine))`
+- [create_app.create_alert](../backend/operator/api.py#L763) — `async create_alert(body: AlertRequest, e: Engine=Depends(engine))`
+- [create_app.delete_alert](../backend/operator/api.py#L768) — `async delete_alert(alert_id: str, e: Engine=Depends(engine))`
+- [create_app.news](../backend/operator/api.py#L772) — `async news(breaking: bool=False, q: str=Query(default='', max_length=200), asset: str=Query(default='', max_length=20), e: Engine=Depends(engine))`
+- [create_app.refresh_news](../backend/operator/api.py#L793) — `async refresh_news(breaking: bool=False, e: Engine=Depends(engine))`
+- [create_app.article](../backend/operator/api.py#L797) — `async article(article_id: str, e: Engine=Depends(engine))`
+- [create_app.strategies](../backend/operator/api.py#L818) — `async strategies(e: Engine=Depends(engine))`
+- [create_app.save_strategy](../backend/operator/api.py#L821) — `save_strategy(e: Engine, strategy_id: str, config: StrategyConfig, expected_version: int)`
+- [create_app.strategy_config](../backend/operator/api.py#L835) — `async strategy_config(strategy_id: str, body: VersionedStrategy, e: Engine=Depends(engine))`
+- [create_app.run](../backend/operator/api.py#L842) — `async run(body: RunRequest, e: Engine=Depends(engine))`
+- [create_app.run_detail](../backend/operator/api.py#L846) — `async run_detail(run_id: str, e: Engine=Depends(engine))`
+- [create_app.run_brief](../backend/operator/api.py#L853) — `async run_brief(run_id: str, e: Engine=Depends(engine))`
+- [create_app.risk](../backend/operator/api.py#L860) — `async risk(e: Engine=Depends(engine))`
+- [create_app.risk_config](../backend/operator/api.py#L870) — `async risk_config(body: VersionedRisk, e: Engine=Depends(engine))`
+- [create_app.portfolio](../backend/operator/api.py#L877) — `async portfolio(e: Engine=Depends(engine))`
+- [create_app.exit_preview](../backend/operator/api.py#L882) — `async exit_preview(symbol: Literal['BTC', 'ETH', 'SOL'], e: Engine=Depends(engine))`
+- [create_app.history](../backend/operator/api.py#L928) — `async history(kind: Literal['runs', 'risks', 'intents', 'ledger', 'audit', 'snapshots'], limit: int=Query(default=50, ge=1, le=200), offset: int=Query(default=0, ge=0), e: E...`
+- [create_app.trades](../backend/operator/api.py#L937) — `async trades(request: Request, workspace: Literal['research', 'aegis']='research', filters: TradeFilters=Depends())`
+- [create_app.trade_detail](../backend/operator/api.py#L947) — `async trade_detail(workspace: Literal['research', 'aegis'], trade_id: str, request: Request)`
+- [create_app.preview](../backend/operator/api.py#L955) — `async preview(body: PreviewRequest, e: Engine=Depends(engine))`
+- [create_app.authorize](../backend/operator/api.py#L963) — `async authorize(body: Authorize, e: Engine=Depends(engine))`
+- [create_app.reconcile](../backend/operator/api.py#L967) — `async reconcile(intent_id: str, e: Engine=Depends(engine))`
+- [create_app.control](../backend/operator/api.py#L971) — `async control(body: SchedulerAction, e: Engine=Depends(engine))`
+- [create_app.emergency_stop](../backend/operator/api.py#L975) — `async emergency_stop(request: Request, e: Engine=Depends(engine))`
+- [create_app.backtests](../backend/operator/api.py#L982) — `async backtests(body: BacktestRequest, e: Engine=Depends(engine))`
+- [create_app.provider_settings](../backend/operator/api.py#L986) — `async provider_settings(body: ProviderSettings, e: Engine=Depends(engine))`
+- [create_app.news_scoring](../backend/operator/api.py#L1002) — `async news_scoring(e: Engine=Depends(engine))`
+- [create_app.provider_refresh](../backend/operator/api.py#L1011) — `async provider_refresh(e: Engine=Depends(engine))`
+- [create_app.change_provider_refresh](../backend/operator/api.py#L1016) — `async change_provider_refresh(body: RefreshSettings, e: Engine=Depends(engine))`
+- [create_app.change_news_scoring](../backend/operator/api.py#L1024) — `async change_news_scoring(body: VersionedNewsScoring, e: Engine=Depends(engine))`
+- [create_app.wallet](../backend/operator/api.py#L1031) — `async wallet(address: str, request: Request)`
+- [create_app.chat](../backend/operator/api.py#L1040) — `async chat(body: ChatRequest, request: Request, e: Engine=Depends(engine))`
+- [create_app.unknown_api](../backend/operator/api.py#L1334) — `async unknown_api(path: str)`
 
-### backend/paper_market.py
+### backend/operator/assistant_tools.py
 
-- [load_quotes](../backend/paper_market.py#L10) — `load_quotes(assets: set[str])`
+- [run_backtest](../backend/operator/assistant_tools.py#L19) — `async run_backtest(engine, body: BacktestRequest)`
+- [execute](../backend/operator/assistant_tools.py#L60) — `async execute(engine, name: str, arguments: dict, *, save_strategy)`
 
-### backend/paper_worker.py
+### backend/operator/research_brief.py
 
-- [Tick](../backend/paper_worker.py#L44) — class
-- [research](../backend/paper_worker.py#L52) — `research(state: Tick)`
-- [rules](../backend/paper_worker.py#L56) — `rules(state: Tick)`
-- [trade_graph](../backend/paper_worker.py#L60) — `trade_graph()`
-- [PaperWorker](../backend/paper_worker.py#L70) — class
-- [PaperWorker.__init__](../backend/paper_worker.py#L71) — `__init__(self, history=load_candles, quotes=load_quotes, *, allow_fixture=False, clock=now, market_clock=None)`
-- [PaperWorker.tick](../backend/paper_worker.py#L87) — `tick(self, db, work)`
-- [PaperWorker._fail](../backend/paper_worker.py#L93) — `_fail(self, db, work, reason)`
-- [PaperWorker._tick](../backend/paper_worker.py#L116) — `_tick(self, db, work)`
-- [PaperWorker._validate](../backend/paper_worker.py#L254) — `_validate(self, db, work, strategy, terms, *, revalidation)`
-- [heartbeat_fresh](../backend/paper_worker.py#L320) — `heartbeat_fresh(db, worker_id=None)`
-- [worker_identity](../backend/paper_worker.py#L333) — `worker_identity()`
-- [service](../backend/paper_worker.py#L337) — `service(dsn: str, stop: Event, worker: PaperWorker)`
-- [main](../backend/paper_worker.py#L377) — `main()`
+- [Finding](../backend/operator/research_brief.py#L20) — class
+- [Citation](../backend/operator/research_brief.py#L27) — class
+- [RiskPlan](../backend/operator/research_brief.py#L39) — class
+- [BriefBody](../backend/operator/research_brief.py#L55) — class
+- [SnapshotReceipt](../backend/operator/research_brief.py#L80) — class
+- [ResearchBrief](../backend/operator/research_brief.py#L87) — class
+- [_url](../backend/operator/research_brief.py#L91) — `_url(value: Any)`
+- [_money](../backend/operator/research_brief.py#L103) — `_money(value: Any)`
+- [build_brief](../backend/operator/research_brief.py#L111) — `build_brief(run: dict)`
+- [build_brief.output](../backend/operator/research_brief.py#L114) — `output(name: str)`
 
-### backend/paper_workflow.py
+### backend/operator/trade_history.py
 
-- [Activation](../backend/paper_workflow.py#L11) — class
-- [review_holdout](../backend/paper_workflow.py#L20) — `review_holdout(state: Activation)`
-- [activation_risk](../backend/paper_workflow.py#L37) — `activation_risk(state: Activation)`
-- [activation_graph](../backend/paper_workflow.py#L54) — `activation_graph()`
-
-### backend/platform_db.py
-
-- [open_database](../backend/platform_db.py#L15) — `open_database(dsn: str)`
-- [migrate](../backend/platform_db.py#L19) — `migrate(db: Connection, directory: Path=MIGRATIONS)`
-
-### backend/platform_product_api.py
-
-- [StrategyEdit](../backend/platform_product_api.py#L73) — class
-- [StrategyArchive](../backend/platform_product_api.py#L78) — class
-- [PaperReset](../backend/platform_product_api.py#L82) — class
-- [PositionClose](../backend/platform_product_api.py#L87) — class
-- [PaperEmergency](../backend/platform_product_api.py#L92) — class
-- [ProductError](../backend/platform_product_api.py#L96) — class
-- [ProductError.__init__](../backend/platform_product_api.py#L97) — `__init__(self, status: int, code: str, message: str)`
-- [create_product_api](../backend/platform_product_api.py#L103) — `create_product_api(dsn: str, key: str, initial_usdt: Decimal=DEFAULT_INITIAL_USDT, *, history_source=load_candles, quote_source=load_quotes, fixture_feeds=False)`
-- [create_product_api.lifespan](../backend/platform_product_api.py#L119) — `async lifespan(application)`
-- [create_product_api.health](../backend/platform_product_api.py#L143) — `health()`
-- [create_product_api.product_error](../backend/platform_product_api.py#L154) — `async product_error(_request, exc)`
-- [create_product_api.validation_error](../backend/platform_product_api.py#L160) — `async validation_error(_request, exc)`
-- [create_product_api.database_error](../backend/platform_product_api.py#L176) — `async database_error(_request, _exc)`
-- [create_product_api.missing_strategy](../backend/platform_product_api.py#L183) — `async missing_strategy(_request, _exc)`
-- [create_product_api.conflict](../backend/platform_product_api.py#L190) — `async conflict(_request, _exc)`
-- [create_product_api.owner](../backend/platform_product_api.py#L196) — `async owner(request: Request)`
-- [create_product_api.database](../backend/platform_product_api.py#L237) — `database()`
-- [create_product_api.paper_account](../backend/platform_product_api.py#L246) — `paper_account(subject: Principal, db: Database)`
-- [create_product_api.provision_paper_account](../backend/platform_product_api.py#L250) — `provision_paper_account(subject: Principal, db: Database)`
-- [create_product_api.financial](../backend/platform_product_api.py#L253) — `financial(data, status=200)`
-- [create_product_api.quotes_for](../backend/platform_product_api.py#L258) — `quotes_for(db, subject, asset=None)`
-- [create_product_api.paper_portfolio](../backend/platform_product_api.py#L272) — `paper_portfolio(subject: Principal, db: Database)`
-- [create_product_api.paper_order_history](../backend/platform_product_api.py#L276) — `paper_order_history(subject: Principal, db: Database, epoch: Annotated[int | None, Query(ge=1)]=None, limit: Annotated[int, Query(ge=1, le=100)]=50)`
-- [create_product_api.paper_order_submit](../backend/platform_product_api.py#L285) — `paper_order_submit(order: OrderRequest, subject: Principal, db: Database)`
-- [create_product_api.paper_order_cancel](../backend/platform_product_api.py#L290) — `paper_order_cancel(order_id: UUID, subject: Principal, db: Database)`
-- [create_product_api.paper_order_evaluate](../backend/platform_product_api.py#L297) — `paper_order_evaluate(order_id: UUID, subject: Principal, db: Database)`
-- [create_product_api.paper_reset](../backend/platform_product_api.py#L307) — `paper_reset(reset: PaperReset, subject: Principal, db: Database)`
-- [create_product_api.paper_emergency](../backend/platform_product_api.py#L311) — `paper_emergency(change: PaperEmergency, subject: Principal, db: Database)`
-- [create_product_api.paper_agent_list](../backend/platform_product_api.py#L315) — `paper_agent_list(subject: Principal, db: Database)`
-- [create_product_api.paper_agent_start](../backend/platform_product_api.py#L319) — `paper_agent_start(request: AgentStart, subject: Principal, db: Database)`
-- [create_product_api.paper_agent_control](../backend/platform_product_api.py#L329) — `paper_agent_control(agent_id: UUID, command: AgentCommand, subject: Principal, db: Database)`
-- [create_product_api.paper_agent_close](../backend/platform_product_api.py#L340) — `paper_agent_close(agent_id: UUID, command: PositionClose, subject: Principal, db: Database)`
-- [create_product_api.paper_agent_timeline](../backend/platform_product_api.py#L355) — `paper_agent_timeline(agent_id: UUID, subject: Principal, db: Database, after: Annotated[int, Query(ge=0)]=0)`
-- [create_product_api.paper_agent_stream](../backend/platform_product_api.py#L364) — `async paper_agent_stream(agent_id: UUID, request: Request, subject: Principal, after: Annotated[int, Query(ge=0)]=0)`
-- [create_product_api.paper_agent_stream.latest](../backend/platform_product_api.py#L370) — `latest(cursor)`
-- [create_product_api.paper_agent_stream.events](../backend/platform_product_api.py#L374) — `async events()`
-- [create_product_api.paper_market](../backend/platform_product_api.py#L393) — `async paper_market(asset: Asset, request: Request, subject: Principal)`
-- [create_product_api.paper_news](../backend/platform_product_api.py#L404) — `async paper_news(request: Request, subject: Principal, asset: Asset | None=None, breaking: bool=False, refresh: bool=False)`
-- [create_product_api.paper_watchlist](../backend/platform_product_api.py#L421) — `paper_watchlist(subject: Principal, db: Database)`
-- [create_product_api.paper_watch](../backend/platform_product_api.py#L429) — `paper_watch(subject: Principal, db: Database, asset: Asset, change: PaperEmergency)`
-- [create_product_api.strategy_authoring](../backend/platform_product_api.py#L444) — `strategy_authoring(subject: Principal)`
-- [create_product_api.validate_draft](../backend/platform_product_api.py#L448) — `validate_draft(draft: StrategyDraft, subject: Principal)`
-- [create_product_api.strategies](../backend/platform_product_api.py#L452) — `strategies(subject: Principal, db: Database, after: UUID | None=None, limit: Annotated[int, Query(ge=1, le=100)]=50)`
-- [create_product_api.new_strategy](../backend/platform_product_api.py#L461) — `new_strategy(document: StrategyDraft, subject: Principal, db: Database)`
-- [create_product_api.strategy](../backend/platform_product_api.py#L466) — `strategy(strategy_id: UUID, subject: Principal, db: Database, version: Annotated[int | None, Query(ge=1, le=2 ** 31 - 1)]=None)`
-- [create_product_api.edit_strategy](../backend/platform_product_api.py#L478) — `edit_strategy(strategy_id: UUID, edit: StrategyEdit, subject: Principal, db: Database)`
-- [create_product_api.remove_strategy](../backend/platform_product_api.py#L484) — `remove_strategy(strategy_id: UUID, archive: StrategyArchive, subject: Principal, db: Database)`
-- [create_product_api.versions](../backend/platform_product_api.py#L490) — `versions(strategy_id: UUID, subject: Principal, db: Database, before: Annotated[int, Query(ge=2, le=2 ** 31)]=2 ** 31, limit: Annotated[int, Query(ge=1, le=100)]=50)`
-- [create_product_api.create_backtest](../backend/platform_product_api.py#L504) — `create_backtest(strategy_id: UUID, study: HistoricalBacktestRequest, subject: Principal, db: Database)`
-- [create_product_api.backtest_report](../backend/platform_product_api.py#L521) — `backtest_report(run_id: UUID, subject: Principal, db: Database, include_dataset: bool=False)`
-- [app_from_environment](../backend/platform_product_api.py#L532) — `app_from_environment()`
+- [realized_deltas](../backend/operator/trade_history.py#L19) — `realized_deltas(records: list[dict])`
+- [research_record](../backend/operator/trade_history.py#L46) — `research_record(record: dict, realized: str)`
+- [research_history](../backend/operator/trade_history.py#L76) — `research_history(store, filters: TradeFilters)`
+- [research_detail](../backend/operator/trade_history.py#L113) — `research_detail(store, trade_id: str)`
 
 ### backend/portfolio.py
 
@@ -540,6 +445,185 @@ Cognito access-token identity and tenant-aware repositories protect application 
 - [Portfolio.view](../backend/portfolio.py#L21) — `view(self, markets: dict[str, Market])`
 - [Portfolio.observe](../backend/portfolio.py#L151) — `observe(self, markets)`
 - [Portfolio.snapshot](../backend/portfolio.py#L163) — `snapshot(self, markets)`
+
+### backend/product/accounts.py
+
+- [PaperAccount](../backend/product/accounts.py#L15) — class
+- [get_account](../backend/product/accounts.py#L22) — `get_account(db: Connection, owner_id: UUID)`
+- [ensure_account](../backend/product/accounts.py#L40) — `ensure_account(db: Connection, owner_id: UUID, initial_usdt: Decimal=DEFAULT_INITIAL_USDT)`
+
+### backend/product/agents.py
+
+- [AgentStartSettings](../backend/product/agents.py#L28) — class
+- [AgentStart](../backend/product/agents.py#L38) — class
+- [AgentStart.select_validation_source](../backend/product/agents.py#L44) — `select_validation_source(self)`
+- [DraftAgentStart](../backend/product/agents.py#L54) — class
+- [AgentCommand](../backend/product/agents.py#L58) — class
+- [event](../backend/product/agents.py#L62) — `event(db, owner, agent, kind, detail)`
+- [list_agents](../backend/product/agents.py#L69) — `list_agents(db, owner: UUID)`
+- [timeline](../backend/product/agents.py#L107) — `timeline(db, owner: UUID, agent: UUID, after: int=0)`
+- [start_agent](../backend/product/agents.py#L119) — `start_agent(db, owner: UUID, request: AgentStart)`
+- [start_draft_agent](../backend/product/agents.py#L208) — `start_draft_agent(db, owner: UUID, request: DraftAgentStart)`
+- [_validate_allocation](../backend/product/agents.py#L231) — `_validate_allocation(db, owner, epoch, cash, capital, exclude=None)`
+- [control_agent](../backend/product/agents.py#L256) — `control_agent(db, owner: UUID, agent: UUID, action: str)`
+- [claim_agent](../backend/product/agents.py#L289) — `claim_agent(db, lease_seconds=60)`
+- [fence](../backend/product/agents.py#L330) — `fence(db, work)`
+- [checkpoint](../backend/product/agents.py#L343) — `checkpoint(db, work, *, stage='MONITOR', status='RUNNING', failures=0, delay=None, candle=None, quote=None, peak=None)`
+- [mark_agent](../backend/product/agents.py#L376) — `mark_agent(db, work, quantity, price, at)`
+- [position_asset](../backend/product/agents.py#L410) — `position_asset(db, owner, agent)`
+- [close_agent_position](../backend/product/agents.py#L425) — `close_agent_position(db, owner, agent, request_key, epoch, quotes)`
+
+### backend/product/api.py
+
+- [StrategyEdit](../backend/product/api.py#L75) — class
+- [StrategyArchive](../backend/product/api.py#L80) — class
+- [PaperReset](../backend/product/api.py#L84) — class
+- [PositionClose](../backend/product/api.py#L89) — class
+- [PaperEmergency](../backend/product/api.py#L94) — class
+- [ProductError](../backend/product/api.py#L98) — class
+- [ProductError.__init__](../backend/product/api.py#L99) — `__init__(self, status: int, code: str, message: str)`
+- [create_product_api](../backend/product/api.py#L105) — `create_product_api(dsn: str, key: str, initial_usdt: Decimal=DEFAULT_INITIAL_USDT, *, history_source=load_candles, quote_source=load_quotes, fixture_feeds=False)`
+- [create_product_api.lifespan](../backend/product/api.py#L121) — `async lifespan(application)`
+- [create_product_api.health](../backend/product/api.py#L145) — `health()`
+- [create_product_api.product_error](../backend/product/api.py#L156) — `async product_error(_request, exc)`
+- [create_product_api.validation_error](../backend/product/api.py#L162) — `async validation_error(_request, exc)`
+- [create_product_api.database_error](../backend/product/api.py#L178) — `async database_error(_request, _exc)`
+- [create_product_api.missing_strategy](../backend/product/api.py#L185) — `async missing_strategy(_request, _exc)`
+- [create_product_api.conflict](../backend/product/api.py#L192) — `async conflict(_request, _exc)`
+- [create_product_api.owner](../backend/product/api.py#L198) — `async owner(request: Request)`
+- [create_product_api.database](../backend/product/api.py#L239) — `database()`
+- [create_product_api.paper_account](../backend/product/api.py#L248) — `paper_account(subject: Principal, db: Database)`
+- [create_product_api.provision_paper_account](../backend/product/api.py#L252) — `provision_paper_account(subject: Principal, db: Database)`
+- [create_product_api.financial](../backend/product/api.py#L255) — `financial(data, status=200)`
+- [create_product_api.quotes_for](../backend/product/api.py#L260) — `quotes_for(db, subject, asset=None)`
+- [create_product_api.paper_portfolio](../backend/product/api.py#L274) — `paper_portfolio(subject: Principal, db: Database)`
+- [create_product_api.paper_order_history](../backend/product/api.py#L278) — `paper_order_history(subject: Principal, db: Database, epoch: Annotated[int | None, Query(ge=1)]=None, limit: Annotated[int, Query(ge=1, le=100)]=50)`
+- [create_product_api.paper_order_submit](../backend/product/api.py#L287) — `paper_order_submit(order: OrderRequest, subject: Principal, db: Database)`
+- [create_product_api.paper_order_cancel](../backend/product/api.py#L292) — `paper_order_cancel(order_id: UUID, subject: Principal, db: Database)`
+- [create_product_api.paper_order_evaluate](../backend/product/api.py#L299) — `paper_order_evaluate(order_id: UUID, subject: Principal, db: Database)`
+- [create_product_api.paper_reset](../backend/product/api.py#L309) — `paper_reset(reset: PaperReset, subject: Principal, db: Database)`
+- [create_product_api.paper_emergency](../backend/product/api.py#L313) — `paper_emergency(change: PaperEmergency, subject: Principal, db: Database)`
+- [create_product_api.paper_agent_list](../backend/product/api.py#L317) — `paper_agent_list(subject: Principal, db: Database)`
+- [create_product_api.paper_agent_start](../backend/product/api.py#L321) — `paper_agent_start(request: AgentStart, subject: Principal, db: Database)`
+- [create_product_api.paper_agent_control](../backend/product/api.py#L331) — `paper_agent_control(agent_id: UUID, command: AgentCommand, subject: Principal, db: Database)`
+- [create_product_api.paper_agent_close](../backend/product/api.py#L342) — `paper_agent_close(agent_id: UUID, command: PositionClose, subject: Principal, db: Database)`
+- [create_product_api.paper_agent_timeline](../backend/product/api.py#L357) — `paper_agent_timeline(agent_id: UUID, subject: Principal, db: Database, after: Annotated[int, Query(ge=0)]=0)`
+- [create_product_api.paper_agent_stream](../backend/product/api.py#L366) — `async paper_agent_stream(agent_id: UUID, request: Request, subject: Principal, after: Annotated[int, Query(ge=0)]=0)`
+- [create_product_api.paper_agent_stream.latest](../backend/product/api.py#L372) — `latest(cursor)`
+- [create_product_api.paper_agent_stream.events](../backend/product/api.py#L376) — `async events()`
+- [create_product_api.paper_market](../backend/product/api.py#L395) — `async paper_market(asset: Asset, request: Request, subject: Principal)`
+- [create_product_api.paper_news](../backend/product/api.py#L406) — `async paper_news(request: Request, subject: Principal, asset: Asset | None=None, breaking: bool=False, refresh: bool=False)`
+- [create_product_api.paper_watchlist](../backend/product/api.py#L423) — `paper_watchlist(subject: Principal, db: Database)`
+- [create_product_api.paper_watch](../backend/product/api.py#L431) — `paper_watch(subject: Principal, db: Database, asset: Asset, change: PaperEmergency)`
+- [create_product_api.strategy_authoring](../backend/product/api.py#L446) — `strategy_authoring(subject: Principal)`
+- [create_product_api.validate_draft](../backend/product/api.py#L450) — `validate_draft(draft: StrategyDraft, subject: Principal)`
+- [create_product_api.start_agent_from_draft](../backend/product/api.py#L454) — `start_agent_from_draft(request: DraftAgentStart, subject: Principal, db: Database)`
+- [create_product_api.strategies](../backend/product/api.py#L462) — `strategies(subject: Principal, db: Database, after: UUID | None=None, limit: Annotated[int, Query(ge=1, le=100)]=50)`
+- [create_product_api.new_strategy](../backend/product/api.py#L471) — `new_strategy(document: StrategyDraft, subject: Principal, db: Database)`
+- [create_product_api.strategy](../backend/product/api.py#L476) — `strategy(strategy_id: UUID, subject: Principal, db: Database, version: Annotated[int | None, Query(ge=1, le=2 ** 31 - 1)]=None)`
+- [create_product_api.edit_strategy](../backend/product/api.py#L488) — `edit_strategy(strategy_id: UUID, edit: StrategyEdit, subject: Principal, db: Database)`
+- [create_product_api.remove_strategy](../backend/product/api.py#L494) — `remove_strategy(strategy_id: UUID, archive: StrategyArchive, subject: Principal, db: Database)`
+- [create_product_api.versions](../backend/product/api.py#L500) — `versions(strategy_id: UUID, subject: Principal, db: Database, before: Annotated[int, Query(ge=2, le=2 ** 31)]=2 ** 31, limit: Annotated[int, Query(ge=1, le=100)]=50)`
+- [create_product_api.create_backtest](../backend/product/api.py#L514) — `create_backtest(strategy_id: UUID, study: HistoricalBacktestRequest, subject: Principal, db: Database)`
+- [create_product_api.backtest_report](../backend/product/api.py#L531) — `backtest_report(run_id: UUID, subject: Principal, db: Database, include_dataset: bool=False)`
+- [app_from_environment](../backend/product/api.py#L542) — `app_from_environment()`
+
+### backend/product/backtests.py
+
+- [save_replay](../backend/product/backtests.py#L21) — `save_replay(db: Connection, owner_id: UUID, strategy: StoredStrategy, request: HistoricalBacktestRequest, market: Market)`
+- [get_replay](../backend/product/backtests.py#L70) — `get_replay(db: Connection, owner_id: UUID, run_id: UUID, *, include_dataset: bool)`
+
+### backend/product/database.py
+
+- [open_database](../backend/product/database.py#L15) — `open_database(dsn: str)`
+- [migrate](../backend/product/database.py#L19) — `migrate(db: Connection, directory: Path=MIGRATIONS)`
+
+### backend/product/execution.py
+
+- [OrderRequest](../backend/product/execution.py#L27) — class
+- [PaperQuote](../backend/product/execution.py#L36) — class
+- [PaperTerms](../backend/product/execution.py#L43) — class
+- [PaperTerms.costs_within_policy](../backend/product/execution.py#L49) — `costs_within_policy(self)`
+- [lock_account](../backend/product/execution.py#L58) — `lock_account(db: Connection, owner: UUID)`
+- [positions](../backend/product/execution.py#L68) — `positions(db: Connection, owner: UUID, epoch: int, *, actor_only=False, agent_id: UUID | None=None)`
+- [reservations](../backend/product/execution.py#L86) — `reservations(db: Connection, owner: UUID, epoch: int, exclude: UUID | None=None, agent_id: UUID | None=None)`
+- [agent_cash_reserved](../backend/product/execution.py#L108) — `agent_cash_reserved(db, owner, epoch, exclude=None)`
+- [_fresh](../backend/product/execution.py#L124) — `_fresh(quotes: dict[str, PaperQuote], asset: str, at: datetime, max_age: int)`
+- [_cost](../backend/product/execution.py#L132) — `_cost(quantity: Decimal, price: Decimal, terms: PaperTerms)`
+- [_finish](../backend/product/execution.py#L138) — `_finish(db: Connection, order_id: UUID, status: str, reason: str | None, at: datetime)`
+- [_buy_risk](../backend/product/execution.py#L148) — `_buy_risk(db, owner, account, asset, gross, fee, held, quotes, at, terms)`
+- [get_order](../backend/product/execution.py#L214) — `get_order(db: Connection, owner: UUID, order_id: UUID)`
+- [_evaluate](../backend/product/execution.py#L228) — `_evaluate(db, owner, account, stopped, order_id, request, quotes, terms, at, *, pending, agent_id=None)`
+- [submit_order](../backend/product/execution.py#L330) — `submit_order(db, owner: UUID, request: OrderRequest, quotes, terms: PaperTerms, *, clock=now, agent_id=None)`
+- [process_limit](../backend/product/execution.py#L382) — `process_limit(db, owner: UUID, order_id: UUID, quotes, terms: PaperTerms, *, clock=now)`
+- [cancel_order](../backend/product/execution.py#L396) — `cancel_order(db, owner: UUID, order_id: UUID)`
+- [set_emergency](../backend/product/execution.py#L406) — `set_emergency(db, owner: UUID, enabled: bool)`
+- [_halt_agents](../backend/product/execution.py#L418) — `_halt_agents(db, owner, epoch, status, reason)`
+- [_cancel_open](../backend/product/execution.py#L433) — `_cancel_open(db, owner, epoch, reason)`
+- [reset_account](../backend/product/execution.py#L444) — `reset_account(db, owner: UUID, expected_epoch: int, opening_credit: Decimal)`
+- [_mark_holding](../backend/product/execution.py#L469) — `_mark_holding(row, quotes, at, max_age)`
+- [_positions_by_actor](../backend/product/execution.py#L480) — `_positions_by_actor(db, owner, epoch)`
+- [portfolio](../backend/product/execution.py#L498) — `portfolio(db, owner: UUID, quotes: dict[str, PaperQuote], *, clock=now, max_age=20)`
+- [order_history](../backend/product/execution.py#L576) — `order_history(db, owner: UUID, *, epoch: int | None=None, limit=50)`
+
+### backend/product/history.py
+
+- [HistoricalBacktestRequest](../backend/product/history.py#L20) — class
+- [HistoricalBacktestRequest.validate_window](../backend/product/history.py#L27) — `validate_window(self)`
+- [load_candles](../backend/product/history.py#L39) — `load_candles(symbol: str, start: datetime, end: datetime, *, transport=None)`
+
+### backend/product/market.py
+
+- [load_quotes](../backend/product/market.py#L10) — `load_quotes(assets: set[str])`
+
+### backend/product/rules.py
+
+- [Condition](../backend/product/rules.py#L35) — class
+- [RuleGroup](../backend/product/rules.py#L41) — class
+- [StrategyDefinition](../backend/product/rules.py#L46) — class
+- [StrategyDraft](../backend/product/rules.py#L58) — class
+- [_threshold](../backend/product/rules.py#L64) — `_threshold(condition: Condition, values: dict)`
+- [_matches](../backend/product/rules.py#L70) — `_matches(condition: Condition, current: dict, previous: dict)`
+- [rule_signal](../backend/product/rules.py#L93) — `rule_signal(definition: StrategyDefinition, market: Market, *, holding: bool)`
+- [authoring_options](../backend/product/rules.py#L119) — `authoring_options()`
+- [authoring_options.group](../backend/product/rules.py#L136) — `group(rule)`
+
+### backend/product/strategies.py
+
+- [StoredStrategy](../backend/product/strategies.py#L15) — class
+- [_stored](../backend/product/strategies.py#L22) — `_stored(row)`
+- [_insert_version](../backend/product/strategies.py#L26) — `_insert_version(db: Connection, owner_id: UUID, strategy_id: UUID, version: int, draft: StrategyDraft)`
+- [create_strategy](../backend/product/strategies.py#L40) — `create_strategy(db: Connection, owner_id: UUID, draft: StrategyDraft, *, strategy_id: UUID | None=None)`
+- [get_strategy](../backend/product/strategies.py#L52) — `get_strategy(db: Connection, owner_id: UUID, strategy_id: UUID, version: int | None=None)`
+- [list_strategies](../backend/product/strategies.py#L71) — `list_strategies(db: Connection, owner_id: UUID, *, after: UUID | None=None, limit: int=50)`
+- [strategy_history](../backend/product/strategies.py#L97) — `strategy_history(db: Connection, owner_id: UUID, strategy_id: UUID, *, before_version: int=2 ** 31, limit: int=50)`
+- [_lock_current](../backend/product/strategies.py#L120) — `_lock_current(db: Connection, owner_id: UUID, strategy_id: UUID, expected_version: int)`
+- [update_strategy](../backend/product/strategies.py#L139) — `update_strategy(db: Connection, owner_id: UUID, strategy_id: UUID, draft: StrategyDraft, *, expected_version: int)`
+- [archive_strategy](../backend/product/strategies.py#L154) — `archive_strategy(db: Connection, owner_id: UUID, strategy_id: UUID, *, expected_version: int)`
+
+### backend/product/worker.py
+
+- [Tick](../backend/product/worker.py#L44) — class
+- [research](../backend/product/worker.py#L52) — `research(state: Tick)`
+- [rules](../backend/product/worker.py#L56) — `rules(state: Tick)`
+- [trade_graph](../backend/product/worker.py#L60) — `trade_graph()`
+- [PaperWorker](../backend/product/worker.py#L70) — class
+- [PaperWorker.__init__](../backend/product/worker.py#L71) — `__init__(self, history=load_candles, quotes=load_quotes, *, allow_fixture=False, clock=now, market_clock=None)`
+- [PaperWorker.tick](../backend/product/worker.py#L87) — `tick(self, db, work)`
+- [PaperWorker._fail](../backend/product/worker.py#L93) — `_fail(self, db, work, reason)`
+- [PaperWorker._tick](../backend/product/worker.py#L116) — `_tick(self, db, work)`
+- [PaperWorker._validate](../backend/product/worker.py#L254) — `_validate(self, db, work, strategy, terms, *, revalidation)`
+- [heartbeat_fresh](../backend/product/worker.py#L320) — `heartbeat_fresh(db, worker_id=None)`
+- [worker_identity](../backend/product/worker.py#L333) — `worker_identity()`
+- [service](../backend/product/worker.py#L337) — `service(dsn: str, stop: Event, worker: PaperWorker)`
+- [main](../backend/product/worker.py#L377) — `main()`
+
+### backend/product/workflow.py
+
+- [Activation](../backend/product/workflow.py#L11) — class
+- [review_holdout](../backend/product/workflow.py#L20) — `review_holdout(state: Activation)`
+- [activation_risk](../backend/product/workflow.py#L37) — `activation_risk(state: Activation)`
+- [activation_graph](../backend/product/workflow.py#L54) — `activation_graph()`
 
 ### backend/research.py
 
@@ -552,19 +636,6 @@ Cognito access-token identity and tenant-aware repositories protect application 
 - [ResearchBridge.__init__](../backend/research.py#L44) — `__init__(self, llm=None)`
 - [ResearchBridge.analyze](../backend/research.py#L69) — `async analyze(self, market_report: str, news_report: str)`
 - [ResearchBridge.analyze.invoke](../backend/research.py#L102) — `async invoke(factory)`
-
-### backend/research_brief.py
-
-- [Finding](../backend/research_brief.py#L20) — class
-- [Citation](../backend/research_brief.py#L27) — class
-- [RiskPlan](../backend/research_brief.py#L39) — class
-- [BriefBody](../backend/research_brief.py#L55) — class
-- [SnapshotReceipt](../backend/research_brief.py#L80) — class
-- [ResearchBrief](../backend/research_brief.py#L87) — class
-- [_url](../backend/research_brief.py#L91) — `_url(value: Any)`
-- [_money](../backend/research_brief.py#L103) — `_money(value: Any)`
-- [build_brief](../backend/research_brief.py#L111) — `build_brief(run: dict)`
-- [build_brief.output](../backend/research_brief.py#L114) — `output(name: str)`
 
 ### backend/risk.py
 
@@ -635,156 +706,124 @@ Cognito access-token identity and tenant-aware repositories protect application 
 - [RuleStrategy.evaluate](../backend/strategy_registry.py#L56) — `evaluate(self, market, news, holding=False, clock=None)`
 - [builtins](../backend/strategy_registry.py#L78) — `builtins(configurations: dict[str, StrategyConfig])`
 
-### backend/strategy_repository.py
-
-- [StoredStrategy](../backend/strategy_repository.py#L15) — class
-- [_stored](../backend/strategy_repository.py#L22) — `_stored(row)`
-- [_insert_version](../backend/strategy_repository.py#L26) — `_insert_version(db: Connection, owner_id: UUID, strategy_id: UUID, version: int, draft: StrategyDraft)`
-- [create_strategy](../backend/strategy_repository.py#L40) — `create_strategy(db: Connection, owner_id: UUID, draft: StrategyDraft)`
-- [get_strategy](../backend/strategy_repository.py#L50) — `get_strategy(db: Connection, owner_id: UUID, strategy_id: UUID, version: int | None=None)`
-- [list_strategies](../backend/strategy_repository.py#L69) — `list_strategies(db: Connection, owner_id: UUID, *, after: UUID | None=None, limit: int=50)`
-- [strategy_history](../backend/strategy_repository.py#L95) — `strategy_history(db: Connection, owner_id: UUID, strategy_id: UUID, *, before_version: int=2 ** 31, limit: int=50)`
-- [_lock_current](../backend/strategy_repository.py#L118) — `_lock_current(db: Connection, owner_id: UUID, strategy_id: UUID, expected_version: int)`
-- [update_strategy](../backend/strategy_repository.py#L137) — `update_strategy(db: Connection, owner_id: UUID, strategy_id: UUID, draft: StrategyDraft, *, expected_version: int)`
-- [archive_strategy](../backend/strategy_repository.py#L152) — `archive_strategy(db: Connection, owner_id: UUID, strategy_id: UUID, *, expected_version: int)`
-
-### backend/strategy_rules.py
-
-- [Condition](../backend/strategy_rules.py#L35) — class
-- [RuleGroup](../backend/strategy_rules.py#L41) — class
-- [StrategyDefinition](../backend/strategy_rules.py#L46) — class
-- [StrategyDraft](../backend/strategy_rules.py#L58) — class
-- [_threshold](../backend/strategy_rules.py#L64) — `_threshold(condition: Condition, values: dict)`
-- [_matches](../backend/strategy_rules.py#L70) — `_matches(condition: Condition, current: dict, previous: dict)`
-- [rule_signal](../backend/strategy_rules.py#L93) — `rule_signal(definition: StrategyDefinition, market: Market, *, holding: bool)`
-- [authoring_options](../backend/strategy_rules.py#L119) — `authoring_options()`
-- [authoring_options.group](../backend/strategy_rules.py#L136) — `group(rule)`
-
-### backend/trade_history.py
-
-- [realized_deltas](../backend/trade_history.py#L19) — `realized_deltas(records: list[dict])`
-- [research_record](../backend/trade_history.py#L46) — `research_record(record: dict, realized: str)`
-- [research_history](../backend/trade_history.py#L76) — `research_history(store, filters: TradeFilters)`
-- [research_detail](../backend/trade_history.py#L113) — `research_detail(store, trade_id: str)`
-
 ## TypeScript exported entry points and contracts
 
-### backend/src/agents/agent.service.ts
+### backend/gateway/agents/agent.service.ts
 
-- [AgentService](../backend/src/agents/agent.service.ts#L39)
+- [AgentService](../backend/gateway/agents/agent.service.ts#L39)
 
-### backend/src/auth/cognito.ts
+### backend/gateway/auth/cognito.ts
 
-- [Authenticator](../backend/src/auth/cognito.ts#L20)
-- [CognitoAuth](../backend/src/auth/cognito.ts#L23)
+- [Authenticator](../backend/gateway/auth/cognito.ts#L20)
+- [CognitoAuth](../backend/gateway/auth/cognito.ts#L23)
 
-### backend/src/config.ts
+### backend/gateway/config.ts
 
-- [Config](../backend/src/config.ts#L96)
-- [loadConfig](../backend/src/config.ts#L111)
+- [Config](../backend/gateway/config.ts#L96)
+- [loadConfig](../backend/gateway/config.ts#L111)
 
-### backend/src/domain/errors.ts
+### backend/gateway/domain/errors.ts
 
-- [PlatformError](../backend/src/domain/errors.ts#L1)
+- [PlatformError](../backend/gateway/domain/errors.ts#L1)
 
-### backend/src/domain/schemas.ts
+### backend/gateway/domain/schemas.ts
 
-- [AgentSpec](../backend/src/domain/schemas.ts#L262)
-- [Profile](../backend/src/domain/schemas.ts#L263)
-- [DeploymentState](../backend/src/domain/schemas.ts#L278)
-- [Agent](../backend/src/domain/schemas.ts#L279)
-- [Deployment](../backend/src/domain/schemas.ts#L295)
-- [Principal](../backend/src/domain/schemas.ts#L308)
-- [RecordItem](../backend/src/domain/schemas.ts#L313)
+- [AgentSpec](../backend/gateway/domain/schemas.ts#L262)
+- [Profile](../backend/gateway/domain/schemas.ts#L263)
+- [DeploymentState](../backend/gateway/domain/schemas.ts#L278)
+- [Agent](../backend/gateway/domain/schemas.ts#L279)
+- [Deployment](../backend/gateway/domain/schemas.ts#L295)
+- [Principal](../backend/gateway/domain/schemas.ts#L308)
+- [RecordItem](../backend/gateway/domain/schemas.ts#L313)
 
-### backend/src/integrations/llm/agent-analysis.service.ts
+### backend/gateway/integrations/llm/agent-analysis.service.ts
 
-- [AgentAnalysisService](../backend/src/integrations/llm/agent-analysis.service.ts#L28)
+- [AgentAnalysisService](../backend/gateway/integrations/llm/agent-analysis.service.ts#L28)
 
-### backend/src/integrations/llm/analysis-consumer.ts
+### backend/gateway/integrations/llm/analysis-consumer.ts
 
-- [consumeAnalysis](../backend/src/integrations/llm/analysis-consumer.ts#L8)
+- [consumeAnalysis](../backend/gateway/integrations/llm/analysis-consumer.ts#L8)
 
-### backend/src/integrations/llm/bedrock.client.ts
+### backend/gateway/integrations/llm/bedrock.client.ts
 
-- [createBedrockClient](../backend/src/integrations/llm/bedrock.client.ts#L5)
+- [createBedrockClient](../backend/gateway/integrations/llm/bedrock.client.ts#L5)
 
-### backend/src/integrations/llm/conversation.service.ts
+### backend/gateway/integrations/llm/conversation.service.ts
 
-- [ConversationService](../backend/src/integrations/llm/conversation.service.ts#L54)
+- [ConversationService](../backend/gateway/integrations/llm/conversation.service.ts#L54)
 
-### backend/src/integrations/llm/groq.provider.ts
+### backend/gateway/integrations/llm/groq.provider.ts
 
-- [toOpenAIMessages](../backend/src/integrations/llm/groq.provider.ts#L26)
-- [GroqProvider](../backend/src/integrations/llm/groq.provider.ts#L70)
+- [toOpenAIMessages](../backend/gateway/integrations/llm/groq.provider.ts#L26)
+- [GroqProvider](../backend/gateway/integrations/llm/groq.provider.ts#L70)
 
-### backend/src/integrations/llm/llm.interface.ts
+### backend/gateway/integrations/llm/llm.interface.ts
 
-- [ModelMessage](../backend/src/integrations/llm/llm.interface.ts#L1)
-- [ToolDefinition](../backend/src/integrations/llm/llm.interface.ts#L15)
-- [LLMContext](../backend/src/integrations/llm/llm.interface.ts#L20)
-- [LLMRequest](../backend/src/integrations/llm/llm.interface.ts#L26)
-- [LLMResponse](../backend/src/integrations/llm/llm.interface.ts#L33)
-- [LLMProvider](../backend/src/integrations/llm/llm.interface.ts#L40)
+- [ModelMessage](../backend/gateway/integrations/llm/llm.interface.ts#L1)
+- [ToolDefinition](../backend/gateway/integrations/llm/llm.interface.ts#L15)
+- [LLMContext](../backend/gateway/integrations/llm/llm.interface.ts#L20)
+- [LLMRequest](../backend/gateway/integrations/llm/llm.interface.ts#L26)
+- [LLMResponse](../backend/gateway/integrations/llm/llm.interface.ts#L33)
+- [LLMProvider](../backend/gateway/integrations/llm/llm.interface.ts#L40)
 
-### backend/src/integrations/llm/minimax.provider.ts
+### backend/gateway/integrations/llm/minimax.provider.ts
 
-- [MiniMaxProvider](../backend/src/integrations/llm/minimax.provider.ts#L15)
+- [MiniMaxProvider](../backend/gateway/integrations/llm/minimax.provider.ts#L15)
 
-### backend/src/integrations/llm/prompt-manager.ts
+### backend/gateway/integrations/llm/prompt-manager.ts
 
-- [PromptManager](../backend/src/integrations/llm/prompt-manager.ts#L4)
+- [PromptManager](../backend/gateway/integrations/llm/prompt-manager.ts#L4)
 
-### backend/src/integrations/llm/structured-output.ts
+### backend/gateway/integrations/llm/structured-output.ts
 
-- [validateOutput](../backend/src/integrations/llm/structured-output.ts#L3)
-- [bedrockSchema](../backend/src/integrations/llm/structured-output.ts#L14)
+- [validateOutput](../backend/gateway/integrations/llm/structured-output.ts#L3)
+- [bedrockSchema](../backend/gateway/integrations/llm/structured-output.ts#L14)
 
-### backend/src/integrations/llm/token-usage.service.ts
+### backend/gateway/integrations/llm/token-usage.service.ts
 
-- [TokenUsageService](../backend/src/integrations/llm/token-usage.service.ts#L14)
+- [TokenUsageService](../backend/gateway/integrations/llm/token-usage.service.ts#L14)
 
-### backend/src/integrations/llm/tool-registry.ts
+### backend/gateway/integrations/llm/tool-registry.ts
 
-- [ToolRegistry](../backend/src/integrations/llm/tool-registry.ts#L18)
+- [ToolRegistry](../backend/gateway/integrations/llm/tool-registry.ts#L18)
 
-### backend/src/product/routes.ts
+### backend/gateway/product/routes.ts
 
-- [registerProductRoutes](../backend/src/product/routes.ts#L48)
+- [registerProductRoutes](../backend/gateway/product/routes.ts#L51)
 
-### backend/src/profiles/profile.service.ts
+### backend/gateway/profiles/profile.service.ts
 
-- [ProfileService](../backend/src/profiles/profile.service.ts#L9)
+- [ProfileService](../backend/gateway/profiles/profile.service.ts#L9)
 
-### backend/src/runtime/agent-template.ts
+### backend/gateway/runtime/agent-template.ts
 
-- [agentTemplate](../backend/src/runtime/agent-template.ts#L6)
+- [agentTemplate](../backend/gateway/runtime/agent-template.ts#L6)
 
-### backend/src/runtime/aws-runtime.ts
+### backend/gateway/runtime/aws-runtime.ts
 
-- [AwsRuntime](../backend/src/runtime/aws-runtime.ts#L51)
+- [AwsRuntime](../backend/gateway/runtime/aws-runtime.ts#L51)
 
-### backend/src/runtime/broker.ts
+### backend/gateway/runtime/broker.ts
 
-- [handler](../backend/src/runtime/broker.ts#L18)
+- [handler](../backend/gateway/runtime/broker.ts#L18)
 
-### backend/src/runtime/janitor.ts
+### backend/gateway/runtime/janitor.ts
 
-- [handler](../backend/src/runtime/janitor.ts#L12)
+- [handler](../backend/gateway/runtime/janitor.ts#L12)
 
-### backend/src/runtime/runtime.interface.ts
+### backend/gateway/runtime/runtime.interface.ts
 
-- [RuntimeStatus](../backend/src/runtime/runtime.interface.ts#L7)
-- [RuntimeProvider](../backend/src/runtime/runtime.interface.ts#L32)
+- [RuntimeStatus](../backend/gateway/runtime/runtime.interface.ts#L7)
+- [RuntimeProvider](../backend/gateway/runtime/runtime.interface.ts#L32)
 
-### backend/src/server.ts
+### backend/gateway/server.ts
 
-- [createPlatform](../backend/src/server.ts#L39)
+- [createPlatform](../backend/gateway/server.ts#L39)
 
-### backend/src/storage/tenant-store.ts
+### backend/gateway/storage/tenant-store.ts
 
-- [Write](../backend/src/storage/tenant-store.ts#L11)
-- [Page](../backend/src/storage/tenant-store.ts#L17)
-- [TenantStore](../backend/src/storage/tenant-store.ts#L21)
-- [DynamoTenantStore](../backend/src/storage/tenant-store.ts#L67)
-- [MemoryTenantStore](../backend/src/storage/tenant-store.ts#L195)
+- [Write](../backend/gateway/storage/tenant-store.ts#L11)
+- [Page](../backend/gateway/storage/tenant-store.ts#L17)
+- [TenantStore](../backend/gateway/storage/tenant-store.ts#L21)
+- [DynamoTenantStore](../backend/gateway/storage/tenant-store.ts#L67)
+- [MemoryTenantStore](../backend/gateway/storage/tenant-store.ts#L195)

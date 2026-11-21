@@ -33,7 +33,7 @@ make prices ARGS='--output artifacts/aegis-prices.json'
 4. Fetched explorer contract records and ABIs for every configured contract, token and pool. Used `eth_getCode`, router/quoter getters, token metadata, factory `getPool`, pool `slot0`, `liquidity`, and token `balanceOf(pool)` at pinned blocks.
 5. Compared the configured pools' RPC state with historical subgraph state **at the exact same block**, rather than comparing two moving prices.
 
-[Source hashes and package integrity values](discovery/sources.json), [contract verification manifest](discovery/contracts.json), and [saved ABIs](discovery/abis/) retain provenance. Bundle filenames are versioned; `make verify-discovery` discovers the current imports instead of assuming those filenames will remain valid.
+[Source hashes and package integrity values](../discovery/sources.json), [contract verification manifest](../discovery/contracts.json), and [saved ABIs](../discovery/abis) retain provenance. Bundle filenames are versioned; `make verify-discovery` discovers the current imports instead of assuming those filenames will remain valid.
 
 The explorer reports most core/periphery/pool contracts as **partially verified**, with ABIs available. Mainnet WHSK and both USDC proxy contracts report full verification. These flags are preserved per address; ABI availability is not a contract security audit or proof of a full source match.
 
@@ -57,7 +57,7 @@ The explorer reports most core/periphery/pool contracts as **partially verified*
 | QuoterV2           | [`0x603f70466fDdbE3F238220B9a74FFF419a2BbFDD`](https://hsk.blockscout.com/address/0x603f70466fDdbE3F238220B9a74FFF419a2BbFDD) | [`0x73820d9eE5Bf1BfcD429580320FC7A374E8fa1cC`](https://testnet-explorer.hskchain.net/address/0x73820d9eE5Bf1BfcD429580320FC7A374E8fa1cC) |
 | Wrapped native HSK | [`0xB210D2120d57b758EE163cFfb43e73728c471Cf1`](https://hsk.blockscout.com/address/0xB210D2120d57b758EE163cFfb43e73728c471Cf1) | [`0xCA8aAceEC5Db1e91B9Ed3a344bA026c4a2B3ebF6`](https://testnet-explorer.hskchain.net/address/0xCA8aAceEC5Db1e91B9Ed3a344bA026c4a2B3ebF6) |
 
-Both routers' and quoters' `factory()` and `WETH9()` getters match their network's factory and WHSK addresses. Runtime code sizes were 24,535 bytes for each factory, 24,497 for each router and 8,273 for each quoter. Exact runtime Keccak hashes are pinned in [the network registry](../config/networks.yaml); the price command refuses changed code.
+Both routers' and quoters' `factory()` and `WETH9()` getters match their network's factory and WHSK addresses. Runtime code sizes were 24,535 bytes for each factory, 24,497 for each router and 8,273 for each quoter. Exact runtime Keccak hashes are pinned in [the network registry](../../config/networks.yaml); the price command refuses changed code.
 
 The native gas asset is HSK. The router's legacy `WETH9()` name refers to **WHSK**, not bridged WETH. These are different assets and contracts.
 
@@ -113,7 +113,7 @@ token1 per token0 = (sqrtPriceX96² / 2^192) × 10^(decimals0 − decimals1)
 
 ### Mainnet observation
 
-[Captured RPC snapshot](evidence/aegis-prices-177.json), block **29,560,841**:
+[Captured RPC snapshot](../evidence/aegis-prices-177.json), block **29,560,841**:
 
 | Pair / fee        | Pool                                                                                                                          | Mid quote per base |      Base token balance | Quote token balance | Spot balance value in quote |
 | ----------------- | ----------------------------------------------------------------------------------------------------------------------------- | -----------------: | ----------------------: | ------------------: | --------------------------: |
@@ -124,11 +124,11 @@ token1 per token0 = (sqrtPriceX96² / 2^192) × 10^(decimals0 − decimals1)
 
 The first three balance valuations are in **USDT units**, not independently measured USD. Calling them approximate USD TVL requires a stated USDT=$1 assumption. The USDC.e/WHSK pool is dust-sized and unsuitable for an economically meaningful multi-hop route.
 
-The current mainnet subgraph contained **16 indexed V3 pools**, including inactive stock-token pools and dust/test tokens. Four pools whose tokens belong to the documented registry were verified against the factory. [The inventory](discovery/mainnet-subgraph-inventory.json) records the other indexed candidates as source data; they are **not automatically admitted to the runtime registry**. This is not a full historical `PoolCreated` log scan.
+The current mainnet subgraph contained **16 indexed V3 pools**, including inactive stock-token pools and dust/test tokens. Four pools whose tokens belong to the documented registry were verified against the factory. [The inventory](../discovery/mainnet-subgraph-inventory.json) records the other indexed candidates as source data; they are **not automatically admitted to the runtime registry**. This is not a full historical `PoolCreated` log scan.
 
 ### Testnet observation
 
-[Captured RPC snapshot](evidence/aegis-prices-133.json), block **35,141,081**:
+[Captured RPC snapshot](../evidence/aegis-prices-133.json), block **35,141,081**:
 
 | Pair / fee       | Pool                                                                                                                                     | Token balances                        |   Active liquidity raw |
 | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- | ---------------------: |
@@ -147,9 +147,9 @@ mainnet: chain 177, block 29561153, 4 exact pool-state matches; 16 indexed pools
 testnet: chain 133, block 35141398, 3 exact pool-state matches; 65 indexed pools
 ```
 
-[Machine-readable report](evidence/aegis-data-verification.json) includes block hashes, source hashes, metadata, balances, inventories and comparison results. Source comparison covers `sqrtPriceX96`, tick, active liquidity, token addresses, decimals and fee. It establishes agreement with the HSKSwap package's own indexed source, **not a visual browser inspection**.
+[Machine-readable report](../evidence/aegis-data-verification.json) includes block hashes, source hashes, metadata, balances, inventories and comparison results. Source comparison covers `sqrtPriceX96`, tick, active liquidity, token addresses, decimals and fee. It establishes agreement with the HSKSwap package's own indexed source, **not a visual browser inspection**.
 
-Additional [QuoterV2 `eth_call` probes](evidence/aegis-quotes-177.json) returned:
+Additional [QuoterV2 `eth_call` probes](../evidence/aegis-quotes-177.json) returned:
 
 | Input        | Output in USDT | LP fee |
 | ------------ | -------------: | -----: |
@@ -159,7 +159,7 @@ Additional [QuoterV2 `eth_call` probes](evidence/aegis-quotes-177.json) returned
 
 These outputs incorporate the pool fee and simulated pool execution. They are not paid swaps, funded-vault simulations, receipt reconciliation or complete gas estimates. There are **no AEGIS transaction hashes or deployment addresses** for Phase 1.
 
-The **22 data tests** exercise decimal scaling, zero price rejection, chain mismatch/fallback, RPC failures, read-only method restrictions, contract reverts, cache isolation by block hash, reorg rejection, stale/future timestamps, malformed responses, token metadata changes, bytecode changes, factory/pool mismatch, registry provenance and ABI integrity. The combined data/backend/selected upstream regression command passed **181 tests and 10 subtests**. Ruff, publication-path/credential-pattern checks, generated-reference consistency and `git diff --check` also passed. These local checks do not establish hosted CI or live trading. [Validation record](evidence/aegis-phase1-validation.json).
+The **22 data tests** exercise decimal scaling, zero price rejection, chain mismatch/fallback, RPC failures, read-only method restrictions, contract reverts, cache isolation by block hash, reorg rejection, stale/future timestamps, malformed responses, token metadata changes, bytecode changes, factory/pool mismatch, registry provenance and ABI integrity. The combined data/backend/selected upstream regression command passed **181 tests and 10 subtests**. Ruff, publication-path/credential-pattern checks, generated-reference consistency and `git diff --check` also passed. These local checks do not establish hosted CI or live trading. [Validation record](../evidence/aegis-phase1-validation.json).
 
 ### Visual comparison and revised acceptance
 

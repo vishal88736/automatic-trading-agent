@@ -3,7 +3,7 @@
 import httpx
 
 from backend.data import parse_time
-from backend.paper_execution import PaperQuote
+from backend.product.execution import PaperQuote
 from backend.settings import get_settings
 
 

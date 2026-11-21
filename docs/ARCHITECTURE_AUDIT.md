@@ -1,6 +1,9 @@
 # Krono architecture audit and migration plan
 
-Baseline: `2dfe39027c2e0a3d06344381df795fd976bdc733` on `main`, matched against GitHub on 2026-11-20. The checkout was clean and no application process was listening on the default local ports at the start. The review covered the tracked tree, active entry points, frontend routes, both API surfaces, storage and execution paths, deployment definitions, and the retained legacy and contract trees. [Connected AEGIS flow](docs/AEGIS_FLOWS.md), [current architecture](docs/ARCHITECTURE.md), [development guide](docs/DEVELOPMENT.md), [API and source index](docs/SOURCE_REFERENCE.md), [AWS setup](docs/AWS_SETUP.md), [security boundaries](SECURITY.md).
+This audit records the original migration baseline. See [current architecture](ARCHITECTURE.md) for active code paths.
+
+
+Baseline: `2dfe39027c2e0a3d06344381df795fd976bdc733` on `main`, matched against GitHub on 2026-11-20. The checkout was clean and no application process was listening on the default local ports at the start. The review covered the tracked tree, active entry points, frontend routes, both API surfaces, storage and execution paths, deployment definitions, and the retained legacy and contract trees. [Connected AEGIS flow](operator/AEGIS_FLOWS.md), [current architecture](ARCHITECTURE.md), [development guide](DEVELOPMENT.md), [API and source index](SOURCE_REFERENCE.md), [AWS setup](AWS_SETUP.md), [security boundaries](../SECURITY.md).
 
 Krexa's public site presents a natural-language idea → historical test → continuous paper agent flow. That flow is the product reference. Krono should retain its own interface and restrict the new platform to personal research and paper trading. Public rankings, competitions, showdowns, points, copy trading, and pooled funds are outside the product scope. [Krexa public product page](https://krexa.xyz/)
 
@@ -170,4 +173,4 @@ The worker activates a user-selected saved version using its pinned historical r
 
 ## Unified Krono product direction
 
-The website now targets a single authenticated paper-trading workspace. See the [route, component and service inventory and migration map](docs/CONSOLIDATION.md) for the PostgreSQL execution boundary, retired navigation, and criteria for removing legacy code.
+The website now targets a single authenticated paper-trading workspace. See the [route, component and service inventory and migration map](CONSOLIDATION.md) for the PostgreSQL execution boundary, retired navigation, and criteria for removing legacy code.

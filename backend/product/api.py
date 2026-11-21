@@ -20,12 +20,10 @@ from psycopg import Connection
 from psycopg import Error as DatabaseError
 from pydantic import Field, TypeAdapter
 
-from backend.backtest_repository import get_replay, save_replay
 from backend.data import Providers
-from backend.historical_data import HistoricalBacktestRequest, load_candles
 from backend.models import Model
-from backend.paper_accounts import DEFAULT_INITIAL_USDT, PaperAccount, ensure_account, get_account
-from backend.paper_agents import (
+from backend.product.accounts import DEFAULT_INITIAL_USDT, PaperAccount, ensure_account, get_account
+from backend.product.agents import (
     AgentCommand,
     AgentStart,
     DraftAgentStart,
@@ -37,7 +35,9 @@ from backend.paper_agents import (
     start_draft_agent,
     timeline,
 )
-from backend.paper_execution import (
+from backend.product.backtests import get_replay, save_replay
+from backend.product.database import DSN_ENV, open_database
+from backend.product.execution import (
     Asset,
     OrderRequest,
     PaperTerms,
@@ -51,12 +51,10 @@ from backend.paper_execution import (
     set_emergency,
     submit_order,
 )
-from backend.paper_market import load_quotes
-from backend.paper_worker import heartbeat_fresh
-from backend.platform_db import DSN_ENV, open_database
-from backend.storage import Store
-from backend.strategies import indicators
-from backend.strategy_repository import (
+from backend.product.history import HistoricalBacktestRequest, load_candles
+from backend.product.market import load_quotes
+from backend.product.rules import StrategyDraft, authoring_options
+from backend.product.strategies import (
     archive_strategy,
     create_strategy,
     get_strategy,
@@ -64,7 +62,9 @@ from backend.strategy_repository import (
     strategy_history,
     update_strategy,
 )
-from backend.strategy_rules import StrategyDraft, authoring_options
+from backend.product.worker import heartbeat_fresh
+from backend.storage import Store
+from backend.strategies import indicators
 
 KEY_ENV = "KRONO_PRODUCT_API_KEY"
 BODY_LIMIT = 65536

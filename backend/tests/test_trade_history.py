@@ -7,8 +7,8 @@ import pytest
 from aegis.history import TradeFilters
 from aegis.runtime import PaperRuntime
 from agent.tests.test_runtime import ReplayConnector
-from backend.api import create_app
-from backend.trade_history import research_history
+from backend.operator.api import create_app
+from backend.operator.trade_history import research_history
 
 H = {"Authorization": "Bearer history-test"}
 

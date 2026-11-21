@@ -2,15 +2,15 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import type { BedrockRuntimeClient } from "@aws-sdk/client-bedrock-runtime";
-import { MemoryTenantStore } from "../../src/storage/tenant-store.js";
-import { MiniMaxProvider } from "../../src/integrations/llm/minimax.provider.js";
-import { TokenUsageService } from "../../src/integrations/llm/token-usage.service.js";
-import { createPlatform } from "../../src/server.js";
+import { MemoryTenantStore } from "../../gateway/storage/tenant-store.js";
+import { MiniMaxProvider } from "../../gateway/integrations/llm/minimax.provider.js";
+import { TokenUsageService } from "../../gateway/integrations/llm/token-usage.service.js";
+import { createPlatform } from "../../gateway/server.js";
 import { alice, bob, config, spec, FixtureRuntime } from "./helpers.js";
 import type {
   LLMProvider,
   LLMRequest,
-} from "../../src/integrations/llm/llm.interface.js";
+} from "../../gateway/integrations/llm/llm.interface.js";
 
 test("Bedrock calls use one configured client, ignore reasoning, account tokens, retain unknown charges", async () => {
   const store = new MemoryTenantStore(),
@@ -178,7 +178,7 @@ test("Conversation builds a persisted draft with typed tools; profile context su
 
 test("Groq provider maps tool calls to the platform format and accounts tokens", async () => {
   const { GroqProvider, toOpenAIMessages } =
-    await import("../../src/integrations/llm/groq.provider.js");
+    await import("../../gateway/integrations/llm/groq.provider.js");
   const store = new MemoryTenantStore(),
     usage = new TokenUsageService(store, config),
     sent: Array<{ url: string; body: Record<string, unknown>; auth: string }> =

@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { AgentService } from "../../src/agents/agent.service.js";
-import { ProfileService } from "../../src/profiles/profile.service.js";
-import { MemoryTenantStore } from "../../src/storage/tenant-store.js";
+import { AgentService } from "../../gateway/agents/agent.service.js";
+import { ProfileService } from "../../gateway/profiles/profile.service.js";
+import { MemoryTenantStore } from "../../gateway/storage/tenant-store.js";
 import { alice, bob, config, spec, FixtureRuntime } from "./helpers.js";
 test("Managed templates and user-created agents have isolated versioned definitions; draft deletion releases quota", async () => {
   const store = new MemoryTenantStore(),

@@ -1,8 +1,10 @@
 import { defineConfig } from "@playwright/test";
 import { existsSync } from "node:fs";
 
+const baseURL = `http://127.0.0.1:${process.env.KRONO_E2E_UI_PORT ?? "5180"}`;
+
 export default defineConfig({
-  testDir: "./e2e",
+  testDir: "./tests/e2e",
   fullyParallel: false,
   workers: 1,
   timeout: 45000,
@@ -13,7 +15,7 @@ export default defineConfig({
     ["html", { outputFolder: "artifacts/playwright-report", open: "never" }],
   ],
   use: {
-    baseURL: "http://127.0.0.1:5179",
+    baseURL,
     viewport: { width: 1512, height: 982 },
     colorScheme: "dark",
     reducedMotion: "reduce",
@@ -28,8 +30,8 @@ export default defineConfig({
     },
   },
   webServer: {
-    command: "node e2e/server.mjs",
-    url: "http://127.0.0.1:5179/api/health",
+    command: "node tests/e2e/server.mjs",
+    url: `${baseURL}/platform/health`,
     timeout: 30000,
     reuseExistingServer: false,
     stdout: "ignore",

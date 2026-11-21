@@ -9,7 +9,7 @@ from psycopg.types.json import Jsonb
 from pydantic import AwareDatetime
 
 from backend.models import Model
-from backend.strategy_rules import StrategyDraft
+from backend.product.rules import StrategyDraft
 
 
 class StoredStrategy(Model):

@@ -4,12 +4,12 @@ from decimal import Decimal
 import httpx
 import pytest
 
-from backend.analytics import aggregate, correlations
-from backend.api import create_app
 from backend.data import Providers, fixture_market
 from backend.engine import Engine
 from backend.exchanges import SimulationAdapter
 from backend.models import RunRequest, SchedulerAction, now
+from backend.operator.analytics import aggregate, correlations
+from backend.operator.api import create_app
 from backend.risk import assess, validate_quote
 from backend.storage import Store
 from backend.tests.test_strategy_risk import portfolio, proposal

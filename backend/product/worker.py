@@ -16,11 +16,11 @@ from uuid import uuid5
 
 from langgraph.graph import END, START, StateGraph
 
-from backend.backtest_repository import get_replay, save_replay
-from backend.historical_data import HistoricalBacktestRequest, load_candles
 from backend.models import Market, RiskConfig, now
-from backend.paper_agents import checkpoint, claim_agent, event, fence, mark_agent
-from backend.paper_execution import (
+from backend.product.agents import checkpoint, claim_agent, event, fence, mark_agent
+from backend.product.backtests import get_replay, save_replay
+from backend.product.database import DSN_ENV, open_database
+from backend.product.execution import (
     PX,
     OrderRequest,
     PaperTerms,
@@ -30,12 +30,12 @@ from backend.paper_execution import (
     process_limit,
     submit_order,
 )
-from backend.paper_market import load_quotes
-from backend.paper_workflow import activation_graph
-from backend.platform_db import DSN_ENV, open_database
+from backend.product.history import HistoricalBacktestRequest, load_candles
+from backend.product.market import load_quotes
+from backend.product.rules import StrategyDefinition, rule_signal
+from backend.product.strategies import get_strategy
+from backend.product.workflow import activation_graph
 from backend.strategies import indicators
-from backend.strategy_repository import get_strategy
-from backend.strategy_rules import StrategyDefinition, rule_signal
 
 log = logging.getLogger(__name__)
 REVIEW_INTERVAL = timedelta(days=7)

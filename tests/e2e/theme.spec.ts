@@ -12,78 +12,24 @@ async function stubSignedOutSession(page: Page) {
   );
 }
 
-test("theme follows the system, persists a choice and styles existing workspaces", async ({
+test("Krono follows the system theme and persists a user choice", async ({
   page,
 }) => {
+  await stubSignedOutSession(page);
   await page.emulateMedia({ colorScheme: "light" });
   await page.goto("/");
-  await expect(
-    page.getByRole("heading", { name: "Command center", exact: true }),
-  ).toBeVisible();
   const root = page.locator("html");
-  const background = () =>
-    page
-      .locator("body")
-      .evaluate((body) => getComputedStyle(body).backgroundColor);
+  const landing = page.locator(".krono-landing");
   await expect(root).toHaveAttribute("data-theme", "light");
-  const light = await background();
+  await expect(landing).toHaveCSS("background-color", "rgb(247, 243, 235)");
   await page.emulateMedia({ colorScheme: "dark" });
   await expect(root).toHaveAttribute("data-theme", "dark");
-  expect(await background()).not.toBe(light);
+  await expect(landing).toHaveCSS("background-color", "rgb(16, 16, 18)");
+
   await page.getByRole("button", { name: "Switch to light theme" }).click();
   await page.reload();
   await expect(root).toHaveAttribute("data-theme", "light");
-  expect(await background()).toBe(light);
-  await expect(
-    page.getByRole("heading", { name: "Market watch", exact: true }),
-  ).toBeVisible();
-
-  await page.setViewportSize({ width: 320, height: 800 });
-  await page.goto("/#/aegis");
-  await expect(
-    page.getByRole("button", { name: "Switch to dark theme" }),
-  ).toBeVisible();
-  expect(
-    await page.evaluate(() => document.documentElement.scrollWidth),
-  ).toBeLessThanOrEqual(321);
-  await page.getByRole("button", { name: "Switch to dark theme" }).click();
-  await expect(root).toHaveAttribute("data-theme", "dark");
-  await expect(
-    page.getByRole("button", { name: "Emergency stop", exact: true }),
-  ).toBeVisible();
-});
-
-test("the home orbit rotates, respects reduced motion, and leaves the desk action available", async ({
-  page,
-}) => {
-  await page.emulateMedia({ reducedMotion: "no-preference" });
-  await page.goto("/");
-  const rotor = page.locator(".orbit-rotor");
-  await expect(rotor).toHaveCSS("animation-name", "orbit-turn");
-  await page.getByRole("button", { name: "Pause orbit animation" }).click();
-  await expect(rotor).toHaveCSS("animation-play-state", "paused");
-  await page.getByRole("button", { name: "Play orbit animation" }).click();
-  await expect(rotor).toHaveCSS("animation-play-state", "running");
-  const turns = await rotor.evaluate(async (node) => {
-    const [orbit] = node.getAnimations();
-    orbit.pause();
-    await orbit.ready;
-    orbit.currentTime = 0;
-    const start = getComputedStyle(node).transform;
-    orbit.currentTime = 11500;
-    return start !== getComputedStyle(node).transform;
-  });
-  expect(turns).toBe(true);
-
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  await expect(rotor).toHaveCSS("animation-name", "none");
-  await expect(
-    page.getByRole("button", { name: "Pause orbit animation" }),
-  ).toBeHidden();
-  await page.getByRole("button", { name: "Open trading desk" }).click();
-  await expect(
-    page.getByRole("heading", { name: "Trading desk", exact: true }),
-  ).toBeVisible();
+  await expect(landing).toHaveCSS("background-color", "rgb(247, 243, 235)");
 });
 
 test("the landing uses the workspace palette, fits the viewport and opens sign-in", async ({
@@ -92,7 +38,7 @@ test("the landing uses the workspace palette, fits the viewport and opens sign-i
   await stubSignedOutSession(page);
   await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
   const heroImage = page.waitForResponse("**/art/krono-sapphire-terminal.webp");
-  await page.goto("/workspace#/dashboard");
+  await page.goto("/#/dashboard");
   const hero = page.getByRole("heading", {
     name: "Build and test crypto strategies.",
     exact: true,
@@ -161,7 +107,7 @@ test("landing section links focus the selected content and preserve protected de
 }) => {
   await stubSignedOutSession(page);
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto("/workspace#/dashboard");
+  await page.goto("/#/dashboard");
   await page.getByRole("link", { name: "See how it works" }).click();
   await expect(page).toHaveURL(/#\/dashboard\?section=workflow$/);
   const workflow = page.getByRole("region", {
@@ -305,7 +251,7 @@ test("the signed-in dashboard uses recorded equity and marks, with a responsive 
   );
 
   await page.setViewportSize({ width: 1440, height: 960 });
-  await page.goto("/workspace#/dashboard");
+  await page.goto("/#/dashboard");
   const workspace = page.locator(".unified-workspace");
   await expect(workspace).toHaveCSS("background-color", "rgb(16, 16, 18)");
   const positions = page.getByRole("region", {

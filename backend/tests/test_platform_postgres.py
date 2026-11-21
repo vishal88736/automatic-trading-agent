@@ -26,10 +26,11 @@ from psycopg.conninfo import make_conninfo  # noqa: E402
 from psycopg.errors import CheckViolation, ForeignKeyViolation, SyntaxError  # noqa: E402
 
 from backend.data import fixture_market  # noqa: E402
-from backend.paper_accounts import ensure_account, get_account  # noqa: E402
-from backend.platform_db import MIGRATIONS, migrate, open_database  # noqa: E402
-from backend.platform_product_api import create_product_api  # noqa: E402
-from backend.strategy_repository import (  # noqa: E402
+from backend.product.accounts import ensure_account, get_account  # noqa: E402
+from backend.product.api import create_product_api  # noqa: E402
+from backend.product.database import MIGRATIONS, migrate, open_database  # noqa: E402
+from backend.product.rules import StrategyDraft  # noqa: E402
+from backend.product.strategies import (  # noqa: E402
     archive_strategy,
     create_strategy,
     get_strategy,
@@ -37,7 +38,6 @@ from backend.strategy_repository import (  # noqa: E402
     strategy_history,
     update_strategy,
 )
-from backend.strategy_rules import StrategyDraft  # noqa: E402
 
 
 @pytest.fixture
@@ -291,7 +291,7 @@ def test_order_execution_uses_one_ledger_for_fills_reservations_and_reset(databa
     from datetime import timedelta
 
     from backend.models import now
-    from backend.paper_execution import (
+    from backend.product.execution import (
         OrderRequest,
         PaperQuote,
         PaperTerms,
@@ -369,7 +369,7 @@ def test_order_execution_uses_one_ledger_for_fills_reservations_and_reset(databa
 
 def test_parallel_submissions_share_cash_lock(database):
     from backend.models import now
-    from backend.paper_execution import OrderRequest, PaperQuote, PaperTerms, submit_order
+    from backend.product.execution import OrderRequest, PaperQuote, PaperTerms, submit_order
 
     owner = uuid4()
     with database() as db:
@@ -400,10 +400,8 @@ def test_durable_agent_lease_recovers_and_shared_execution_stops_atomically(
 ):
     from datetime import timedelta
 
-    from backend.backtest_repository import save_replay
-    from backend.historical_data import HistoricalBacktestRequest
     from backend.models import now
-    from backend.paper_agents import (
+    from backend.product.agents import (
         AgentStart,
         claim_agent,
         close_agent_position,
@@ -412,7 +410,8 @@ def test_durable_agent_lease_recovers_and_shared_execution_stops_atomically(
         start_agent,
         timeline,
     )
-    from backend.paper_execution import (
+    from backend.product.backtests import save_replay
+    from backend.product.execution import (
         OrderRequest,
         PaperTerms,
         order_history,
@@ -420,8 +419,9 @@ def test_durable_agent_lease_recovers_and_shared_execution_stops_atomically(
         positions,
         submit_order,
     )
-    from backend.paper_worker import PaperWorker
-    from e2e.product_api import history, quotes
+    from backend.product.history import HistoricalBacktestRequest
+    from backend.product.worker import PaperWorker
+    from tests.e2e.product_api import history, quotes
 
     owner, other = uuid4(), uuid4()
     raw = strategy_draft.model_dump(mode="json")
@@ -504,7 +504,7 @@ def test_durable_agent_lease_recovers_and_shared_execution_stops_atomically(
         assert control_agent(db, owner, ident, "resume") == "RUNNING"
         after_resume = claim_agent(db)
         assert after_resume["last_quote"] >= now() - timedelta(minutes=1)
-        from backend.paper_execution import PaperQuote
+        from backend.product.execution import PaperQuote
 
         low = PaperWorker(
             history,
@@ -532,8 +532,8 @@ def test_durable_agent_lease_recovers_and_shared_execution_stops_atomically(
 
 
 def test_start_from_draft_is_atomic_idempotent_and_owner_scoped(database, strategy_draft):
-    from backend.paper_agents import DraftAgentStart, list_agents, start_draft_agent, timeline
-    from backend.paper_execution import set_emergency
+    from backend.product.agents import DraftAgentStart, list_agents, start_draft_agent, timeline
+    from backend.product.execution import set_emergency
 
     owner, other = uuid4(), uuid4()
     request = DraftAgentStart(
@@ -578,8 +578,8 @@ def test_start_from_draft_is_atomic_idempotent_and_owner_scoped(database, strate
 
 
 def test_activation_critic_rejects_unrealistic_holdout_before_trading():
-    from backend.paper_execution import PaperTerms
-    from backend.paper_workflow import activation_graph
+    from backend.product.execution import PaperTerms
+    from backend.product.workflow import activation_graph
 
     report = {
         "result": {
@@ -608,12 +608,12 @@ def test_worker_backtests_saved_version_then_revalidates_on_independent_history(
 ):
     from datetime import timedelta
 
-    from backend.backtest_repository import get_replay
     from backend.models import now
-    from backend.paper_agents import AgentStart, claim_agent, list_agents, start_agent, timeline
-    from backend.paper_execution import order_history
-    from backend.paper_worker import PaperWorker
-    from e2e.product_api import history, quotes
+    from backend.product.agents import AgentStart, claim_agent, list_agents, start_agent, timeline
+    from backend.product.backtests import get_replay
+    from backend.product.execution import order_history
+    from backend.product.worker import PaperWorker
+    from tests.e2e.product_api import history, quotes
 
     owner, other = uuid4(), uuid4()
     draft = strategy_draft.model_dump(mode="json")
@@ -670,7 +670,7 @@ def test_shared_paper_entry_frequency_counts_exits_without_blocking_exit(databas
 
     from aegis.risk.policy import CAPS
     from backend.models import now
-    from backend.paper_execution import OrderRequest, PaperQuote, PaperTerms, submit_order
+    from backend.product.execution import OrderRequest, PaperQuote, PaperTerms, submit_order
 
     owner = uuid4()
     at = now().replace(hour=12, minute=0, second=0, microsecond=0)

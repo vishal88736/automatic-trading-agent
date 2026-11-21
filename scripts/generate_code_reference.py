@@ -35,7 +35,12 @@ def symbols(nodes, path, prefix=""):
 
 
 def generate():
-    paths = sorted((ROOT / "backend").glob("*.py"))
+    backend = ROOT / "backend"
+    paths = sorted(
+        path
+        for directory in (backend, backend / "product", backend / "operator")
+        for path in directory.glob("*.py")
+    )
     trees = {p: ast.parse(p.read_text()) for p in paths}
     lines = [
         "# Generated backend source reference",
@@ -44,34 +49,38 @@ def generate():
         "",
         "This tool reads source only. It does not load environment files, databases, AWS credentials, models or providers. [Development](DEVELOPMENT.md) explains the module layout; this index supplies exact code locations.",
         "",
-        "## Local HTTP routes",
-        "",
-        "Use the local session/CSRF client or configured bearer authentication. Health/readiness/session/schema routes have their documented local exceptions. `/api/*` is separate from cloud `/platform/*`.",
-        "",
     ]
-    path = ROOT / "backend/api.py"
-    for node in ast.walk(trees[path]):
-        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            continue
-        for decorator in node.decorator_list:
-            if not isinstance(decorator, ast.Call) or not isinstance(decorator.func, ast.Attribute):
+    for service in ("product", "operator"):
+        lines += [f"## {service.title()} HTTP routes", ""]
+        path = backend / service / "api.py"
+        for node in ast.walk(trees[path]):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
-            if decorator.func.attr not in METHODS or not decorator.args:
-                continue
-            route = decorator.args[0]
-            if isinstance(route, ast.Constant) and isinstance(route.value, str):
-                lines.append(
-                    f"- `{decorator.func.attr.upper()} {route.value}` → [{node.name}]({link(path, node.lineno)})"
-                )
+            for decorator in node.decorator_list:
+                if not isinstance(decorator, ast.Call) or not isinstance(
+                    decorator.func, ast.Attribute
+                ):
+                    continue
+                if decorator.func.attr not in METHODS or not decorator.args:
+                    continue
+                route = decorator.args[0]
+                if isinstance(route, ast.Constant) and isinstance(route.value, str):
+                    lines.append(
+                        f"- `{decorator.func.attr.upper()} {route.value}` → [{node.name}]({link(path, node.lineno)})"
+                    )
+        lines.append("")
     lines += [
-        "",
-        "## Cloud HTTP routes",
+        "## Gateway HTTP routes",
         "",
         "Cognito access-token identity and tenant-aware repositories protect application resources. Authentication endpoints establish or clear sessions; `/platform/health` is public and does not attest AWS account availability.",
         "",
     ]
     pattern = re.compile(r"app\.(get|post|put|patch|delete)\(\s*[\"']([^\"']+)")
-    for path in [ROOT / "backend/src/server.ts", ROOT / "backend/src/auth/cognito.ts"]:
+    for path in [
+        backend / "gateway/server.ts",
+        backend / "gateway/auth/cognito.ts",
+        backend / "gateway/product/routes.ts",
+    ]:
         source = path.read_text()
         for match in pattern.finditer(source):
             line = source.count("\n", 0, match.start()) + 1
@@ -85,7 +94,7 @@ def generate():
             lines += [f"### {path.relative_to(ROOT).as_posix()}", "", *entries, ""]
     lines += ["## TypeScript exported entry points and contracts", ""]
     exported = re.compile(r"export\s+(?:async\s+)?(?:class|function|interface|type)\s+(\w+)")
-    for path in sorted((ROOT / "backend/src").rglob("*.ts")):
+    for path in sorted((ROOT / "backend/gateway").rglob("*.ts")):
         source = path.read_text()
         entries = []
         for match in exported.finditer(source):

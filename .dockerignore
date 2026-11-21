@@ -21,6 +21,10 @@ contracts/broadcast
 node_modules
 artifacts
 test-results
+tests
+backend/tests
+agent/tests
+docs/references
 frontend/dist
 backend/dist
 infra/dist

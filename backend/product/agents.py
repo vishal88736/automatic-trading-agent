@@ -11,7 +11,7 @@ from psycopg.types.json import Jsonb
 from pydantic import Field, model_validator
 
 from backend.models import Model
-from backend.paper_execution import (
+from backend.product.execution import (
     OrderRequest,
     PaperTerms,
     agent_cash_reserved,
@@ -21,8 +21,8 @@ from backend.paper_execution import (
     reservations,
     submit_order,
 )
-from backend.strategy_repository import create_strategy, get_strategy
-from backend.strategy_rules import Name, StrategyDraft
+from backend.product.rules import Name, StrategyDraft
+from backend.product.strategies import create_strategy, get_strategy
 
 
 class AgentStartSettings(Model):

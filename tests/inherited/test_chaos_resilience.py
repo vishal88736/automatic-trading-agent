@@ -324,46 +324,6 @@ class PositionFetchOutageTests(unittest.TestCase):
             # Non-strict callers (agent prompt context) keep the old behavior.
             self.assertEqual(AlpacaUtils.get_current_position_state("AAPL"), "NEUTRAL")
 
-    def test_trade_execution_skips_order_when_position_fetch_fails(self):
-        from webui.components.analysis import execute_trade_after_analysis
-        from webui.utils.state import app_state
-
-        # Account is long AAPL, but the positions endpoint is down.
-        client = Mock()
-        client.get_all_positions.side_effect = ConnectionError("nginx: 502")
-        client.get_account.side_effect = ConnectionError("nginx: 502")
-
-        app_state.init_symbol_state("AAPL")
-        state = app_state.get_state("AAPL")
-        state["analysis_complete"] = True
-        state["recommended_action"] = "BUY"
-
-        with tempfile.TemporaryDirectory() as tmp:
-            guard = _guard(tmp)
-            with patch(
-                "tradingagents.dataflows.alpaca_utils.get_alpaca_trading_client",
-                return_value=client,
-            ), patch.object(
-                AlpacaUtils,
-                "get_latest_quote",
-                return_value={"bid_price": 100.0, "ask_price": 100.1},
-            ), patch.object(
-                AlpacaUtils,
-                "place_market_order",
-                return_value={"success": True},
-            ) as place_order, patch(
-                "tradingagents.safety.get_safety_guard", return_value=guard
-            ), patch(
-                "tradingagents.portfolio.adjust_new_position_notional",
-                side_effect=lambda **kwargs: kwargs["requested_notional"],
-            ), patch(
-                "tradingagents.regime.regime_risk_multiplier", return_value=1.0
-            ):
-                execute_trade_after_analysis("AAPL", allow_shorts=False, trade_amount=1000)
-
-            place_order.assert_not_called()
-            self.assertIn("error", state.get("trading_results") or {})
-
 
 if __name__ == "__main__":
     unittest.main()

@@ -344,7 +344,7 @@ class GPT5ChatModel(BaseChatModel):
 
             logged_to_state = False
             try:
-                from webui.utils.state import app_state
+                from tradingagents.telemetry.state import app_state
 
                 app_state.register_llm_call(
                     model_name=self.model,

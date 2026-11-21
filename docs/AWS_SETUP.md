@@ -1,6 +1,6 @@
 # KRONO 2.0 AWS setup
 
-KRONO now has a TypeScript control plane in `backend/src` and an approved Python/LangGraph worker in `backend/cloud_worker.py`. The existing localhost terminal remains available with `npm run dev`. Its SQLite database and localhost session API are **not exposed as the cloud multi-tenant API**.
+KRONO now has a TypeScript control plane in `backend/gateway` and an approved Python/LangGraph worker in `backend/cloud_worker.py`. The existing localhost terminal remains available with `npm run dev`. Its SQLite database and localhost session API are **not exposed as the cloud multi-tenant API**.
 
 This checkout has no configured AWS profile or credentials. Infrastructure synthesis and fixture tests do not establish a deployment, Cognito email delivery, account-level Bedrock access, IAM enforcement in AWS, or a live blockchain transaction. Supply your account details through the ignored environment file and run the AWS acceptance steps below.
 

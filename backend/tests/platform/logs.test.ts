@@ -3,10 +3,10 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { CloudWatchLogsClient } from "@aws-sdk/client-cloudwatch-logs";
-import { AwsRuntime } from "../../src/runtime/aws-runtime.js";
-import { MemoryTenantStore } from "../../src/storage/tenant-store.js";
-import { AgentService } from "../../src/agents/agent.service.js";
-import { ProfileService } from "../../src/profiles/profile.service.js";
+import { AwsRuntime } from "../../gateway/runtime/aws-runtime.js";
+import { MemoryTenantStore } from "../../gateway/storage/tenant-store.js";
+import { AgentService } from "../../gateway/agents/agent.service.js";
+import { ProfileService } from "../../gateway/profiles/profile.service.js";
 import { alice, bob, config, spec, FixtureRuntime } from "./helpers.js";
 test("CloudWatch continuation tokens are scoped through expiring tenant/deployment cursor records", async () => {
   const rows = new Map<string, Record<string, unknown>>(),

@@ -169,7 +169,7 @@ def test_restart_keeps_original_mirror_identity(tmp_path):
 async def test_api_serves_the_signed_runtime_from_its_own_database(tmp_path, monkeypatch):
     import httpx
 
-    from backend.api import create_app
+    from backend.operator.api import create_app
 
     monkeypatch.setenv("AEGIS_TESTNET_DB", str(tmp_path / "testnet.sqlite3"))
     signer = FakeSigner()

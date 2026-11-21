@@ -1,6 +1,6 @@
 # Verification and implementation status
 
-## Current integration audit
+## Historical operator audit
 
 The November 3 repair covers the reported research overlaps, Analyze/Configure/Observatory flows, chat handling, independent news loading, and a complete local trade archive. The original home artwork, navigation and numerical strategy rules are retained. Current regression and live-read results are recorded separately from historical public transactions.
 
@@ -56,20 +56,20 @@ The historical finalization passed **355 Python tests** plus ten subtests (one o
 | 14  | Judge README, traceability, architecture and deployment evidence | **Pass:** linked implementation paths, demo flow and explicit deployment state                                                                 |
 | 15  | Required regression and publication checks                       | **Pass:** Python, Ruff, build, contracts, browser, production restart and bounded secret/path scan                                             |
 
-**15/15 PASS with stated scope.** Checkpoints 3 and 4 establish public **testnet** deployment and execution; mainnet deployment requires separate authorization. Provider fallback passes protocol tests; actual credential-backed LLM/Telegram delivery, independent security audit and sustained profitability are not established by these checks. [Both public decision tables](CONTRACTS.md#both-public-decisions) link the receipts. [Desktop](evidence/screenshots/judge-aegis-desktop.png) and [mobile](evidence/screenshots/judge-aegis-mobile.png) show the preserved theme and integrated status panel.
+**15/15 PASS with stated scope.** Checkpoints 3 and 4 establish public **testnet** deployment and execution; mainnet deployment requires separate authorization. Provider fallback passes protocol tests; actual credential-backed LLM/Telegram delivery, independent security audit and sustained profitability are not established by these checks. [Both public decision tables](operator/CONTRACTS.md#both-public-decisions) link the receipts. [Desktop](evidence/screenshots/judge-aegis-desktop.png) and [mobile](evidence/screenshots/judge-aegis-mobile.png) show the preserved theme and integrated status panel.
 
 ## Local checks
 
 Run setup from the root README, then:
 
 ```bash
-.venv/bin/ruff check backend scripts agent
-.venv/bin/ruff format --check backend scripts agent
+.venv/bin/ruff check backend scripts agent tests/e2e
+.venv/bin/ruff format --check backend scripts agent tests/e2e
 .venv/bin/python -m scripts.generate_code_reference --check
-.venv/bin/python -m pytest backend/tests agent/tests legacy_tests/test_regime_detection.py legacy_tests/test_backtest_engine.py legacy_tests/test_portfolio_intelligence.py -q
+.venv/bin/python -m pytest backend/tests agent/tests tests/inherited/test_regime_detection.py tests/inherited/test_backtest_engine.py tests/inherited/test_portfolio_intelligence.py -q
 npm run build
 npm run test:e2e
-.venv/bin/python -m scripts.production_smoke
+KRONO_E2E_BUILD=1 npm run test:e2e
 .venv/bin/python -m scripts.public_audit
 ```
 
@@ -95,14 +95,13 @@ These commands do not validate an AWS account deployment or model entitlement. S
 
 ```bash
 make prices
-.venv/bin/python -m scripts.verify_frontend --i-understand-paper --reference-markets
 make contracts-setup
 make contracts-test
 make contracts-fork-test
 make verify-signed-fork
 ```
 
-`make prices` and the frontend check read public data. The frontend check uses a separate virtual ledger, leaves entries paused and makes no paid model calls or public transactions. Fork checks execute actual router bytecode locally; their transaction hashes have no public explorer receipts. Contract setup downloads checksum-pinned tools. See [contracts](CONTRACTS.md) for scope and deployment requirements.
+`make prices` reads public market data. The current browser suite exercises the product application; the PostgreSQL recovery test uses a disposable database and controlled quotes. Fork checks execute actual router bytecode locally; their transaction hashes have no public explorer receipts. Contract setup downloads checksum-pinned tools. See [contracts](operator/CONTRACTS.md) for scope and deployment requirements.
 
 ## Recorded evidence
 
@@ -110,7 +109,7 @@ make verify-signed-fork
 | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | [Strategy connection](evidence/strategy-library-validation.json) | 272 Python checks, 27 browser workflows, 20 focused adapter/API checks, production build/restart and actual Coinbase/HSKSwap UI reads |
 | [Home restoration](evidence/home-restoration-validation.json)    | Original home artwork, layout and source components retained; desktop/mobile home navigation                                          |
-| [Contract tests and fork checks](CONTRACTS.md)                   | 57 local Guard checks, exact-byte commitment/reveal, signed local-fork swaps and reconciliation                                       |
+| [Contract tests and fork checks](operator/CONTRACTS.md)          | 57 local Guard checks, exact-byte commitment/reveal, signed local-fork swaps and reconciliation                                       |
 | [Connected runtime](evidence/aegis-connected-validation.json)    | Earlier connected paper acceptance, including a 3,601-second observation and recovery                                                 |
 | [Discovery](evidence/aegis-data-verification.json)               | Recorded contract, pool, metadata, code and indexed-source comparisons                                                                |
 | [Public testnet lifecycle](evidence/hsk-testnet-resume.json)     | Two public decisions, five canonical receipts, exact reveals, unused stale-quote skip, and guarded vault input/output deltas          |

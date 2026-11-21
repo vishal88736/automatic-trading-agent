@@ -91,7 +91,7 @@ def hashkey_report(deployment: dict) -> dict:
         todo.append(
             "The vault has no testnet USDT, so `make demo-testnet` will refuse to start. The faucet "
             "dispenses HSK only: deposit and wrap HSK into the vault from the owner Wallet panel, "
-            "then convert part of it to USDT with a bounded exit (see docs/CONTRACTS.md)."
+            "then convert part of it to USDT with a bounded exit (see docs/operator/CONTRACTS.md)."
         )
     if paused:
         todo.append(

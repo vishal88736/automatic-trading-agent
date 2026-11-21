@@ -4,7 +4,7 @@ import os
 
 from psycopg import Error
 
-from backend.platform_db import DSN_ENV, migrate, open_database
+from backend.product.database import DSN_ENV, migrate, open_database
 
 
 def main():

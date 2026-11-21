@@ -1,9 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { MemoryTenantStore } from "../../src/storage/tenant-store.js";
-import { createPlatform } from "../../src/server.js";
-import { PlatformError } from "../../src/domain/errors.js";
+import { MemoryTenantStore } from "../../gateway/storage/tenant-store.js";
+import { createPlatform } from "../../gateway/server.js";
+import { PlatformError } from "../../gateway/domain/errors.js";
 import { alice, bob, config, spec, FixtureRuntime } from "./helpers.js";
 
 test("Every API resource derives its tenant from authentication; foreign IDs and cursors fail", async () => {

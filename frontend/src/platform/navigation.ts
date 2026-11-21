@@ -21,11 +21,6 @@ export const landingSections = [
 
 export type LandingSection = (typeof landingSections)[number][0];
 
-export const legacyFixture =
-  import.meta.env.DEV &&
-  import.meta.env.VITE_KRONO_LEGACY_FIXTURES === "true" &&
-  window.location.pathname !== "/workspace";
-
 const historicalRoutes: Record<string, Module> = {
   platform: "agents",
   "platform/paper-agents": "agents",
@@ -44,15 +39,8 @@ const historicalRoutes: Record<string, Module> = {
   risk: "settings",
 };
 
-const fixtureRoutes: Partial<Record<Module, string>> = {
-  agents: "platform/paper-agents",
-  strategies: "platform/strategies",
-  backtests: "platform/backtests",
-  paper: "platform/paper",
-};
-
 export function workspaceHref(page: Module, suffix = "") {
-  return `#/${(legacyFixture && fixtureRoutes[page]) || page}${suffix}`;
+  return `#/${page}${suffix}`;
 }
 
 export const signInHref = "#/sign-in";

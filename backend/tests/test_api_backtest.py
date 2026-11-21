@@ -4,10 +4,10 @@ from decimal import Decimal
 import httpx
 import pytest
 
-from backend.api import create_app
 from backend.backtesting import backtest
 from backend.data import fixture_market, fixture_news
 from backend.models import BacktestRequest, RiskConfig, StrategyConfig
+from backend.operator.api import create_app
 
 
 @pytest.fixture

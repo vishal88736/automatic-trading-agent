@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { AgentService } from "../../src/agents/agent.service.js";
-import { ProfileService } from "../../src/profiles/profile.service.js";
-import { MemoryTenantStore } from "../../src/storage/tenant-store.js";
+import { AgentService } from "../../gateway/agents/agent.service.js";
+import { ProfileService } from "../../gateway/profiles/profile.service.js";
+import { MemoryTenantStore } from "../../gateway/storage/tenant-store.js";
 import { alice, bob, config, spec, FixtureRuntime } from "./helpers.js";
 
 test("Concurrent controls dispatch one restart; latched emergency prevents resume and cross-user policy changes", async () => {
