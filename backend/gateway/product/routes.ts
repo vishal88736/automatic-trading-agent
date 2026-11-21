@@ -239,28 +239,35 @@ export function registerProductRoutes(
       model: response.modelId,
     };
   });
-  app.get("/platform/paper-agents/:id/stream", async (req, reply) => {
-    const response = await forward(
-      req.principal.userId,
-      "GET",
-      req.url,
-      undefined,
-      30000,
-    );
-    if (!response.ok || !response.body)
-      throw new PlatformError(
-        "STREAM_UNAVAILABLE",
-        "Agent event stream unavailable",
-        503,
+  // Server-Sent Events pass through unbuffered; the product API bounds each session.
+  for (const url of [
+    "/platform/paper-agents/:id/stream",
+    "/platform/news/stream",
+  ])
+    app.get(url, async (req, reply) => {
+      const response = await forward(
+        req.principal.userId,
+        "GET",
+        req.url,
+        undefined,
+        150000,
       );
-    const stream = Readable.fromWeb(response.body as unknown as ReadableStream);
-    reply.raw.once("close", () => stream.destroy());
-    return reply
-      .header("cache-control", "no-store")
-      .header("x-accel-buffering", "no")
-      .type("text/event-stream")
-      .send(stream);
-  });
+      if (!response.ok || !response.body)
+        throw new PlatformError(
+          "STREAM_UNAVAILABLE",
+          "Live stream unavailable",
+          503,
+        );
+      const stream = Readable.fromWeb(
+        response.body as unknown as ReadableStream,
+      );
+      reply.raw.once("close", () => stream.destroy());
+      return reply
+        .header("cache-control", "no-store")
+        .header("x-accel-buffering", "no")
+        .type("text/event-stream")
+        .send(stream);
+    });
 
   const routes = [
     { method: "GET", url: "/platform/strategy-authoring" },
@@ -281,6 +288,8 @@ export function registerProductRoutes(
     { method: "POST", url: "/platform/paper-agents/:id/close-position" },
     { method: "GET", url: "/platform/paper-agents/:id/events" },
     { method: "GET", url: "/platform/leaderboard" },
+    { method: "GET", url: "/platform/news/live" },
+    { method: "GET", url: "/platform/news/pulse", timeout: 45000 },
     { method: ["GET", "POST"], url: "/platform/custom-strategies" },
     { method: ["GET", "PUT"], url: "/platform/custom-strategies/:id" },
     { method: "POST", url: "/platform/custom-strategies/:id/archive" },

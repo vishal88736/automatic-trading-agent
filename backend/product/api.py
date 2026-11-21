@@ -20,7 +20,7 @@ from psycopg import Connection
 from psycopg import Error as DatabaseError
 from pydantic import Field, TypeAdapter
 
-from backend.data import Providers
+from backend.data import Providers, fixture_news
 from backend.models import Model
 from backend.product.accounts import DEFAULT_INITIAL_USDT, PaperAccount, ensure_account, get_account
 from backend.product.agents import (
@@ -55,6 +55,7 @@ from backend.product.execution import (
 )
 from backend.product.history import HistoricalBacktestRequest, load_candles
 from backend.product.market import load_quotes
+from backend.product.news_hub import NewsHub, fixture_pulse
 from backend.product.rules import StrategyDraft, authoring_options
 from backend.product.strategies import (
     archive_strategy,
@@ -66,6 +67,7 @@ from backend.product.strategies import (
 )
 from backend.product.users import Credentials, Registration, authenticate, get_user, register
 from backend.product.worker import heartbeat_fresh
+from backend.settings import get_settings
 from backend.storage import Store
 from backend.strategies import indicators
 
@@ -114,6 +116,7 @@ def create_product_api(
     history_source=load_candles,
     quote_source=load_quotes,
     fixture_feeds=False,
+    news_hub=True,
 ) -> FastAPI:
     if not dsn or len(key.encode()) < 32:
         raise ValueError(
@@ -131,9 +134,17 @@ def create_product_api(
             news_key=os.environ.get("NEWS_API_KEY", ""),
         )
         application.state.feeds = feeds
+        hub = NewsHub(get_settings().providers.news_base_url, stream=not fixture_feeds)
+        if fixture_feeds:
+            for article in fixture_news().articles:
+                hub.articles[article.id] = article
+        elif news_hub:
+            await hub.start()
+        application.state.news = hub
         try:
             yield
         finally:
+            await hub.stop()
             await feeds.close()
             cache.close()
 
@@ -461,6 +472,51 @@ def create_product_api(
                 }
             )
         return feed
+
+    @app.get("/platform/news/live")
+    def news_live(
+        request: Request,
+        subject: Principal,
+        asset: Asset | None = None,
+        limit: Annotated[int, Query(ge=1, le=200)] = 100,
+    ):
+        hub: NewsHub = request.app.state.news
+        return {**hub.status(), "items": hub.snapshot(asset, limit)}
+
+    @app.get("/platform/news/stream")
+    async def news_stream(request: Request, subject: Principal, asset: Asset | None = None):
+        hub: NewsHub = request.app.state.news
+        queue = hub.subscribe()
+
+        async def events():
+            try:
+                yield ": connected\n\n"
+                # Clients reconnect automatically; bounded sessions keep proxies healthy.
+                until = time.monotonic() + 120
+                while time.monotonic() < until and not await request.is_disconnected():
+                    try:
+                        article = await asyncio.wait_for(queue.get(), timeout=15)
+                    except TimeoutError:
+                        yield ": heartbeat\n\n"
+                        continue
+                    if asset and asset not in article.assets:
+                        continue
+                    data = json.dumps(jsonable_encoder(article), separators=(",", ":"))
+                    yield f"event: article\nid: {article.id}\ndata: {data}\n\n"
+            finally:
+                hub.unsubscribe(queue)
+
+        return StreamingResponse(
+            events(),
+            media_type="text/event-stream",
+            headers={"cache-control": "no-store", "x-accel-buffering": "no"},
+        )
+
+    @app.get("/platform/news/pulse")
+    async def news_pulse(request: Request, subject: Principal):
+        if fixture_feeds:
+            return fixture_pulse()
+        return await request.app.state.news.pulse()
 
     @app.get("/platform/paper-watchlist")
     def paper_watchlist(subject: Principal, db: Database):
