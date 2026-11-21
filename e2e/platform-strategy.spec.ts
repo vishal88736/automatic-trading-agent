@@ -26,6 +26,15 @@ test("Fund, version, backtest, and isolate a tenant strategy", async ({
   await expect(page.getByText("Order filled.")).toBeVisible();
   await expect(page.getByText("BUY 0.001 BTC", { exact: false })).toBeVisible();
   await expect(page.getByText("0.001 ·", { exact: false })).toBeVisible();
+  await page.getByRole("link", { name: "Dashboard", exact: true }).click();
+  const paper = page.getByRole("region", { name: "Paper trading portfolio" });
+  await expect(paper.getByRole("cell", { name: "Manual" })).toBeVisible();
+  await expect(
+    paper.getByRole("cell", { name: "0.001", exact: true }),
+  ).toBeVisible();
+  const live = page.getByRole("region", { name: "Live trading portfolio" });
+  await expect(live.getByText("Disabled", { exact: true })).toBeVisible();
+  await expect(live.getByRole("table")).toHaveCount(0);
 
   await page
     .getByRole("link", { name: "Market Analysis and AI Insights", exact: true })

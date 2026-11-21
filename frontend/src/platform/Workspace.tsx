@@ -65,7 +65,12 @@ interface Session {
 }
 type Authentication =
   | { state: "loading" | "signed-out" }
-  | { state: "signed-in"; session: Session; available: boolean }
+  | {
+      state: "signed-in";
+      session: Session;
+      available: boolean;
+      liveEnabled: boolean;
+    }
   | { state: "error"; message: string };
 
 function DashboardAgents() {
@@ -174,7 +179,10 @@ export function Workspace() {
     setAccountError("");
     setAccountReady(false);
     try {
-      const health = await platform<{ productConfigured: boolean }>("/health");
+      const health = await platform<{
+        productConfigured: boolean;
+        liveEnabled: boolean;
+      }>("/health");
       const session = await platform<Session>("/auth/session");
       if (readRoute().signIn) {
         history.replaceState(null, "", workspaceHref("dashboard"));
@@ -185,6 +193,7 @@ export function Workspace() {
         state: "signed-in",
         session,
         available: health.productConfigured,
+        liveEnabled: health.liveEnabled === true,
       });
       if (health.productConfigured) {
         try {
@@ -438,6 +447,7 @@ export function Workspace() {
                       >
                         <PaperAccount
                           view="dashboard"
+                          liveEnabled={auth.liveEnabled}
                           dashboardAgents={<DashboardAgents />}
                           dashboardMarkets={<DashboardMarkets />}
                         />

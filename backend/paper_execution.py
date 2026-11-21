@@ -466,6 +466,35 @@ def reset_account(db, owner: UUID, expected_epoch: int, opening_credit: Decimal)
         return get_account(db, owner)
 
 
+def _mark_holding(row, quotes, at, max_age):
+    quote = _fresh(quotes, row["asset"], at, max_age)
+    mark = row["quantity"] * quote.price if quote else None
+    return {
+        **row,
+        "mark": mark,
+        "unrealized_pnl": mark - row["basis"] if mark is not None else None,
+        "market_at": quote.observed_at if quote else None,
+    }
+
+
+def _positions_by_actor(db, owner, epoch):
+    with db.cursor(row_factory=dict_row) as cursor:
+        return cursor.execute(
+            """
+            SELECT l.asset, o.agent_id, a.name AS agent_name, sum(l.quantity) AS quantity,
+              sum(l.cost_delta) AS basis, sum(l.realized_pnl) AS realized_pnl
+            FROM paper_ledger_entries l
+            JOIN paper_orders o ON (o.owner_id, o.id) = (l.owner_id, l.order_id)
+            LEFT JOIN paper_agents a ON (a.owner_id, a.id) = (o.owner_id, o.agent_id)
+            WHERE l.owner_id = %s AND l.epoch = %s
+            GROUP BY l.asset, o.agent_id, a.name
+            HAVING sum(l.quantity) > 0
+            ORDER BY l.asset, a.name NULLS LAST, o.agent_id
+            """,
+            (owner, epoch),
+        ).fetchall()
+
+
 def portfolio(db, owner: UUID, quotes: dict[str, PaperQuote], *, clock=now, max_age=20) -> dict:
     """Return one consistent account valuation, with unknown marks left unavailable."""
     with db.transaction():
@@ -477,25 +506,16 @@ def portfolio(db, owner: UUID, quotes: dict[str, PaperQuote], *, clock=now, max_
         total_value = Decimal(0)
         total_unrealized = Decimal(0)
         complete = True
-        for asset, row in sorted(held.items()):
+        for _, row in sorted(held.items()):
             if row["quantity"] == 0:
                 continue
-            quote = _fresh(quotes, asset, at, max_age)
-            mark = row["quantity"] * quote.price if quote else None
-            unrealized = mark - row["basis"] if mark is not None else None
-            holdings.append(
-                {
-                    **row,
-                    "mark": mark,
-                    "unrealized_pnl": unrealized,
-                    "market_at": quote.observed_at if quote else None,
-                }
-            )
-            if mark is None:
+            marked = _mark_holding(row, quotes, at, max_age)
+            holdings.append(marked)
+            if marked["mark"] is None:
                 complete = False
             else:
-                total_value += mark
-                total_unrealized += unrealized
+                total_value += marked["mark"]
+                total_unrealized += marked["unrealized_pnl"]
         equity = account.cash + total_value if complete else None
         if equity is not None:
             db.execute(
@@ -538,6 +558,10 @@ def portfolio(db, owner: UUID, quotes: dict[str, PaperQuote], *, clock=now, max_
             - agent_cash_reserved(db, owner, account.epoch),
             "equity": equity,
             "holdings": holdings,
+            "positions": [
+                _mark_holding(row, quotes, at, max_age)
+                for row in _positions_by_actor(db, owner, account.epoch)
+            ],
             "realized_pnl": sum((row["realized_pnl"] for row in held.values()), Decimal(0)),
             "unrealized_pnl": total_unrealized if complete else None,
             "daily_pnl": equity - (previous if previous is not None else opening)

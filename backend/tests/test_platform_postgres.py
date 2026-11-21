@@ -416,6 +416,7 @@ def test_durable_agent_lease_recovers_and_shared_execution_stops_atomically(
         OrderRequest,
         PaperTerms,
         order_history,
+        portfolio,
         positions,
         submit_order,
     )
@@ -476,6 +477,14 @@ def test_durable_agent_lease_recovers_and_shared_execution_stops_atomically(
         assert fill["agent_id"] == ident and fill["status"] == "FILLED"
         assert list_agents(db, other) == [] and timeline(db, other, ident) == []
         held = positions(db, owner, 1, actor_only=True, agent_id=ident)
+        [holding] = portfolio(db, owner, quotes({"BTC"}))["positions"]
+        assert holding["agent_id"] == ident
+        assert holding["agent_name"] == "Durable paper test"
+        assert holding["quantity"] == held["BTC"]["quantity"]
+        assert holding["mark"] == holding["quantity"] * Decimal("50000")
+        assert portfolio(db, other, quotes({"BTC"}))["positions"] == []
+        [stale] = portfolio(db, owner, {})["positions"]
+        assert stale["mark"] is None and stale["unrealized_pnl"] is None
         manual = OrderRequest(
             request_key=uuid4(), epoch=1, asset="BTC", side="SELL", quantity=held["BTC"]["quantity"]
         )
@@ -519,6 +528,7 @@ def test_durable_agent_lease_recovers_and_shared_execution_stops_atomically(
         assert close["status"] == "FILLED"
         assert close_agent_position(db, owner, ident, key, 1, {}) == close
         assert positions(db, owner, 1, actor_only=True, agent_id=ident)["BTC"]["quantity"] == 0
+        assert portfolio(db, owner, quotes({"BTC"}))["positions"] == []
 
 
 def test_start_from_draft_is_atomic_idempotent_and_owner_scoped(database, strategy_draft):

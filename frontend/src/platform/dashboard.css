@@ -8,6 +8,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1.64fr) minmax(276px, 1fr);
   grid-template-areas:
+    "positions live"
     "performance balance"
     "allocation markets"
     "orders agents";
@@ -32,6 +33,12 @@
 
 .dashboard-performance {
   grid-area: performance;
+}
+.dashboard-paper-positions {
+  grid-area: positions;
+}
+.dashboard-live-portfolio {
+  grid-area: live;
 }
 .paper-overview-balance {
   grid-area: balance;
@@ -76,7 +83,7 @@
   grid-area: 1 / 2;
 }
 
-.unified-workspace .dashboard-panel-heading h3 {
+.unified-workspace .dashboard-panel-heading :is(h2, h3) {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -85,7 +92,7 @@
   font-weight: 625;
 }
 
-.dashboard-panel-heading h3 svg {
+.dashboard-panel-heading :is(h2, h3) svg {
   flex: none;
   color: var(--accent);
 }
@@ -96,6 +103,28 @@
   align-items: center;
   color: var(--accent);
   font-size: 13px;
+}
+
+.dashboard-live-status {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-inset);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.dashboard-position-table {
+  margin: 10px 0 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.dashboard-position-table :is(td, th) {
+  white-space: nowrap;
+}
+
+.dashboard-position-table td a {
+  color: var(--accent);
 }
 
 .unified-workspace .dashboard-performance select {
@@ -455,7 +484,7 @@
 @container (max-width: 694px) {
   .paper-overview {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "performance" "balance" "allocation" "markets" "agents" "orders";
+    grid-template-areas: "positions" "live" "performance" "balance" "allocation" "markets" "agents" "orders";
   }
 }
 

@@ -3,14 +3,127 @@ import {
   Activity,
   ArrowUpRight,
   ChartNoAxesColumn,
+  FlaskConical,
   PieChart,
+  Wallet,
 } from "lucide-react";
 import { EquityChart, Sparkline } from "../charts";
-import { Coin, Delta, money, percent, timestamp } from "../ui";
+import { Coin, Delta, money, number, percent, timestamp } from "../ui";
 import type { Candle } from "../types";
 import { platform } from "./client";
 import { marketAssets, type MarketAsset } from "./market-assets";
 import { workspaceHref } from "./navigation";
+
+export interface PaperPosition {
+  asset: string;
+  agent_id: string | null;
+  agent_name: string | null;
+  quantity: string;
+  mark: string | null;
+  unrealized_pnl: string | null;
+}
+
+export function DashboardPaperPositions({
+  positions,
+  loading,
+}: {
+  positions: PaperPosition[] | undefined;
+  loading: boolean;
+}) {
+  return (
+    <section
+      className="platform-product-panel dashboard-paper-positions"
+      aria-labelledby="dashboard-paper-portfolio"
+    >
+      <div className="dashboard-panel-heading">
+        <h2 id="dashboard-paper-portfolio">
+          <FlaskConical size={17} aria-hidden /> Paper trading portfolio
+        </h2>
+        <a href={workspaceHref("portfolio")}>View portfolio</a>
+      </div>
+      {!positions ? (
+        <p className="dashboard-empty">
+          {loading
+            ? "Loading paper positions…"
+            : "Paper positions are unavailable."}
+        </p>
+      ) : positions.length === 0 ? (
+        <p className="dashboard-empty">
+          No open paper positions. Filled buys appear here with their agent or
+          manual source.
+        </p>
+      ) : (
+        <div
+          className="platform-backtest-table dashboard-position-table"
+          role="region"
+          aria-label="Open paper positions"
+          tabIndex={0}
+        >
+          <table>
+            <thead>
+              <tr>
+                <th>Asset</th>
+                <th>Source</th>
+                <th>Quantity</th>
+                <th>Marked value</th>
+                <th>Unrealized P&amp;L</th>
+              </tr>
+            </thead>
+            <tbody>
+              {positions.map((position) => (
+                <tr key={`${position.asset}:${position.agent_id ?? "manual"}`}>
+                  <th scope="row">{position.asset}</th>
+                  <td>
+                    {position.agent_id ? (
+                      <a
+                        href={workspaceHref(
+                          "agents",
+                          `?agent=${position.agent_id}`,
+                        )}
+                      >
+                        {position.agent_name ?? "Paper agent"}
+                      </a>
+                    ) : (
+                      "Manual"
+                    )}
+                  </td>
+                  <td>{number(position.quantity, 12)}</td>
+                  <td>
+                    {position.mark === null
+                      ? "Awaiting price"
+                      : money(position.mark)}
+                  </td>
+                  <td>{money(position.unrealized_pnl)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+export function DashboardLivePortfolio({ enabled }: { enabled: boolean }) {
+  return (
+    <section
+      className="platform-product-panel dashboard-live-portfolio"
+      aria-labelledby="dashboard-live-portfolio"
+    >
+      <div className="dashboard-panel-heading">
+        <h2 id="dashboard-live-portfolio">
+          <Wallet size={17} aria-hidden /> Live trading portfolio
+        </h2>
+        <span className="dashboard-live-status">
+          {enabled ? "Disconnected" : "Disabled"}
+        </span>
+      </div>
+      <p className="dashboard-empty">
+        Live positions require a verified account connection.
+      </p>
+    </section>
+  );
+}
 
 type EquityMark = { at: string; equity: string };
 const periods = {

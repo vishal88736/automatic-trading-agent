@@ -9,7 +9,13 @@ import { EquityChart } from "../charts";
 import { money, percent, timestamp } from "../ui";
 import { platform } from "./client";
 import { legacyFixture, workspaceHref } from "./navigation";
-import { AssetAllocation, PortfolioPerformance } from "./DashboardPanels";
+import {
+  AssetAllocation,
+  DashboardLivePortfolio,
+  DashboardPaperPositions,
+  PortfolioPerformance,
+  type PaperPosition,
+} from "./DashboardPanels";
 
 interface Account {
   id: string;
@@ -34,6 +40,7 @@ interface Portfolio {
     unrealized_pnl: string | null;
     allocation: string | null;
   }[];
+  positions?: PaperPosition[];
   history: { at: string; equity: string }[];
 }
 interface Order {
@@ -71,10 +78,12 @@ export default function PaperAccount({
   view = "trade",
   dashboardAgents,
   dashboardMarkets,
+  liveEnabled = false,
 }: {
   view?: "dashboard" | "portfolio" | "trade" | "settings";
   dashboardAgents?: ReactNode;
   dashboardMarkets?: ReactNode;
+  liveEnabled?: boolean;
 }) {
   const dashboard = view === "dashboard";
   const includeOrders = view !== "settings";
@@ -185,6 +194,15 @@ export default function PaperAccount({
         dashboard ? "platform-backtest paper-overview" : "platform-backtest"
       }
     >
+      {dashboard && (
+        <>
+          <DashboardPaperPositions
+            positions={value?.positions}
+            loading={busy}
+          />
+          <DashboardLivePortfolio enabled={liveEnabled} />
+        </>
+      )}
       {dashboard && value && <PortfolioPerformance rows={value.history} />}
       <section
         className={

@@ -270,6 +270,16 @@ test("the signed-in dashboard uses recorded equity and marks, with a responsive 
             allocation: marked ? "0.4" : null,
           },
         ],
+        positions: [
+          {
+            asset: "BTC",
+            agent_id: "agent-fixture",
+            agent_name: "BTC paper agent",
+            quantity: "0.05",
+            mark: marked ? "5000" : null,
+            unrealized_pnl: marked ? "2500" : null,
+          },
+        ],
         history,
         emergency_stop: false,
       },
@@ -298,6 +308,15 @@ test("the signed-in dashboard uses recorded equity and marks, with a responsive 
   await page.goto("/workspace#/dashboard");
   const workspace = page.locator(".unified-workspace");
   await expect(workspace).toHaveCSS("background-color", "rgb(16, 16, 18)");
+  const positions = page.getByRole("region", {
+    name: "Paper trading portfolio",
+  });
+  await expect(
+    positions.getByRole("link", { name: "BTC paper agent" }),
+  ).toHaveAttribute("href", "#/agents?agent=agent-fixture");
+  await expect(
+    positions.getByRole("cell", { name: "$5,000.00" }),
+  ).toBeVisible();
   const sidebar = page.getByRole("navigation", { name: "Main navigation" });
   await expect(
     sidebar.getByRole("link", { name: "Dashboard", exact: true }),
@@ -334,6 +353,7 @@ test("the signed-in dashboard uses recorded equity and marks, with a responsive 
     "Allocation requires fresh prices for every holding.",
   );
   await expect(allocation.locator(".dashboard-allocation-ring")).toHaveCount(0);
+  await expect(positions.getByText("Awaiting price")).toBeVisible();
 
   await page.getByRole("button", { name: "Switch to light theme" }).click();
   await expect(workspace).toHaveCSS("background-color", "rgb(247, 243, 235)");
