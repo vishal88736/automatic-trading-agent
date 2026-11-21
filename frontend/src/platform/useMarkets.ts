@@ -44,7 +44,7 @@ function summarize(asset: MarketAsset, quote: MarketQuote | null): MarketSummary
 async function load(): Promise<MarketSummary[]> {
   const results = await Promise.allSettled(
     marketAssets.map((asset) =>
-      platform<{ market: MarketQuote }>(`/paper-market/${asset}`),
+      platform<{ market: MarketQuote }>(`/public/market/${asset}`),
     ),
   );
   return marketAssets.map((asset, i) => {

@@ -148,7 +148,11 @@ export function createPlatform(
   });
   app.addHook("preHandler", async (req) => {
     const path = req.url.split("?")[0];
-    if (path === "/platform/health" || path.startsWith("/platform/auth/"))
+    if (
+      path === "/platform/health" ||
+      path.startsWith("/platform/auth/") ||
+      path.startsWith("/platform/public/")
+    )
       return;
     req.principal = await auth.authenticate(req);
   });

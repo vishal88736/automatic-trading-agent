@@ -1,393 +1,237 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect } from "react";
 import {
-  ArrowDown,
-  ArrowUpRight,
+  ArrowRight,
   Bot,
   ChartNoAxesColumn,
-  LayoutDashboard,
-  Library,
+  FlaskConical,
+  MessageSquareText,
+  Plug,
   ShieldCheck,
-  SlidersHorizontal,
+  Sparkles,
+  Trophy,
 } from "lucide-react";
 import { KronoMark } from "../brand";
-import { Coin } from "../ui";
-import { marketAssets, marketNames } from "./market-assets";
+import { ThemeToggle } from "../ThemeToggle";
 import {
   landingSectionHref,
+  landingSections,
   signInHref,
-  workspaceHref,
+  signUpHref,
   type LandingSection,
 } from "./navigation";
+import { MarketTicker } from "./MarketTicker";
 
-const workflow = [
+const features = [
   {
-    section: "workflow",
-    title: "From strategy to paper trading",
-    description: [
-      "Describe an idea in plain English, build it with visual rules, or edit the structured strategy directly.",
-      "Replay the strategy on historical candles and review equity, drawdown, and simulated fills before you run it.",
-    ],
-    art: "krono-sapphire-research.webp",
-    primary: [workspaceHref("backtests"), "Backtest a strategy"],
-    secondary: [workspaceHref("builder"), "Build your rules"],
+    icon: MessageSquareText,
+    title: "Build strategies by chatting",
+    text: "“Buy ETH when RSI drops below 30, 5% per trade, 3% stop.” The AI turns it into precise, editable rules.",
   },
   {
-    section: "agents",
-    title: "Run an agent while you’re away",
-    description: [
-      "Assign a strategy and virtual capital. Krono’s backend worker can keep monitoring the market and placing simulated orders after you close the browser.",
-      "Check decisions and order history when you return. Pause, resume, or stop the agent from your workspace.",
-    ],
-    art: "krono-sapphire-agents.webp",
-    primary: [workspaceHref("agents"), "Explore AI agents"],
-    secondary: [signInHref, "Open dashboard"],
+    icon: ChartNoAxesColumn,
+    title: "Backtest on real candles",
+    text: "Every agent is replayed on recent hourly market data with fees, slippage and a holdout window before it trades.",
   },
-] as const;
+  {
+    icon: Bot,
+    title: "Agents that never sleep",
+    text: "Agents run on the server, not in your browser. Close the tab and they keep evaluating every new candle.",
+  },
+  {
+    icon: Trophy,
+    title: "Public leaderboard",
+    text: "See how every running agent performs, ranked by return on its allocation and drawdown.",
+  },
+  {
+    icon: FlaskConical,
+    title: "Paper trade risk-free",
+    text: "Start with 10,000 virtual USDT priced against the live market. Reset any time.",
+  },
+  {
+    icon: Plug,
+    title: "Go live when ready",
+    text: "Promote a proven agent to your own exchange account with trade-only keys and hard risk caps.",
+  },
+];
 
-const controls = [
-  {
-    href: workspaceHref("strategies"),
-    title: "Track strategy versions",
-    description: "Customize prebuilt rules and compare your saved versions.",
-    Icon: Library,
-  },
-  {
-    href: workspaceHref("agents"),
-    title: "Set trading limits",
-    description:
-      "Choose an agent’s virtual capital allocation, exposure limits, and maximum daily loss.",
-    Icon: SlidersHorizontal,
-  },
-  {
-    href: signInHref,
-    title: "Monitor your workspace",
-    description:
-      "See agent activity, portfolio equity, and market watch on the dashboard.",
-    Icon: LayoutDashboard,
-  },
-  {
-    href: workspaceHref("settings"),
-    title: "Manage your paper account",
-    description:
-      "Stop new simulated orders or reset virtual funds in Settings.",
-    Icon: ShieldCheck,
-  },
-] as const;
+const steps = [
+  ["Describe", "Tell the strategy builder what to trade and how much to risk."],
+  ["Validate", "Krono backtests the exact rules and checks the risk limits."],
+  ["Deploy", "Start a paper agent. It trades 24/7 on the server."],
+  ["Compete", "Climb the leaderboard, then promote your best agent to live."],
+];
 
-const tools = [
-  {
-    title: "Markets and news",
-    description:
-      "Explore crypto prices, indicators, and AI insights. Follow recent coverage with publication dates and original sources.",
-    art: "krono-sapphire-markets.webp",
-    artHeight: 676,
-    primary: ["markets", "Explore markets"],
-    secondary: ["news", "Read crypto news"],
-  },
-  {
-    title: "Paper orders and portfolio",
-    description:
-      "Place orders with virtual USDT and review fills, holdings, fees, and profit or loss.",
-    art: "krono-sapphire-portfolio.webp",
-    artHeight: 614,
-    primary: ["paper", "Paper trading"],
-    secondary: ["portfolio", "View portfolio"],
-  },
-] as const;
+const chart = [
+  42, 44, 43, 47, 46, 49, 52, 50, 54, 53, 57, 61, 59, 63, 62, 66, 70, 68, 72, 75,
+];
 
-function revealSection(section: LandingSection) {
-  const target = document.getElementById(`landing-${section}`);
-  target?.focus({ preventScroll: true });
-  target?.scrollIntoView({ block: "start" });
-}
-
-export function LandingSectionLink({
-  section,
-  children,
-  className,
-}: {
-  section: LandingSection;
-  children: ReactNode;
-  className?: string;
-}) {
-  const href = landingSectionHref(section);
+function HeroPreview() {
+  const max = Math.max(...chart),
+    min = Math.min(...chart);
+  const points = chart
+    .map((v, i) => `${(i / (chart.length - 1)) * 100},${40 - ((v - min) / (max - min)) * 34}`)
+    .join(" ");
   return (
-    <a
-      href={href}
-      className={className}
-      onClick={(event) => {
-        if (
-          location.hash === href &&
-          !event.metaKey &&
-          !event.ctrlKey &&
-          !event.shiftKey &&
-          !event.altKey
-        ) {
-          event.preventDefault();
-          revealSection(section);
-        }
-      }}
-    >
-      {children}
-    </a>
+    <div className="kx-preview" aria-hidden>
+      <div className="kx-preview-head">
+        <span className="kx-dot" />
+        <strong>ETH dip buyer</strong>
+        <span className="kx-pill">Running</span>
+        <span className="kx-num kx-change" data-direction="up">
+          +12.84%
+        </span>
+      </div>
+      <svg viewBox="0 0 100 42" preserveAspectRatio="none" className="kx-preview-chart">
+        <defs>
+          <linearGradient id="kx-hero-fill" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.35" />
+            <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <polygon points={`0,42 ${points} 100,42`} fill="url(#kx-hero-fill)" />
+        <polyline points={points} fill="none" stroke="var(--accent)" strokeWidth="0.8" vectorEffect="non-scaling-stroke" />
+      </svg>
+      <ul className="kx-preview-feed">
+        <li>
+          <span className="kx-side" data-side="buy">BUY</span> 0.42 ETH · RSI 27.9 crossed entry
+        </li>
+        <li>
+          <span className="kx-side" data-side="hold">HOLD</span> Waiting for exit, RSI 54.2
+        </li>
+        <li>
+          <span className="kx-side" data-side="sell">SELL</span> 0.42 ETH · take profit hit
+        </li>
+      </ul>
+      <div className="kx-preview-board">
+        <span>Leaderboard</span>
+        <ol>
+          <li><b>1</b> Momentum Mike <em data-direction="up">+18.2%</em></li>
+          <li><b>2</b> ETH dip buyer <em data-direction="up">+12.8%</em></li>
+          <li><b>3</b> SOL breakout <em data-direction="up">+9.4%</em></li>
+        </ol>
+      </div>
+    </div>
   );
 }
 
 export function Landing({ section }: { section?: LandingSection }) {
   useEffect(() => {
-    if (section) revealSection(section);
-    else window.scrollTo(0, 0);
+    if (section)
+      document.getElementById(`landing-${section}`)?.scrollIntoView({ behavior: "smooth" });
   }, [section]);
 
   return (
-    <div className="krono-landing">
-      <section className="landing-hero" aria-labelledby="landing-title">
-        <div className="landing-wrap landing-hero-grid">
-          <div className="landing-copy">
-            <h1 id="landing-title">
-              Build and test <span>crypto strategies.</span>
-            </h1>
-            <p className="landing-lead">
-              Backtest your ideas on historical market data, then run autonomous
-              agents with virtual funds.
-            </p>
-            <div className="landing-actions">
-              <a className="button primary landing-cta" href={signInHref}>
-                Get started <ArrowUpRight size={18} aria-hidden />
-              </a>
-              <LandingSectionLink
-                section="workflow"
-                className="landing-text-button"
-              >
-                See how it works <ArrowDown size={16} aria-hidden />
-              </LandingSectionLink>
-            </div>
-            <nav
-              className="landing-hero-tools"
-              aria-label="Featured workspace tools"
-            >
-              <a href={workspaceHref("backtests")}>
-                <ChartNoAxesColumn size={20} aria-hidden />
-                <span>
-                  <strong>Backtesting Lab</strong>
-                  <small>Historical replay</small>
-                </span>
-                <ArrowUpRight size={14} aria-hidden />
-              </a>
-              <a href={workspaceHref("agents")}>
-                <Bot size={20} aria-hidden />
-                <span>
-                  <strong>AI Trading Agents</strong>
-                  <small>Paper execution</small>
-                </span>
-                <ArrowUpRight size={14} aria-hidden />
-              </a>
-            </nav>
-          </div>
-          <div className="landing-art">
-            <img
-              src="/art/krono-sapphire-terminal.webp"
-              alt=""
-              width={1440}
-              height={810}
-              fetchPriority="high"
-            />
-          </div>
-        </div>
-      </section>
-
-      <section className="landing-market-strip" aria-label="Supported markets">
-        <div className="landing-wrap landing-market-inner">
-          <p>Supported markets</p>
-          <ul>
-            {marketAssets.map((asset) => (
-              <li key={asset}>
-                <a
-                  href={workspaceHref("markets", `?asset=${asset}`)}
-                  aria-label={`${marketNames[asset]} (${asset})`}
-                >
-                  <span aria-hidden="true">
-                    <Coin symbol={asset} />
-                  </span>
-                  <span className="landing-market-name">
-                    <span>{marketNames[asset]}</span> <small>{asset}</small>
-                  </span>
-                  <ArrowUpRight size={14} aria-hidden />
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
-
-      {workflow.map(
-        ({ section, title, description, art, primary, secondary }) => (
-          <section
-            key={section}
-            className="landing-feature"
-            id={`landing-${section}`}
-            aria-labelledby={`landing-${section}-title`}
-            tabIndex={-1}
-          >
-            <div className="landing-wrap landing-feature-inner">
-              <div className="landing-feature-copy">
-                <h2 id={`landing-${section}-title`}>{title}</h2>
-                {description.map((line) => (
-                  <p key={line}>{line}</p>
-                ))}
-                <div className="landing-actions">
-                  <a className="button primary landing-cta" href={primary[0]}>
-                    {primary[1]} <ArrowUpRight size={18} aria-hidden />
-                  </a>
-                  <a className="landing-text-button" href={secondary[0]}>
-                    {secondary[1]} <ArrowUpRight size={16} aria-hidden />
-                  </a>
-                </div>
-              </div>
-              <div className="landing-feature-art">
-                <img
-                  src={`/art/${art}`}
-                  alt=""
-                  width={1200}
-                  height={800}
-                  loading="lazy"
-                />
-              </div>
-            </div>
-          </section>
-        ),
-      )}
-
-      <section
-        className="landing-controls"
-        aria-labelledby="landing-controls-title"
-      >
-        <div className="landing-wrap">
-          <div className="landing-controls-intro">
-            <h2 id="landing-controls-title">Control how your strategy runs</h2>
-            <p>
-              Set the rules, check what your agents did, and manage your virtual
-              account in one workspace.
-            </p>
-          </div>
-          <ul className="landing-control-grid">
-            {controls.map(({ href, title, description, Icon }) => (
-              <li key={title}>
-                <a href={href}>
-                  <span className="landing-control-icons">
-                    <span>
-                      <Icon size={23} aria-hidden />
-                    </span>
-                    <ArrowUpRight size={17} aria-hidden />
-                  </span>
-                  <h3>{title}</h3>
-                  <p>{description}</p>
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
-
-      <section
-        className="landing-tools"
-        id="landing-tools"
-        aria-labelledby="landing-tools-title"
-        tabIndex={-1}
-      >
-        <div className="landing-wrap landing-tools-inner">
-          <h2 id="landing-tools-title">Explore the workspace</h2>
-          <div className="landing-tool-grid">
-            {tools.map(
-              ({ title, description, art, artHeight, primary, secondary }) => (
-                <article key={title} className="landing-tool-card">
-                  <div className="landing-tool-art">
-                    <img
-                      src={`/art/${art}`}
-                      alt=""
-                      width={1200}
-                      height={artHeight}
-                      loading="lazy"
-                    />
-                  </div>
-                  <div className="landing-tool-copy">
-                    <h3>{title}</h3>
-                    <p>{description}</p>
-                    <div className="landing-actions">
-                      <a
-                        className="button primary landing-cta"
-                        href={workspaceHref(primary[0])}
-                      >
-                        {primary[1]} <ArrowUpRight size={17} aria-hidden />
-                      </a>
-                      <a
-                        className="landing-text-button"
-                        href={workspaceHref(secondary[0])}
-                      >
-                        {secondary[1]} <ArrowUpRight size={16} aria-hidden />
-                      </a>
-                    </div>
-                  </div>
-                </article>
-              ),
-            )}
-          </div>
-        </div>
-      </section>
-
-      <section
-        className="landing-wrap landing-invitation"
-        aria-labelledby="landing-invitation-title"
-      >
-        <div>
-          <h2 id="landing-invitation-title">Ready to test a strategy?</h2>
-          <p>Open your Krono account and start with virtual funds.</p>
-        </div>
-        <a href={signInHref} className="button primary landing-cta">
-          Open Krono <ArrowUpRight size={18} aria-hidden />
+    <div className="kx-landing unified-workspace">
+      <header className="kx-landing-nav">
+        <a className="kx-brand" href="#/">
+          <KronoMark />
+          <span>Krono</span>
         </a>
+        <nav aria-label="About Krono">
+          {landingSections.map(([id, label]) => (
+            <a key={id} href={landingSectionHref(id)}>
+              {label}
+            </a>
+          ))}
+        </nav>
+        <div className="kx-landing-actions">
+          <ThemeToggle />
+          <a className="button secondary" href={signInHref}>
+            Sign in
+          </a>
+          <a className="button primary kx-hide-sm" href={signUpHref}>
+            Get started
+          </a>
+        </div>
+      </header>
+
+      <section className="kx-hero">
+        <div className="kx-hero-copy">
+          <span className="kx-badge" data-tone="accent">
+            <Sparkles size={14} aria-hidden /> AI-built crypto trading agents
+          </span>
+          <h1>
+            Your strategy.
+            <br />
+            <span className="kx-gradient-text">Trading 24/7.</span>
+          </h1>
+          <p>
+            Describe a trading idea in plain English. Krono builds the rules,
+            backtests them on real market data, and runs your agent around the
+            clock, on paper first, then on your own exchange account.
+          </p>
+          <div className="kx-actions">
+            <a className="button primary kx-lg" href={signUpHref}>
+              Start paper trading free <ArrowRight size={16} />
+            </a>
+            <a className="button secondary kx-lg" href={landingSectionHref("workflow")}>
+              How it works
+            </a>
+          </div>
+          <p className="kx-hero-note">
+            <ShieldCheck size={15} aria-hidden /> 10,000 virtual USDT. No card
+            or exchange account needed.
+          </p>
+        </div>
+        <HeroPreview />
       </section>
 
-      <footer className="landing-footer">
-        <div className="landing-wrap">
-          <a
-            href={workspaceHref("dashboard")}
-            className="landing-footer-brand"
-            aria-label="Back to Krono home"
-            onClick={() => {
-              if (location.hash === workspaceHref("dashboard"))
-                window.scrollTo(0, 0);
-            }}
-          >
-            <KronoMark /> Krono.
-          </a>
-          <div className="landing-footer-links">
-            <nav aria-label="Krono links">
-              <h3>Explore</h3>
-              <LandingSectionLink section="workflow">
-                How it works
-              </LandingSectionLink>
-              <LandingSectionLink section="agents">
-                AI agents
-              </LandingSectionLink>
-              <LandingSectionLink section="tools">
-                Workspace tools
-              </LandingSectionLink>
-            </nav>
-            <nav aria-label="Research tools">
-              <h3>Research</h3>
-              <a href={workspaceHref("strategies")}>Strategies</a>
-              <a href={workspaceHref("backtests")}>Backtesting Lab</a>
-              <a href={workspaceHref("markets")}>Market analysis</a>
-            </nav>
-            <nav aria-label="Account links">
-              <h3>Account</h3>
-              <a href={signInHref}>Sign in</a>
-              <a href={workspaceHref("portfolio")}>Portfolio</a>
-              <a href={workspaceHref("settings")}>Account settings</a>
-            </nav>
-          </div>
+      <div className="kx-landing-ticker">
+        <MarketTicker />
+      </div>
+
+      <section className="kx-landing-section" id="landing-agents">
+        <h2>Everything you need to automate a strategy</h2>
+        <div className="kx-feature-grid">
+          {features.map(({ icon: Icon, title, text }) => (
+            <article key={title} className="kx-card kx-feature">
+              <span className="kx-feature-icon">
+                <Icon size={20} aria-hidden />
+              </span>
+              <h3>{title}</h3>
+              <p>{text}</p>
+            </article>
+          ))}
         </div>
+      </section>
+
+      <section className="kx-landing-section" id="landing-workflow">
+        <h2>From idea to running agent in minutes</h2>
+        <ol className="kx-timeline">
+          {steps.map(([title, text], index) => (
+            <li key={title}>
+              <span className="kx-step-index">{index + 1}</span>
+              <h3>{title}</h3>
+              <p>{text}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <section className="kx-landing-section" id="landing-tools">
+        <div className="kx-card kx-cta">
+          <div>
+            <h2>Paper trading today. Live trading when you're ready.</h2>
+            <p>
+              Paper accounts use live Coinbase prices with simulated fees and
+              slippage. Live trading links your own exchange with trade-only
+              permissions, so funds never leave your account.
+            </p>
+          </div>
+          <a className="button primary kx-lg" href={signUpHref}>
+            Create your account <ArrowRight size={16} />
+          </a>
+        </div>
+      </section>
+
+      <footer className="kx-landing-footer">
+        <span>
+          <KronoMark /> Krono
+        </span>
+        <small>
+          Crypto trading carries risk. Paper results do not guarantee live
+          performance.
+        </small>
       </footer>
     </div>
   );

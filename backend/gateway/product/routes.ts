@@ -4,7 +4,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { Config } from "../config.js";
 import { PlatformError } from "../domain/errors.js";
-import { productClient } from "./client.js";
+import { productClient, SERVICE_SUBJECT } from "./client.js";
 import type { LLMProvider } from "../integrations/llm/llm.interface.js";
 import {
   bedrockSchema,
@@ -54,6 +54,28 @@ export function registerProductRoutes(
   llm: LLMProvider,
 ) {
   const forward = productClient(config);
+
+  // Public, read-only reference prices for the landing and sign-in tickers. No account data.
+  app.get("/platform/public/market/:asset", async (req, reply) => {
+    const { asset } = z
+      .object({ asset: z.enum(["BTC", "ETH", "SOL"]) })
+      .parse(req.params);
+    const response = await forward(
+      SERVICE_SUBJECT,
+      "GET",
+      `/platform/paper-market/${asset}`,
+      undefined,
+      22000,
+    );
+    if (!response.ok)
+      throw new PlatformError(
+        "MARKET_UNAVAILABLE",
+        "Current market data is unavailable",
+        503,
+      );
+    const { market } = (await response.json()) as { market: unknown };
+    return reply.header("cache-control", "public, max-age=15").send({ market });
+  });
 
   app.post("/platform/market-insights/:asset", async (req) => {
     const { asset } = z

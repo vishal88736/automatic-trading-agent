@@ -1,22 +1,48 @@
 export const modules = [
-  ["dashboard", "Dashboard"],
-  ["agents", "AI Trading Agents"],
-  ["strategies", "Strategies"],
-  ["builder", "Custom Strategy Builder"],
-  ["backtests", "Backtesting Lab"],
+  ["dashboard", "Overview"],
   ["paper", "Paper Trading"],
-  ["markets", "Market Analysis and AI Insights"],
+  ["live", "Live Trading"],
   ["portfolio", "Portfolio"],
+  ["agents", "My Agents"],
+  ["leaderboard", "Leaderboard"],
+  ["builder", "AI Strategy Builder"],
+  ["strategies", "Strategies"],
+  ["backtests", "Backtesting"],
+  ["markets", "Markets & AI Insights"],
   ["news", "Crypto News"],
   ["settings", "Settings"],
 ] as const;
 
 export type Module = (typeof modules)[number][0];
 
+export const moduleGroups: { label: string; items: Module[] }[] = [
+  { label: "Trade", items: ["dashboard", "paper", "live", "portfolio"] },
+  {
+    label: "Agents",
+    items: ["agents", "leaderboard", "builder", "strategies", "backtests"],
+  },
+  { label: "Research", items: ["markets", "news"] },
+  { label: "Account", items: ["settings"] },
+];
+
+export const moduleSubtitles: Partial<Record<Module, string>> = {
+  dashboard: "Your paper account, agents and markets at a glance.",
+  paper: "Place simulated orders against live market prices.",
+  live: "Connect an exchange account so agents can trade real funds.",
+  portfolio: "Holdings, allocation and performance of your paper account.",
+  agents: "Autonomous agents keep running on the server after you close Krono.",
+  leaderboard: "Every running agent on Krono, ranked by return on its allocation.",
+  builder: "Describe a strategy in plain English. Krono turns it into rules.",
+  strategies: "Your saved strategies and their version history.",
+  backtests: "Replay a strategy version on historical candles before risking funds.",
+  markets: "Live prices, indicators and an AI read of current conditions.",
+  news: "Crypto headlines tagged by asset.",
+};
+
 export const landingSections = [
   ["workflow", "How it works"],
   ["agents", "AI agents"],
-  ["tools", "Workspace tools"],
+  ["tools", "Platform"],
 ] as const;
 
 export type LandingSection = (typeof landingSections)[number][0];
@@ -44,6 +70,7 @@ export function workspaceHref(page: Module, suffix = "") {
 }
 
 export const signInHref = "#/sign-in";
+export const signUpHref = "#/sign-in?mode=register";
 
 export function landingSectionHref(section: LandingSection) {
   return workspaceHref("dashboard", `?section=${section}`);
@@ -52,21 +79,21 @@ export function landingSectionHref(section: LandingSection) {
 export function readRoute() {
   const [path = "", query] = location.hash.replace(/^#\/?/, "").split("?", 2);
   const signIn = path === "sign-in";
-  const isRetiredDex = path === "aegis" || path.startsWith("aegis/");
-  const candidate = isRetiredDex ? (path.split("/")[1] ?? "") : path;
-  const report = /^(?:platform\/)?backtests\/([a-f0-9-]{36})$/i.exec(candidate);
+  const report = /^(?:platform\/)?backtests\/([a-f0-9-]{36})$/i.exec(path);
   const page =
-    (report ? "backtests" : modules.find(([key]) => key === candidate)?.[0]) ??
-    (Object.hasOwn(historicalRoutes, candidate)
-      ? historicalRoutes[candidate]
+    (report ? "backtests" : modules.find(([key]) => key === path)?.[0]) ??
+    (Object.hasOwn(historicalRoutes, path)
+      ? historicalRoutes[path]
       : "dashboard");
   const suffix = (report ? `/${report[1]}` : "") + (query ? `?${query}` : "");
-  const section = new URLSearchParams(query).get("section");
+  const params = new URLSearchParams(query);
+  const section = params.get("section");
   return {
     page,
     reportId: report?.[1],
     signIn,
+    register: signIn && params.get("mode") === "register",
     landingSection: landingSections.find(([id]) => id === section)?.[0],
-    href: signIn ? signInHref : workspaceHref(page, suffix),
+    href: signIn ? `#/sign-in${query ? `?${query}` : ""}` : workspaceHref(page, suffix),
   };
 }

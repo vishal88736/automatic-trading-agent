@@ -9,29 +9,29 @@ import {
   LogOut,
   Menu,
   Newspaper,
-  Play,
+  Plug,
   Settings2,
-  ShieldCheck,
   SlidersHorizontal,
-  Square,
-  UserRound,
+  Trophy,
   Wallet,
   WandSparkles,
+  X,
 } from "lucide-react";
 import { KronoMark } from "../brand";
-import { Landing, LandingSectionLink } from "./Landing";
+import { Landing } from "./Landing";
 import { ThemeToggle } from "../ThemeToggle";
 import { Auth } from "./Auth";
 import { platform, PlatformRequestError } from "./client";
 import {
-  landingSections,
+  moduleGroups,
   modules,
+  moduleSubtitles,
   readRoute,
-  signInHref,
   workspaceHref,
   type Module,
 } from "./navigation";
 import { DashboardMarkets } from "./DashboardPanels";
+import { MarketTicker } from "./MarketTicker";
 import "./platform.css";
 
 const BacktestingLab = lazy(() => import("./BacktestingLab"));
@@ -39,29 +39,28 @@ const MarketResearch = lazy(() => import("./MarketResearch"));
 const PaperAgents = lazy(() => import("./PaperAgents"));
 const PaperAccount = lazy(() => import("./PaperTrading"));
 const Strategies = lazy(() => import("./Strategies"));
+const Leaderboard = lazy(() => import("./Leaderboard"));
+const LiveTrading = lazy(() => import("./LiveTrading"));
 
 const moduleIcons = {
   dashboard: LayoutDashboard,
-  agents: Bot,
-  strategies: SlidersHorizontal,
-  builder: WandSparkles,
-  backtests: ChartNoAxesColumn,
   paper: FlaskConical,
-  markets: Activity,
+  live: Plug,
   portfolio: Wallet,
+  agents: Bot,
+  leaderboard: Trophy,
+  builder: WandSparkles,
+  strategies: SlidersHorizontal,
+  backtests: ChartNoAxesColumn,
+  markets: Activity,
   news: Newspaper,
   settings: Settings2,
 } satisfies Record<Module, typeof Activity>;
 
-const moduleLabels: Partial<Record<Module, string>> = {
-  agents: "AI agents",
-  builder: "Strategy builder",
-  markets: "Market analysis",
-};
-
 interface Session {
   userId: string;
   email: string;
+  displayName?: string;
 }
 type Authentication =
   | { state: "loading" | "signed-out" }
@@ -73,45 +72,36 @@ type Authentication =
     }
   | { state: "error"; message: string };
 
-function DashboardAgents() {
+function useWorkerStatus(enabled: boolean) {
   const [summary, setSummary] = useState<{
     worker_online: boolean;
     items: { status: string; stage: string }[];
-  }>();
-  const [error, setError] = useState(false);
+  } | null>(null);
   useEffect(() => {
+    if (!enabled) return;
     let mounted = true;
     async function refresh() {
       try {
-        const next =
-          await platform<NonNullable<typeof summary>>("/paper-agents");
-        if (mounted) {
-          setSummary(next);
-          setError(false);
-        }
+        const next = await platform<NonNullable<typeof summary>>("/paper-agents");
+        if (mounted) setSummary(next);
       } catch {
-        if (mounted) {
-          setSummary(undefined);
-          setError(true);
-        }
+        if (mounted) setSummary(null);
       }
     }
     void refresh();
-    const interval = setInterval(() => void refresh(), 10000);
+    const interval = setInterval(() => void refresh(), 15000);
     return () => {
       mounted = false;
       clearInterval(interval);
     };
-  }, []);
-  const monitoring = summary?.items.filter(
-    (agent) =>
-      agent.status === "RUNNING" &&
-      agent.stage === "MONITOR" &&
-      summary.worker_online,
-  ).length;
-  const paused = summary?.items.filter(
-    (agent) => agent.status === "PAUSED",
-  ).length;
+  }, [enabled]);
+  return summary;
+}
+
+function DashboardAgents() {
+  const summary = useWorkerStatus(true);
+  const running = summary?.items.filter((a) => a.status === "RUNNING").length;
+  const paused = summary?.items.filter((a) => a.status === "PAUSED").length;
   return (
     <section className="platform-product-panel dashboard-agents">
       <div className="dashboard-panel-heading">
@@ -122,29 +112,39 @@ function DashboardAgents() {
           <ArrowRight size={16} aria-hidden />
         </a>
       </div>
-      {error && <p role="alert">Agent status is unavailable.</p>}
-      {!summary && !error && <p role="status">Checking worker status…</p>}
+      {!summary && <p role="status">Checking worker status…</p>}
       {summary && (
         <>
           <p className="dashboard-worker" data-online={summary.worker_online}>
-            {summary.worker_online
-              ? "Worker online"
-              : "Worker heartbeat unavailable"}
+            {summary.worker_online ? "Worker online" : "Worker offline"}
           </p>
           <dl className="dashboard-agent-counts">
             <div>
-              <dt>Monitoring</dt>
-              <dd>{monitoring}</dd>
+              <dt>Running</dt>
+              <dd>{running}</dd>
             </div>
             <div>
               <dt>Paused</dt>
               <dd>{paused}</dd>
             </div>
           </dl>
+          <a className="kx-link" href={workspaceHref("leaderboard")}>
+            <Trophy size={14} aria-hidden /> See the leaderboard
+          </a>
         </>
       )}
     </section>
   );
+}
+
+function initials(session: Session) {
+  const source = session.displayName || session.email || "?";
+  return source
+    .split(/[\s@._-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]!.toUpperCase())
+    .join("");
 }
 
 export function Workspace() {
@@ -154,7 +154,6 @@ export function Workspace() {
   const [accountReady, setAccountReady] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [replaying, setReplaying] = useState(false);
   const menuButton = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -167,7 +166,6 @@ export function Workspace() {
       if (next.signIn || next.page !== previousPage) window.scrollTo(0, 0);
       previousPage = next.page;
       setMenuOpen(false);
-      setReplaying(false);
     }
     sync();
     window.addEventListener("hashchange", sync);
@@ -216,15 +214,6 @@ export function Workspace() {
     void check();
   }, []);
 
-  useEffect(() => {
-    const motion = matchMedia("(prefers-reduced-motion: reduce)");
-    function update() {
-      if (motion.matches) setReplaying(false);
-    }
-    motion.addEventListener("change", update);
-    return () => motion.removeEventListener("change", update);
-  }, []);
-
   async function signOut() {
     setSigningOut(true);
     setAccountError("");
@@ -232,7 +221,6 @@ export function Workspace() {
       await platform("/auth/logout", "POST", {});
       setAuth({ state: "signed-out" });
       setAccountReady(false);
-      setReplaying(false);
     } catch (error) {
       setAccountError((error as Error).message);
     } finally {
@@ -245,237 +233,239 @@ export function Workspace() {
   const session = auth.state === "signed-in" ? auth.session : null;
   const showLanding =
     auth.state === "signed-out" && page === "dashboard" && !route.signIn;
+  const worker = useWorkerStatus(Boolean(session && accountReady));
+
+  if (showLanding) return <Landing section={route.landingSection} />;
+
+  if (auth.state !== "signed-in")
+    return (
+      <div className="kx-standalone unified-workspace">
+        {auth.state === "signed-out" && (
+          <Auth
+            done={() => void check()}
+            focusEmail={route.signIn}
+            register={route.register}
+          />
+        )}
+        {auth.state === "loading" && (
+          <div className="kx-splash" role="status">
+            <KronoMark />
+            <span>Connecting to Krono…</span>
+          </div>
+        )}
+        {auth.state === "error" && (
+          <div className="kx-splash">
+            <KronoMark />
+            <h1>Krono is unavailable</h1>
+            <p role="alert">{auth.message}</p>
+            <p className="muted">
+              Start the backend with <code>make dev</code>, then retry.
+            </p>
+            <button className="primary" onClick={() => void check()}>
+              Retry connection
+            </button>
+          </div>
+        )}
+      </div>
+    );
+
   function closeNavigation() {
     if (menuOpen) menuButton.current?.focus({ preventScroll: true });
     setMenuOpen(false);
   }
+  const liveMode = page === "live";
+
   return (
-    <div
-      className="app-shell rail-shell unified-workspace"
-      data-page={page}
-      data-landing={showLanding || undefined}
-      data-authenticated={Boolean(session) || undefined}
-    >
-      <div className="workspace">
-        <header className="topbar">
-          {session && (
-            <button
-              className="unified-nav-toggle"
-              ref={menuButton}
-              aria-label="Toggle navigation"
-              aria-expanded={menuOpen}
-              aria-controls="unified-nav"
-              onClick={() => setMenuOpen(!menuOpen)}
-            >
-              <Menu size={17} />
-            </button>
-          )}
-          <a
-            className="mobile-brand"
-            href={workspaceHref("dashboard")}
-            aria-label="Krono home"
-          >
+    <div className="kx-app unified-workspace" data-page={page}>
+      <aside
+        id="kx-sidebar"
+        className="kx-sidebar"
+        data-open={menuOpen}
+        aria-label="Main navigation"
+        onKeyDown={(event) => {
+          if (event.key === "Escape" && menuOpen) closeNavigation();
+        }}
+      >
+        <div className="kx-sidebar-head">
+          <a className="kx-brand" href={workspaceHref("dashboard")}>
             <KronoMark />
-            <span>Krono.</span>
+            <span>Krono</span>
           </a>
-          {session && (
-            <div className="workspace-identity">
-              <span>
-                <UserRound size={17} aria-hidden />
-              </span>
-              <div>
-                <strong>Personal workspace</strong>
-                <small>{session.email}</small>
-              </div>
+          <button
+            className="kx-icon-button kx-only-mobile"
+            aria-label="Close navigation"
+            onClick={closeNavigation}
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <nav className="kx-nav">
+          {moduleGroups.map((group) => (
+            <div key={group.label} className="kx-nav-group">
+              <span className="kx-nav-label">{group.label}</span>
+              {group.items.map((id) => {
+                const Icon = moduleIcons[id];
+                const label = modules.find(([key]) => key === id)![1];
+                return (
+                  <a
+                    key={id}
+                    href={workspaceHref(id)}
+                    aria-current={page === id ? "page" : undefined}
+                    onClick={closeNavigation}
+                  >
+                    <Icon size={17} aria-hidden="true" />
+                    <span>{label}</span>
+                    {id === "live" && <em className="kx-pill">Beta</em>}
+                  </a>
+                );
+              })}
             </div>
-          )}
-          {showLanding && (
-            <nav className="landing-nav" aria-label="About Krono">
-              {landingSections.map(([id, label]) => (
-                <LandingSectionLink key={id} section={id}>
-                  {label}
-                </LandingSectionLink>
-              ))}
-            </nav>
-          )}
-          <div className="header-controls">
-            {!showLanding && (
-              <span className="mode-label">
-                <ShieldCheck size={14} /> Paper trading
-              </span>
-            )}
-            <ThemeToggle />
-            {showLanding && (
-              <a className="button secondary landing-sign-in" href={signInHref}>
-                Sign in <ArrowRight size={15} aria-hidden />
-              </a>
-            )}
-            {session && (
-              <button
-                className="button secondary sign-out"
-                aria-label="Sign out"
-                disabled={signingOut}
-                onClick={() => void signOut()}
+          ))}
+        </nav>
+        <div className="kx-sidebar-foot">
+          <div className="kx-worker" data-online={worker?.worker_online ?? false}>
+            <span className="kx-dot" aria-hidden />
+            <div>
+              <strong>
+                {worker === null
+                  ? "Checking worker"
+                  : worker.worker_online
+                    ? "Agents worker online"
+                    : "Agents worker offline"}
+              </strong>
+              <small>
+                {worker
+                  ? `${worker.items.filter((a) => a.status === "RUNNING").length} running · runs while you're away`
+                  : "Server-side execution"}
+              </small>
+            </div>
+          </div>
+          <div className="kx-user">
+            <span className="kx-avatar" aria-hidden>
+              {initials(auth.session)}
+            </span>
+            <div>
+              <strong>{auth.session.displayName ?? "Trader"}</strong>
+              <small>{auth.session.email}</small>
+            </div>
+            <button
+              className="kx-icon-button"
+              aria-label="Sign out"
+              title="Sign out"
+              disabled={signingOut}
+              onClick={() => void signOut()}
+            >
+              <LogOut size={16} />
+            </button>
+          </div>
+        </div>
+      </aside>
+      {menuOpen && (
+        <div className="kx-scrim" onClick={closeNavigation} aria-hidden />
+      )}
+      <div className="kx-main">
+        <header className="kx-topbar">
+          <button
+            className="kx-icon-button kx-only-mobile"
+            ref={menuButton}
+            aria-label="Open navigation"
+            aria-expanded={menuOpen}
+            aria-controls="kx-sidebar"
+            onClick={() => setMenuOpen(true)}
+          >
+            <Menu size={18} />
+          </button>
+          <MarketTicker />
+          <div className="kx-topbar-actions">
+            <div className="kx-mode" role="group" aria-label="Trading mode">
+              <a
+                href={workspaceHref("paper")}
+                aria-current={!liveMode ? "true" : undefined}
               >
-                <LogOut size={15} /> <span>Sign out</span>
-              </button>
-            )}
+                Paper
+              </a>
+              <a
+                href={workspaceHref("live")}
+                aria-current={liveMode ? "true" : undefined}
+              >
+                Live
+              </a>
+            </div>
+            <ThemeToggle />
           </div>
         </header>
-        {session && (
-          <nav
-            id="unified-nav"
-            className="unified-nav"
-            aria-label="Main navigation"
-            data-expanded={menuOpen}
-            onKeyDown={(event) => {
-              if (event.key === "Escape" && menuOpen) closeNavigation();
-            }}
-          >
-            <a
-              className="workspace-rail-brand"
-              href={workspaceHref("dashboard")}
-              aria-label="Krono home"
-            >
-              <KronoMark /> <span>Krono.</span>
-            </a>
-            {modules.map(([id, label]) => {
-              const Icon = moduleIcons[id];
-              return (
-                <a
-                  key={id}
-                  href={workspaceHref(id)}
-                  aria-label={label}
-                  aria-current={page === id ? "page" : undefined}
-                  onClick={closeNavigation}
-                >
-                  <Icon size={15} aria-hidden="true" />
-                  <span>{moduleLabels[id] ?? label}</span>
-                </a>
-              );
-            })}
-          </nav>
-        )}
-        <main className="platform-workspace">
-          {showLanding && <Landing section={route.landingSection} />}
-          {auth.state === "signed-out" && !showLanding && (
-            <section className="product-auth-page">
-              <h1 className="visually-hidden">Sign in to Krono</h1>
-              <Auth done={() => void check()} focusEmail={route.signIn} />
-            </section>
-          )}
-          {auth.state === "loading" && (
-            <p className="platform-loading" role="status">
-              Connecting to Krono…
+        <main className="kx-content platform-workspace">
+          <section className="kx-page-head" key={page}>
+            <div>
+              <h1>{title}</h1>
+              {moduleSubtitles[page] && <p>{moduleSubtitles[page]}</p>}
+            </div>
+            {page === "strategies" && (
+              <a className="button primary" href={workspaceHref("builder")}>
+                <WandSparkles size={15} /> New with AI
+              </a>
+            )}
+            {page === "agents" && (
+              <a className="button primary" href={workspaceHref("builder")}>
+                <WandSparkles size={15} /> Build an agent
+              </a>
+            )}
+          </section>
+          {accountError && (
+            <p className="platform-error" role="alert">
+              {accountError}
             </p>
           )}
-          {auth.state === "error" && (
-            <section className="workspace-intro">
-              <h1>Krono is unavailable</h1>
-              <p role="alert">{auth.message}</p>
+          {!auth.available ? (
+            <section className="platform-product-panel">
+              <h2>Trading service unavailable</h2>
+              <p>The account and strategy service is not reachable.</p>
               <button onClick={() => void check()}>Retry connection</button>
             </section>
-          )}
-          {auth.state === "signed-in" && (
-            <>
-              <section className="workspace-intro product-intro" key={page}>
-                <div className="page-heading">
-                  <div>
-                    <h1>{title}</h1>
-                    {page === "dashboard" && (
-                      <p>Your strategies, agents, and virtual portfolio.</p>
-                    )}
-                    {page === "settings" && <p>{session?.email}</p>}
-                  </div>
-                  {page === "dashboard" && accountReady && (
-                    <button
-                      className="dashboard-replay"
-                      type="button"
-                      onClick={() => setReplaying(!replaying)}
-                    >
-                      {replaying ? <Square size={14} /> : <Play size={14} />}
-                      {replaying ? "Stop motion" : "Replay motion"}
-                    </button>
-                  )}
-                  {page === "strategies" && (
-                    <a
-                      className="button primary"
-                      href={workspaceHref("builder")}
-                    >
-                      Open strategy builder <ArrowRight size={15} />
-                    </a>
-                  )}
-                </div>
-              </section>
-              {accountError && (
-                <p className="platform-error" role="alert">
-                  {accountError}
+          ) : !accountReady ? (
+            accountError ? (
+              <button onClick={() => void check()}>Retry connection</button>
+            ) : (
+              <p role="status" className="kx-loading">
+                Opening your paper account…
+              </p>
+            )
+          ) : (
+            <Suspense
+              fallback={
+                <p role="status" className="kx-loading">
+                  Loading {title}…
                 </p>
+              }
+              key={auth.session.userId}
+            >
+              {page === "dashboard" && (
+                <PaperAccount
+                  view="dashboard"
+                  liveEnabled={auth.liveEnabled}
+                  dashboardAgents={<DashboardAgents />}
+                  dashboardMarkets={<DashboardMarkets />}
+                />
               )}
-              {!auth.available ? (
-                <section className="platform-product-panel">
-                  <h2>Paper trading service unavailable</h2>
-                  <p>
-                    The account and strategy service is currently unavailable.
-                  </p>
-                  <button onClick={() => void check()}>Retry connection</button>
-                </section>
-              ) : !accountReady ? (
-                accountError ? (
-                  <button onClick={() => void check()}>Retry connection</button>
-                ) : (
-                  <p role="status">Opening your virtual account…</p>
-                )
-              ) : (
-                <Suspense
-                  fallback={<p role="status">Loading {title}…</p>}
-                  key={session?.userId}
-                >
-                  {page === "dashboard" && (
-                    <div className="dashboard-viewport">
-                      <div
-                        className="dashboard-scene"
-                        data-replay={replaying}
-                        onAnimationEnd={(event) => {
-                          if (
-                            event.target === event.currentTarget &&
-                            event.animationName.startsWith("dashboard-camera")
-                          ) {
-                            setReplaying(false);
-                          }
-                        }}
-                      >
-                        <PaperAccount
-                          view="dashboard"
-                          liveEnabled={auth.liveEnabled}
-                          dashboardAgents={<DashboardAgents />}
-                          dashboardMarkets={<DashboardMarkets />}
-                        />
-                      </div>
-                    </div>
-                  )}
-                  {page === "agents" && <PaperAgents key={route.href} />}
-                  {page === "strategies" && <Strategies key="strategies" />}
-                  {page === "builder" && <Strategies key="builder" builder />}
-                  {page === "backtests" && (
-                    <BacktestingLab
-                      key={reportId ?? "new"}
-                      reportId={reportId}
-                    />
-                  )}
-                  {page === "paper" && <PaperAccount key="paper" />}
-                  {page === "portfolio" && (
-                    <PaperAccount key="portfolio" view="portfolio" />
-                  )}
-                  {page === "settings" && (
-                    <PaperAccount key="settings" view="settings" />
-                  )}
-                  {(page === "markets" || page === "news") && (
-                    <MarketResearch news={page === "news"} key={route.href} />
-                  )}
-                </Suspense>
+              {page === "agents" && <PaperAgents key={route.href} />}
+              {page === "leaderboard" && <Leaderboard />}
+              {page === "live" && <LiveTrading />}
+              {page === "strategies" && <Strategies key="strategies" />}
+              {page === "builder" && <Strategies key="builder" builder />}
+              {page === "backtests" && (
+                <BacktestingLab key={reportId ?? "new"} reportId={reportId} />
               )}
-            </>
+              {page === "paper" && <PaperAccount key="paper" />}
+              {page === "portfolio" && (
+                <PaperAccount key="portfolio" view="portfolio" />
+              )}
+              {page === "settings" && (
+                <PaperAccount key="settings" view="settings" />
+              )}
+              {(page === "markets" || page === "news") && (
+                <MarketResearch news={page === "news"} key={route.href} />
+              )}
+            </Suspense>
           )}
         </main>
       </div>
