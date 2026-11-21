@@ -42,25 +42,34 @@ test("News shows provider allowance and polls the selected breaking feed", async
   page,
 }) => {
   let breakingRequests = 0;
+  const allowance = {
+    limited: true,
+    max_results: 3,
+    limitation: "Fixture provider allowance",
+  };
   await page.route("**/api/dashboard", async (route) => {
     const response = await route.fetch();
     const data = await response.json();
-    data.news.limited = true;
-    data.news.max_results = 3;
-    data.news.limitation = "Fixture provider allowance";
-    await route.fulfill({ response, json: data });
+    await route.fulfill({
+      response,
+      json: { ...data, news: { ...data.news, ...allowance } },
+    });
   });
-  await page.route("**/api/news?breaking=true", async (route) => {
+  await page.route("**/api/news?breaking=*", async (route) => {
     const response = await route.fetch();
     const data = await response.json();
-    data.articles = [
-      {
-        ...data.articles[0],
-        title: `Fixture breaking update ${++breakingRequests}`,
-        urgency: "breaking",
-      },
-    ];
-    await route.fulfill({ response, json: data });
+    if (
+      new URL(route.request().url()).searchParams.get("breaking") === "true"
+    ) {
+      data.articles = [
+        {
+          ...data.articles[0],
+          title: `Fixture breaking update ${++breakingRequests}`,
+          urgency: "breaking",
+        },
+      ];
+    }
+    await route.fulfill({ response, json: { ...data, ...allowance } });
   });
   await page.goto("/#/news");
   await expect(
