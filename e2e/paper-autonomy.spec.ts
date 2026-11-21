@@ -204,9 +204,10 @@ test("paper agent continues without a browser and survives API and worker restar
     await context.close();
     expect(browser.contexts()).toHaveLength(0);
 
+    const disconnected = await state(id);
     await expect
       .poll(async () => (await state(id)).fills, { timeout: 22000 })
-      .toBeGreaterThan(0);
+      .toBeGreaterThan(disconnected.fills);
     const first = await state(id);
     await stop(service);
     // Keep the private product API offline while the worker processes the next event.
