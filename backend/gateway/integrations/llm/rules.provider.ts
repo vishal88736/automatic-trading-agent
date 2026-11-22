@@ -77,6 +77,10 @@ const templates: Template[] = [
           text,
           /rsi[^.\d]{0,40}(?:above|over|>|greater than|reaches|hits)\s*(\d{1,2})/i,
         ) ??
+        number(
+          text,
+          /(?:sell|exit|close|take profit)[^.\d]{0,30}(?:above|over|>|greater than|reaches|hits)\s*(\d{1,2})/i,
+        ) ??
         number(text, /overbought[^.\d]{0,20}(\d{1,2})/i) ??
         "70";
       return {

@@ -143,6 +143,14 @@ test("the rules drafter turns plain English into a valid strategy and revises it
   assert.equal(revised.strategy?.name, "SOL RSI mean reversion");
 
   assert.equal(draftStrategy("what's the weather").strategy, null);
+
+  // The exit level is found even when a number sits between "RSI" and "above".
+  const plain = draftStrategy(
+    "Buy ETH when RSI drops below 30 and sell when it goes above 65",
+  );
+  assert.deepEqual(plain.strategy?.definition.exit.conditions, [
+    { indicator: "rsi", operator: "gt", threshold: "65" },
+  ]);
 });
 
 test("the rules provider answers the strategy draft schema with explanatory notes", async () => {

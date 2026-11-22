@@ -186,7 +186,7 @@ export function DashboardLivePortfolio({ enabled }: { enabled: boolean }) {
           {state?.configured ? (
             <>
               <a className="kx-link" href={workspaceHref("live")}>
-                Link a Binance account
+                Link an exchange account
               </a>{" "}
               to see live balances here.
             </>

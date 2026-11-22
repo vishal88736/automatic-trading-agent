@@ -3,7 +3,7 @@ from datetime import timedelta
 import httpx
 import pytest
 
-from backend.data import Providers, canonical_url, fixture_market, normalize_news
+from backend.data import Providers, canonical_url, fixture_market, normalize_news, text_content
 from backend.models import Token, now
 from backend.storage import Store
 
@@ -246,3 +246,9 @@ async def test_provider_free_tier_limit_and_source_clock_are_preserved():
     finally:
         await providers.close()
         store.close()
+
+
+def test_text_content_strips_escaped_markup():
+    raw = '&lt;span property="schema:name"&gt;Comb &amp;amp; mice&lt;/span&gt; <b>now</b>'
+    assert text_content(raw) == "Comb &amp; mice now"
+    assert text_content("Hair regrowth in mice&lt;/span") == "Hair regrowth in mice"

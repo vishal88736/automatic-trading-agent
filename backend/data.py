@@ -128,7 +128,10 @@ def canonical_url(raw: str) -> str:
 
 
 def text_content(raw, limit=1500):
-    return re.sub(r"\s+", " ", unescape(re.sub(r"<[^>]*>", " ", str(raw or "")))).strip()[:limit]
+    # Strip tags again after unescaping: some feeds send escaped markup ("&lt;span&gt;").
+    # A tag cut off at the end of a truncated summary ("...Mice</span") is dropped too.
+    text = re.sub(r"<[^>]*(?:>|$)", " ", unescape(re.sub(r"<[^>]*>", " ", str(raw or ""))))
+    return re.sub(r"\s+", " ", text).strip()[:limit]
 
 
 def parse_time(raw) -> datetime | None:
