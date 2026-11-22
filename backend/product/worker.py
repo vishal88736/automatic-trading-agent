@@ -335,6 +335,10 @@ def worker_identity():
 
 
 def service(dsn: str, stop: Event, worker: PaperWorker):
+    from backend.product.credentials import CredentialVault
+    from backend.product.live import default_client, mirror_fills
+
+    vault = CredentialVault.from_environment()
     worker_id = worker_identity()
     last_heartbeat = float("-inf")
     while not stop.is_set():
@@ -367,7 +371,9 @@ def service(dsn: str, stop: Event, worker: PaperWorker):
                     ident, owner, epoch, asset = limit
                     quotes = worker.quotes({asset} | set(positions(db, owner, epoch)))
                     process_limit(db, owner, ident, quotes, PaperTerms())
-                if not work and not limit:
+                # Promoted agents: copy new paper fills to their linked exchange accounts.
+                mirrored = mirror_fills(db, vault, default_client) if vault else 0
+                if not work and not limit and not mirrored:
                     stop.wait(1)
         except Exception as exc:
             log.error("Paper worker operation failed: %s", type(exc).__name__)

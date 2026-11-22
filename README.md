@@ -3,7 +3,8 @@
 Krono is an automated cryptocurrency trading platform. Describe a strategy to the AI builder in plain English, backtest it on real market data, and run it as an agent that keeps trading on the server after you close the browser. Every running agent competes on a public leaderboard.
 
 - **Paper trading**: each account starts with 10,000 virtual USDT, priced against live Coinbase quotes with simulated fees and slippage.
-- **Live trading**: linking your own exchange account (planned). See [live trading](docs/LIVE_TRADING.md).
+- **Live trading**: link Binance, Bybit or OKX (each has a free testnet) with a trade-only key. Trade by hand, or promote a proven paper agent so its trades are mirrored to your account. See [live trading](docs/LIVE_TRADING.md).
+- **Live data**: streaming Binance prices and real-time news from [cryptocurrency.cv](https://cryptocurrency.cv), both free.
 
 ## Run locally
 

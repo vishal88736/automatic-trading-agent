@@ -48,6 +48,8 @@ const secrets = existsSync(secretsFile)
       sessionSecret: randomBytes(32).toString("hex"),
       dbPassword: randomBytes(16).toString("hex"),
     };
+// Added after the first release of this file, so older .runtime/dev.json files gain it too.
+secrets.credentialKey ??= randomBytes(32).toString("hex");
 writeFileSync(secretsFile, JSON.stringify(secrets, null, 2), { mode: 0o600 });
 
 const log = (message) => console.log(`\x1b[36m[krono]\x1b[0m ${message}`);
@@ -107,6 +109,8 @@ const env = {
   ...process.env,
   KRONO_DATABASE_DSN: dsn,
   KRONO_PRODUCT_API_KEY: secrets.productKey,
+  KRONO_CREDENTIAL_KEY:
+    process.env.KRONO_CREDENTIAL_KEY ?? secrets.credentialKey,
 };
 log("Applying database migrations…");
 const migrated = spawnSync(python, ["-m", "scripts.platform_database"], {

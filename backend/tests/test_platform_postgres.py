@@ -802,3 +802,310 @@ def test_leaderboard_ranks_every_tenant_by_return_without_exposing_other_ids(
         db.execute("UPDATE paper_agents SET status = 'STOPPED' WHERE id = %s", (agents["Steady"],))
         assert [row["name"] for row in leaderboard(db, named)] == ["Volatile"]
         assert len(leaderboard(db, named, "all")) == 2
+
+
+class FakeExchange:
+    """Exchange adapter double that records every call and fills at 50,000 USDT."""
+
+    orders: dict = {}
+    submitted: list = []
+    cancelled: list = []
+    fail_next_with = None
+
+    @classmethod
+    def reset(cls):
+        cls.orders, cls.submitted, cls.cancelled, cls.fail_next_with = {}, [], [], None
+
+    def __init__(self, exchange, environment, credentials):
+        self.exchange, self.environment = exchange, environment
+        self.key = credentials["api_key"]
+
+    def close(self):
+        pass
+
+    def verify(self):
+        if self.environment == "live" and self.key.startswith("WITHDRAW"):
+            raise ValueError("This key can withdraw funds. Create a key with withdrawals disabled.")
+        return {"can_trade": True, "withdrawals": False, "ip_restricted": True}
+
+    def balances(self):
+        return [
+            {"asset": "USDT", "free": Decimal("900"), "locked": Decimal("0")},
+            {"asset": "BTC", "free": Decimal("0.01"), "locked": Decimal("0")},
+            {"asset": "DOGE", "free": Decimal("5"), "locked": Decimal("0")},
+        ]
+
+    def market_order(self, asset, side, client_id, *, quote_amount=None, quantity=None):
+        from backend.product.exchanges import result
+
+        FakeExchange.submitted.append((client_id, side, quote_amount, quantity))
+        executed = quantity if quantity is not None else quote_amount / 50000
+        outcome = result("FILLED", len(FakeExchange.submitted), executed, executed * 50000)
+        FakeExchange.orders[client_id] = outcome
+        if FakeExchange.fail_next_with:
+            error, FakeExchange.fail_next_with = FakeExchange.fail_next_with, None
+            raise error
+        return outcome
+
+    def order(self, asset, client_id):
+        from backend.product.exchanges import ExchangeError
+
+        if client_id not in FakeExchange.orders:
+            raise ExchangeError("Order does not exist", not_found=True)
+        return FakeExchange.orders[client_id]
+
+    def cancel_open_orders(self, asset):
+        FakeExchange.cancelled.append(asset)
+        return 0
+
+
+def signed_client(database_dsn, key="signed-product-test-material" * 2):
+    from backend.product.credentials import CredentialVault
+
+    app = create_product_api(
+        database_dsn,
+        key,
+        fixture_feeds=True,
+        credential_vault=CredentialVault(bytes(range(32))),
+        live_client_factory=FakeExchange,
+    )
+
+    def headers(method, path, subject, body=""):
+        expires = str(int(time.time()) + 20)
+        checksum = hashlib.sha256(body.encode()).hexdigest()
+        message = "\n".join([expires, str(subject), method, path, checksum])
+        return {
+            "x-krono-product-sub": str(subject),
+            "x-krono-product-expires": expires,
+            "x-krono-product-signature": hmac.new(
+                key.encode(), message.encode(), hashlib.sha256
+            ).hexdigest(),
+            "content-type": "application/json",
+        }
+
+    client = TestClient(app)
+
+    def call(method, path, payload=None, subject=None):
+        data = "" if payload is None else json.dumps(payload)
+        return client.request(
+            method, path, headers=headers(method, path, subject, data), content=data
+        )
+
+    return client, call
+
+
+def test_live_trading_links_safe_keys_and_submits_each_order_once(database_dsn, database):
+    from uuid import UUID
+
+    from backend.product.exchanges import ExchangeError
+
+    FakeExchange.reset()
+    with database() as db:
+        migrate(db)
+    owner, other = uuid4(), uuid4()
+    client, raw_call = signed_client(database_dsn)
+    with client:
+
+        def call(method, path, payload=None, subject=owner):
+            return raw_call(method, path, payload, subject)
+
+        base = "/platform/live/connections"
+        unsafe = call(
+            "POST",
+            base,
+            {
+                "environment": "live",
+                "label": "Main",
+                "api_key": "WITHDRAW" + "a" * 20,
+                "api_secret": "s" * 40,
+            },
+        )
+        assert unsafe.status_code == 422
+        assert "withdraw" in unsafe.json()["error"]["message"]
+
+        linked = call(
+            "POST",
+            base,
+            {
+                "environment": "testnet",
+                "label": "Testnet",
+                "api_key": "K" * 60 + "WXYZ",
+                "api_secret": "S" * 64,
+                "max_order_usdt": "50",
+            },
+        )
+        assert linked.status_code == 201, linked.text
+        connection = linked.json()
+        assert connection["key_hint"] == "…WXYZ" and "api_secret" not in linked.text
+        with database() as db:
+            (sealed,) = db.execute("SELECT ciphertext FROM live_connections").fetchone()
+        assert b"SSSS" not in bytes(sealed)
+
+        path = f"{base}/{connection['id']}"
+        assert call("GET", f"{path}/account", subject=other).status_code == 404
+        account = call("GET", f"{path}/account").json()
+        assert account["total_value"] == "1400.00"
+        assert account["complete"] is False
+        assert [b["asset"] for b in account["balances"]][:2] == ["USDT", "BTC"]
+
+        order = {"request_key": str(uuid4()), "asset": "BTC", "side": "BUY"}
+        assert call("POST", f"{path}/orders", order | {"quote_amount": "60"}).status_code == 422
+        filled = call("POST", f"{path}/orders", order | {"quote_amount": "40"})
+        assert filled.status_code == 201, filled.text
+        assert filled.json()["status"] == "FILLED"
+        assert filled.json()["average_price"] == "50000.00000000"
+        again = call("POST", f"{path}/orders", order | {"quote_amount": "40"})
+        assert again.json()["id"] == filled.json()["id"]
+        assert len(FakeExchange.submitted) == 1
+        assert FakeExchange.submitted[0][0] == "kr-" + UUID(order["request_key"]).hex
+        conflict = call("POST", f"{path}/orders", order | {"quote_amount": "41"})
+        assert conflict.status_code == 422
+
+        FakeExchange.fail_next_with = ExchangeError("timeout", unknown_outcome=True)
+        uncertain = call(
+            "POST",
+            f"{path}/orders",
+            {"request_key": str(uuid4()), "asset": "ETH", "side": "BUY", "quote_amount": "10"},
+        )
+        assert uncertain.json()["status"] == "FILLED"
+        assert len(FakeExchange.submitted) == 2
+
+        paused = call("POST", f"{path}/control", {"action": "pause"}).json()
+        assert paused["status"] == "PAUSED"
+        assert FakeExchange.cancelled == ["BTC", "ETH", "SOL"]
+        blocked = call(
+            "POST",
+            f"{path}/orders",
+            {"request_key": str(uuid4()), "asset": "SOL", "side": "BUY", "quote_amount": "5"},
+        )
+        assert blocked.status_code == 422 and "paused" in blocked.json()["error"]["message"]
+        assert call("POST", f"{path}/control", {"action": "resume"}).json()["status"] == "ACTIVE"
+        assert len(call("GET", f"{path}/orders").json()["items"]) == 2
+
+        assert call("DELETE", path).status_code == 204
+        assert call("GET", base).json()["items"] == []
+        with database() as db:
+            assert db.execute("SELECT ciphertext, status FROM live_connections").fetchone() == (
+                None,
+                "REVOKED",
+            )
+
+
+def test_promoted_agents_mirror_each_paper_fill_to_the_exchange_once(
+    database_dsn, database, strategy_draft
+):
+    from backend.models import now
+    from backend.product.agents import DraftAgentStart, list_agents, start_draft_agent, timeline
+    from backend.product.backtests import save_replay
+    from backend.product.credentials import CredentialVault
+    from backend.product.execution import OrderRequest, PaperQuote, PaperTerms, submit_order
+    from backend.product.history import HistoricalBacktestRequest
+    from backend.product.live import mirror_fills
+
+    FakeExchange.reset()
+    vault = CredentialVault(bytes(range(32)))
+    owner = uuid4()
+    with database() as db:
+        migrate(db)
+        ensure_account(db, owner)
+        agent, strategy = start_draft_agent(
+            db,
+            owner,
+            DraftAgentStart(name="Mirror", epoch=1, document=strategy_draft, capital="1000"),
+        )
+        market = fixture_market("BTC")
+        report = save_replay(
+            db,
+            owner,
+            strategy,
+            HistoricalBacktestRequest(
+                version=1, start=market.candles[81].timestamp, end=market.candles[-1].closed_at
+            ),
+            market,
+        )
+    client, raw_call = signed_client(database_dsn)
+    with client:
+
+        def call(method, path, payload=None):
+            return raw_call(method, path, payload, owner)
+
+        connections = "/platform/live/connections"
+        testnet = call(
+            "POST",
+            connections,
+            {"label": "Test", "api_key": "T" * 20, "api_secret": "S" * 20, "max_order_usdt": "500"},
+        ).json()
+        live = call(
+            "POST",
+            connections,
+            {"environment": "live", "label": "Real", "api_key": "R" * 20, "api_secret": "S" * 20},
+        ).json()
+        promote = f"/platform/paper-agents/{agent}/live"
+        not_ready = call("POST", promote, {"connection_id": testnet["id"], "budget_usdt": "100"})
+        assert not_ready.status_code == 422 and "passed validation" in not_ready.text
+        with database() as db:
+            db.execute(
+                "UPDATE paper_agents SET stage = 'MONITOR', report_id = %s WHERE id = %s",
+                (report["id"], agent),
+            )
+        too_new = call(
+            "POST",
+            promote,
+            {"connection_id": live["id"], "budget_usdt": "100", "acknowledge_live": True},
+        )
+        assert too_new.status_code == 422 and "days of paper trading" in too_new.text
+        promoted = call("POST", promote, {"connection_id": testnet["id"], "budget_usdt": "100"})
+        assert promoted.status_code == 200, promoted.text
+
+        def fill(side, quantity, price="50000"):
+            with database() as db:
+                quote = PaperQuote(asset="BTC", price=price, observed_at=now(), source="fixture")
+                return submit_order(
+                    db,
+                    owner,
+                    OrderRequest(
+                        request_key=uuid4(), epoch=1, asset="BTC", side=side, quantity=quantity
+                    ),
+                    {"BTC": quote},
+                    PaperTerms(),
+                    agent_id=agent,
+                )
+
+        bought_paper = fill("BUY", "0.0015")  # 75 USDT of 1,000 paper capital
+        assert bought_paper["status"] == "FILLED", bought_paper["reason"]
+        with database() as db:
+            assert mirror_fills(db, vault, FakeExchange) == 1
+            assert mirror_fills(db, vault, FakeExchange) == 0  # each fill is mirrored once
+        client_id, side, quote_amount, quantity = FakeExchange.submitted[0]
+        assert side == "BUY" and quantity is None
+        assert Decimal("7.4") < quote_amount <= Decimal("7.51")  # 75 x 100/1000, with costs
+
+        assert fill("SELL", "0.00075")["status"] == "FILLED"  # half the paper position
+        with database() as db:
+            assert mirror_fills(db, vault, FakeExchange) == 1
+        _, side, _, quantity = FakeExchange.submitted[1]
+        bought = quote_amount / 50000
+        assert side == "SELL" and abs(quantity - bought / 2) < Decimal("0.0000001")
+
+        call("POST", f"{connections}/{testnet['id']}/control", {"action": "pause"})
+        fill("SELL", "0.0005")
+        with database() as db:
+            assert mirror_fills(db, vault, FakeExchange) == 0
+            kinds = [entry["kind"] for entry in timeline(db, owner, agent)]
+        assert len(FakeExchange.submitted) == 2
+        assert "LIVE_SKIPPED" in kinds and kinds.count("LIVE_ORDER") == 2
+        call("POST", f"{connections}/{testnet['id']}/control", {"action": "resume"})
+
+        orders = call("GET", f"/platform/paper-agents/{agent}/live/orders").json()["items"]
+        assert [o["status"] for o in orders] == ["SKIPPED", "FILLED", "FILLED"]
+        with database() as db:
+            [listed] = list_agents(db, owner)
+        assert listed["live_label"] == "Test" and listed["live_orders"] == 2
+
+        stopped = call("POST", f"{promote}/stop", {"close_position": True}).json()
+        assert stopped["live"] is False
+        assert stopped["close_order"]["side"] == "SELL"
+        assert Decimal(stopped["close_order"]["quantity"]) == bought - quantity
+        with database() as db:
+            [listed] = list_agents(db, owner)
+        assert listed["live_connection_id"] is None

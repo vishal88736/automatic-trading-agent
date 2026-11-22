@@ -299,8 +299,36 @@ export function registerProductRoutes(
     { method: "POST", url: "/platform/paper-agents/:id/control" },
     { method: "POST", url: "/platform/paper-agents/:id/close-position" },
     { method: "GET", url: "/platform/paper-agents/:id/events" },
+    { method: "POST", url: "/platform/paper-agents/:id/live", timeout: 15000 },
+    {
+      method: "POST",
+      url: "/platform/paper-agents/:id/live/stop",
+      timeout: 30000,
+    },
+    { method: "GET", url: "/platform/paper-agents/:id/live/orders" },
     { method: "GET", url: "/platform/leaderboard" },
     { method: "GET", url: "/platform/news/live" },
+    {
+      method: ["GET", "POST"],
+      url: "/platform/live/connections",
+      timeout: 20000,
+    },
+    { method: "DELETE", url: "/platform/live/connections/:id" },
+    {
+      method: "GET",
+      url: "/platform/live/connections/:id/account",
+      timeout: 20000,
+    },
+    {
+      method: ["GET", "POST"],
+      url: "/platform/live/connections/:id/orders",
+      timeout: 30000,
+    },
+    {
+      method: "POST",
+      url: "/platform/live/connections/:id/control",
+      timeout: 30000,
+    },
     { method: "GET", url: "/platform/news/pulse", timeout: 45000 },
     { method: ["GET", "POST"], url: "/platform/custom-strategies" },
     { method: ["GET", "PUT"], url: "/platform/custom-strategies/:id" },
@@ -327,14 +355,25 @@ export function registerProductRoutes(
           "timeout" in route ? route.timeout : 8000,
         );
         if (response.status === 204) return reply.code(204).send();
-        if (response.status === 401 || response.status >= 500) {
+        const data = (await response.json().catch(() => null)) as {
+          error?: { code?: unknown };
+        } | null;
+        // Structured exchange and configuration errors pass through; anything else is opaque.
+        const explained =
+          (response.status === 502 || response.status === 503) &&
+          typeof data?.error?.code === "string" &&
+          ["EXCHANGE_ERROR", "LIVE_NOT_CONFIGURED"].includes(data.error.code);
+        if (
+          response.status === 401 ||
+          (response.status >= 500 && !explained) ||
+          data === null
+        ) {
           throw new PlatformError(
             "PRODUCT_API_UNAVAILABLE",
             "Paper account service is temporarily unavailable",
             503,
           );
         }
-        const data = await response.json();
         if (!response.ok) {
           const { error } = data as { error?: Record<string, unknown> };
           return reply.code(response.status).send({

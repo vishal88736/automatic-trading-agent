@@ -134,14 +134,17 @@ export function createPlatform(
       throw denied("Origin is not permitted");
     if (req.headers["sec-fetch-site"] === "cross-site")
       throw denied("Cross-site request blocked");
+    // Reads (polling, live streams) and actions get separate per-IP budgets, so a busy
+    // dashboard can never lock a user out of pressing Stop or the kill switch.
+    const read = req.method === "GET" || req.method === "HEAD";
     const now = Date.now(),
-      key = req.ip;
+      key = `${read ? "r" : "w"}:${req.ip}`;
     let bucket = windows.get(key);
     if (!bucket || bucket.until < now) {
       bucket = { count: 0, until: now + 60000 };
       windows.set(key, bucket);
     }
-    if (++bucket.count > 120)
+    if (++bucket.count > (read ? 600 : 120))
       throw new PlatformError("RATE_LIMIT", "Request limit reached", 429);
     if (windows.size > 10000)
       for (const [k, v] of windows) if (v.until < now) windows.delete(k);
@@ -255,7 +258,7 @@ export function createPlatform(
         code: known ? err.code : "SERVICE_UNAVAILABLE",
         message: known
           ? err.message
-          : "The service is unavailable. Verify AWS configuration and provider access.",
+          : "The service is temporarily unavailable. Try again shortly.",
         requestId: req.id,
       },
     });

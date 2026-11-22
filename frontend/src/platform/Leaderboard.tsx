@@ -8,6 +8,7 @@ interface Entry {
   rank: number;
   id: string | null;
   mine: boolean;
+  live: boolean;
   name: string;
   status: "RUNNING" | "PAUSED" | "STOPPED";
   stage: string;
@@ -230,6 +231,9 @@ export default function Leaderboard() {
                         </a>
                       ) : (
                         <strong>{entry.name}</strong>
+                      )}
+                      {entry.live && (
+                        <span className="kx-pill kx-pill-live">Live</span>
                       )}
                       <small>{entry.strategy}</small>
                     </td>

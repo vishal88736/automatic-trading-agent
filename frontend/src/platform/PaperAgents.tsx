@@ -14,9 +14,10 @@ import { Coin, money, timestamp } from "../ui";
 import { platform } from "./client";
 import { workspaceHref } from "./navigation";
 import { PaperAgentFields, paperAgentSettings } from "./PaperAgentFields";
+import { AgentLive, type AgentLiveState } from "./AgentLive";
 
 type AgentStatus = "RUNNING" | "PAUSED" | "STOPPED" | "FAILED";
-interface Agent {
+interface Agent extends AgentLiveState {
   id: string;
   name: string;
   asset: string;
@@ -67,6 +68,14 @@ function eventText(entry: TimelineEvent) {
     return `Retry ${detail.attempt} · ${detail.error}`;
   if (entry.kind === "RECOVERED")
     return `Recovered checkpoint · ${detail.stage}`;
+  if (entry.kind === "LIVE_PROMOTED")
+    return `Went live on ${detail.label} (${detail.environment}) · budget ${detail.budget_usdt} USDT`;
+  if (entry.kind === "LIVE_ORDER")
+    return `Live ${detail.side} ${detail.asset} · ${detail.status}${detail.error ? ` · ${detail.error}` : ""}`;
+  if (entry.kind === "LIVE_SKIPPED")
+    return `Live ${detail.side} skipped · ${detail.reason}`;
+  if (entry.kind === "LIVE_STOPPED")
+    return `Live trading stopped${detail.closed_position ? " · position sold" : ""}`;
   return String(detail.reason ?? detail.action ?? detail.error ?? entry.kind);
 }
 
@@ -361,7 +370,12 @@ export default function PaperAgents() {
                 >
                   <Coin symbol={item.asset} />
                   <span className="kx-agent-item-body">
-                    <strong>{item.name}</strong>
+                    <strong>
+                      {item.name}
+                      {item.live_connection_id && (
+                        <span className="kx-pill kx-pill-live">Live</span>
+                      )}
+                    </strong>
                     <small>
                       <span className="kx-status" data-status={item.status}>
                         {item.status.toLowerCase()}
@@ -564,6 +578,15 @@ export default function PaperAgents() {
                     </button>
                   )}
               </div>
+
+              <AgentLive
+                agent={agent}
+                onChanged={() =>
+                  void platform<{ items: Agent[] }>("/paper-agents")
+                    .then(({ items }) => setAgents(items))
+                    .catch(() => undefined)
+                }
+              />
 
               <h3 className="kx-card-title">Live activity</h3>
               {events.length ? (

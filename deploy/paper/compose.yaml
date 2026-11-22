@@ -40,6 +40,8 @@ services:
       <<: *database-env
       KRONO_PRODUCT_API_KEY: ${KRONO_PRODUCT_API_KEY:?Set a 32-byte or longer signing key}
       KRONO_PAPER_INITIAL_USDT: ${KRONO_PAPER_INITIAL_USDT:-10000}
+      # 64 hex chars; encrypts linked exchange API keys. Back it up: losing it orphans keys.
+      KRONO_CREDENTIAL_KEY: ${KRONO_CREDENTIAL_KEY:-}
       NEWS_API_KEY: ${NEWS_API_KEY:-}
     depends_on:
       migrate:
@@ -62,7 +64,10 @@ services:
     <<: *product-build
     restart: unless-stopped
     command: ["python", "-m", "backend.product.worker"]
-    environment: *database-env
+    environment:
+      <<: *database-env
+      # Same key as the product API: the worker places mirrored orders for live agents.
+      KRONO_CREDENTIAL_KEY: ${KRONO_CREDENTIAL_KEY:-}
     depends_on:
       migrate:
         condition: service_completed_successfully

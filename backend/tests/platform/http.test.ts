@@ -126,3 +126,31 @@ test("The production gateway routes only the unified product and identity surfac
     await app.close();
   }
 });
+
+test("Heavy polling cannot exhaust the separate budget for actions such as Stop", async () => {
+  const { app } = createPlatform(config, {
+    store: new MemoryTenantStore(),
+    runtime: new FixtureRuntime(),
+    auth: { authenticate: async () => alice },
+  });
+  try {
+    let lastRead = 0;
+    for (let i = 0; i < 601; i++)
+      lastRead = (await app.inject({ method: "GET", url: "/platform/health" }))
+        .statusCode;
+    assert.equal(lastRead, 429);
+    const action = await app.inject({
+      method: "POST",
+      url: "/platform/does-not-exist",
+    });
+    assert.equal(action.statusCode, 404);
+    let lastAction = 0;
+    for (let i = 0; i < 120; i++)
+      lastAction = (
+        await app.inject({ method: "POST", url: "/platform/does-not-exist" })
+      ).statusCode;
+    assert.equal(lastAction, 429);
+  } finally {
+    await app.close();
+  }
+});

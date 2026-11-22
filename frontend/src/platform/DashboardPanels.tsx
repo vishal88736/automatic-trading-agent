@@ -105,6 +105,56 @@ export function DashboardPaperPositions({
 }
 
 export function DashboardLivePortfolio({ enabled }: { enabled: boolean }) {
+  const [state, setState] = useState<{
+    configured: boolean;
+    label?: string;
+    environment?: string;
+    status?: string;
+    total?: string;
+    error?: string;
+  }>();
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      try {
+        const { items, configured } = await platform<{
+          configured: boolean;
+          items: {
+            id: string;
+            label: string;
+            environment: string;
+            status: string;
+          }[];
+        }>("/live/connections");
+        const first = items[0];
+        if (!first) return active && setState({ configured });
+        const account = await platform<{ total_value: string }>(
+          `/live/connections/${first.id}/account`,
+        ).catch((err: Error) => ({
+          total_value: undefined,
+          error: err.message,
+        }));
+        if (active)
+          setState({
+            configured,
+            label: first.label,
+            environment: first.environment,
+            status: first.status,
+            total: account.total_value,
+            error: "error" in account ? account.error : undefined,
+          });
+      } catch {
+        if (active) setState({ configured: false });
+      }
+    }
+    void load();
+    const timer = setInterval(() => void load(), 30000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, []);
+  const connected = Boolean(state?.label);
   return (
     <section
       className="platform-product-panel dashboard-live-portfolio"
@@ -115,12 +165,36 @@ export function DashboardLivePortfolio({ enabled }: { enabled: boolean }) {
           <Wallet size={17} aria-hidden /> Live trading portfolio
         </h2>
         <span className="dashboard-live-status">
-          {enabled ? "Disconnected" : "Disabled"}
+          {connected
+            ? state?.environment === "live"
+              ? "Live"
+              : "Testnet"
+            : enabled || state?.configured
+              ? "Not linked"
+              : "Disabled"}
         </span>
       </div>
-      <p className="dashboard-empty">
-        Live positions require a verified account connection.
-      </p>
+      {connected ? (
+        <a className="dashboard-live-total" href={workspaceHref("live")}>
+          <small>{state?.label}</small>
+          <strong className="kx-num">{money(state?.total)}</strong>
+          {state?.error && <small>{state.error}</small>}
+          {state?.status === "PAUSED" && <small>Trading paused</small>}
+        </a>
+      ) : (
+        <p className="dashboard-empty">
+          {state?.configured ? (
+            <>
+              <a className="kx-link" href={workspaceHref("live")}>
+                Link a Binance account
+              </a>{" "}
+              to see live balances here.
+            </>
+          ) : (
+            "Live positions require a verified account connection."
+          )}
+        </p>
+      )}
     </section>
   );
 }

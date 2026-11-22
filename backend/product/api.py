@@ -38,9 +38,9 @@ from backend.product.agents import (
     timeline,
 )
 from backend.product.backtests import get_replay, save_replay
-from backend.product.binance import BinanceError
 from backend.product.credentials import CredentialVault
 from backend.product.database import DSN_ENV, open_database
+from backend.product.exchanges import ExchangeError
 from backend.product.execution import (
     Asset,
     OrderRequest,
@@ -58,16 +58,21 @@ from backend.product.execution import (
 from backend.product.history import HistoricalBacktestRequest, load_candles
 from backend.product.live import (
     ClientFactory,
+    Demotion,
     LinkRequest,
     LiveCommand,
     LiveOrderRequest,
+    Promotion,
     account_summary,
+    agent_live_orders,
     control_connection,
     default_client,
+    demote_agent,
     link_connection,
     list_connections,
     list_orders,
     place_order,
+    promote_agent,
     revoke_connection,
     safe_message,
 )
@@ -519,9 +524,9 @@ def create_product_api(
             raise ProductError(404, "NOT_FOUND", "Exchange connection is unavailable") from None
         except ValueError as exc:
             raise ProductError(422, "LIVE_REJECTED", str(exc)) from None
-        except BinanceError as exc:
+        except ExchangeError as exc:
             raise ProductError(
-                502, "EXCHANGE_ERROR", f"Binance: {safe_message(exc.message)}"
+                502, "EXCHANGE_ERROR", f"Exchange: {safe_message(exc.message)}"
             ) from None
 
     @app.get("/platform/live/connections")
@@ -580,6 +585,24 @@ def create_product_api(
                 db, subject, connection_id, command.action, secrets, live_client_factory
             )
         )
+
+    @app.post("/platform/paper-agents/{agent_id}/live")
+    def agent_go_live(agent_id: UUID, promotion: Promotion, subject: Principal, db: Database):
+        live_vault()
+        return exchange_call(lambda: promote_agent(db, subject, agent_id, promotion))
+
+    @app.post("/platform/paper-agents/{agent_id}/live/stop")
+    def agent_stop_live(agent_id: UUID, demotion: Demotion, subject: Principal, db: Database):
+        secrets = live_vault()
+        return financial(
+            exchange_call(
+                lambda: demote_agent(db, subject, agent_id, demotion, secrets, live_client_factory)
+            )
+        )
+
+    @app.get("/platform/paper-agents/{agent_id}/live/orders")
+    def agent_live_history(agent_id: UUID, subject: Principal, db: Database):
+        return financial({"items": agent_live_orders(db, subject, agent_id)})
 
     @app.get("/platform/prices")
     def price_snapshot(request: Request, subject: Principal):

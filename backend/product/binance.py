@@ -142,5 +142,5 @@ def fill_summary(order: dict) -> dict:
         "executed_qty": executed,
         "quote_filled": quote,
         "average_price": (quote / executed).quantize(Decimal("0.00000001")) if executed else None,
-        "fees": {asset: str(amount) for asset, amount in fees.items()},
+        "fees": {asset: format(amount, "f") for asset, amount in fees.items()},
     }

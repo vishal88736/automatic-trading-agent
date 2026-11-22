@@ -28,7 +28,7 @@ export const moduleGroups: { label: string; items: Module[] }[] = [
 export const moduleSubtitles: Partial<Record<Module, string>> = {
   dashboard: "Your paper account, agents and markets at a glance.",
   paper: "Place simulated orders against live market prices.",
-  live: "Connect an exchange account so agents can trade real funds.",
+  live: "Link Binance, Bybit or OKX, trade by hand or let a proven agent trade for you. Start on a free testnet.",
   portfolio: "Holdings, allocation and performance of your paper account.",
   agents: "Autonomous agents keep running on the server after you close Krono.",
   leaderboard:

@@ -2103,6 +2103,11 @@ body {
 .kx-footnote a {
   color: var(--accent);
 }
+.kx-link-form .kx-footnote {
+  display: flex;
+  gap: 8px;
+  padding: 0;
+}
 @media (max-width: 1100px) {
   .kx-news {
     grid-template-columns: minmax(0, 1fr);
@@ -2111,4 +2116,297 @@ body {
     position: static;
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   }
+}
+
+/* ---------- Live trading ---------- */
+.kx-link-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(240px, 1fr);
+  align-items: start;
+  gap: 24px;
+}
+.kx-link-form,
+.kx-link-form form {
+  display: grid;
+  gap: 12px;
+}
+.kx-link-form label,
+.kx-ticket label {
+  display: grid;
+  gap: 6px;
+}
+.kx-link-form .kx-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.kx-link-guide {
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-inset);
+}
+.kx-link-guide h3 {
+  margin-bottom: 10px;
+}
+.kx-link-guide ol {
+  display: grid;
+  list-style: decimal;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding-left: 20px;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+.kx-connection-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.kx-connection-head h2 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-size: 19px;
+}
+.kx-connection-head > div:first-child > p {
+  margin-top: 4px;
+  font-size: 13px;
+}
+.kx-connection-head .kx-actions {
+  align-items: center;
+}
+.kx-permissions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.kx-permissions li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.kx-permissions li[data-ok] svg {
+  color: var(--positive);
+}
+.kx-live-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr);
+  align-items: start;
+  gap: 18px;
+}
+.kx-big {
+  margin-top: 2px;
+  font-size: 28px;
+  font-weight: 740;
+  letter-spacing: -0.03em;
+}
+.kx-live-grid .kx-table-scroll {
+  margin-top: 14px;
+}
+.kx-ticket form {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+.kx-asset-picker {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.unified-workspace .kx-asset-picker button {
+  justify-content: flex-start;
+  min-height: 0;
+  padding: 8px 10px;
+  border-radius: 12px;
+}
+.kx-asset-picker button span {
+  display: grid;
+  text-align: left;
+}
+.kx-asset-picker button small {
+  font-size: 11px;
+}
+.unified-workspace .kx-asset-picker button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+.kx-side-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--raised);
+}
+.unified-workspace .kx-side-toggle button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+.unified-workspace
+  .kx-side-toggle
+  button[data-side="buy"][aria-pressed="true"] {
+  background: var(--positive);
+  color: #fff;
+}
+.unified-workspace
+  .kx-side-toggle
+  button[data-side="sell"][aria-pressed="true"] {
+  background: var(--negative);
+  color: #fff;
+}
+.kx-chips-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.unified-workspace .kx-chips-inline button {
+  min-height: 28px;
+  padding: 4px 10px;
+  font-size: 12px;
+}
+.kx-estimate {
+  font-size: 14px;
+  font-weight: 600;
+}
+.kx-check {
+  display: flex !important;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--warning) !important;
+}
+.kx-check input {
+  min-height: 0;
+  margin-top: 2px;
+}
+.kx-pad {
+  padding: 16px 16px 0;
+}
+.dashboard-live-total {
+  display: grid;
+  gap: 2px;
+}
+.dashboard-live-total strong {
+  font-size: 26px;
+  font-weight: 720;
+}
+@media (max-width: 1000px) {
+  .kx-link-card,
+  .kx-live-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------- Exchanges, live agents, wallet ---------- */
+.kx-exchange-picker {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.unified-workspace .kx-exchange-picker button {
+  justify-content: flex-start;
+  min-height: 46px;
+  border-radius: 12px;
+}
+.unified-workspace .kx-exchange-picker button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+.kx-exchange-picker .kx-exchange-logo {
+  width: 28px;
+  height: 28px;
+  font-size: 13px;
+}
+.kx-agent-live {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 14px;
+}
+.kx-agent-live[data-live] {
+  border-style: solid;
+  border-color: var(--warning-border);
+  background: linear-gradient(135deg, var(--warning-bg), transparent 55%);
+}
+.kx-agent-live header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.kx-agent-live h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+}
+.kx-agent-live .kx-mini-stats {
+  margin: 0;
+}
+.kx-agent-live .kx-actions {
+  align-items: center;
+  justify-content: space-between;
+}
+.kx-promote {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  align-items: end;
+  gap: 12px;
+}
+.kx-promote label {
+  display: grid;
+  gap: 6px;
+}
+.kx-promote .kx-check,
+.kx-promote .platform-error {
+  grid-column: 1 / -1;
+}
+.kx-check-plain {
+  color: var(--muted) !important;
+}
+.kx-pill-live {
+  margin-left: 6px;
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+.kx-mono {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+.kx-wallet {
+  display: grid;
+  gap: 10px;
+}
+.kx-wallet .kx-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.kx-wallet-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.kx-wallet-list li {
+  display: grid;
+  grid-template-columns: 80px 1fr auto;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--surface-inset);
 }

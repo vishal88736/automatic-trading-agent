@@ -73,6 +73,10 @@ def list_agents(db, owner: UUID):
             SELECT a.id, a.name, a.status, a.stage, a.heartbeat, a.next_run, a.capital, a.failures,
               a.strategy_id, a.strategy_version, a.report_id, a.epoch, a.interval_seconds,
               a.last_candle, a.last_quote, a.next_review_at, v.document->'definition'->>'asset' AS asset,
+              a.live_connection_id, a.live_budget, a.live_since, lc.label AS live_label,
+              lc.exchange AS live_exchange, lc.environment AS live_environment,
+              lc.status AS live_status, live.orders AS live_orders, live.spent AS live_spent,
+              live.received AS live_received,
               totals.fills, totals.realized_pnl, totals.quantity AS open_quantity,
               CASE WHEN totals.quantity = 0 THEN 0
                    WHEN a.last_quote >= now() - make_interval(secs => a.interval_seconds * 2 + 20)
@@ -98,6 +102,14 @@ def list_agents(db, owner: UUID):
                 WHERE owner_id = a.owner_id AND agent_id = a.id AND kind = 'DECISION'
                 ORDER BY seq DESC LIMIT 1
             ) mark ON TRUE
+            LEFT JOIN live_connections lc
+              ON lc.owner_id = a.owner_id AND lc.id = a.live_connection_id
+            CROSS JOIN LATERAL (
+                SELECT count(*) FILTER (WHERE status NOT IN ('SKIPPED', 'REJECTED')) AS orders,
+                    coalesce(sum(quote_filled) FILTER (WHERE side = 'BUY'), 0) AS spent,
+                    coalesce(sum(quote_filled) FILTER (WHERE side = 'SELL'), 0) AS received
+                FROM live_orders WHERE owner_id = a.owner_id AND agent_id = a.id
+            ) live
             WHERE a.owner_id = %s ORDER BY a.created_at DESC LIMIT 100
             """,
             (owner,),
@@ -118,7 +130,7 @@ def leaderboard(db, viewer: UUID, scope: LeaderboardScope = "active", limit: int
         rows = cursor.execute(
             """
             SELECT a.id, a.owner_id = %s AS mine, a.name, a.status, a.stage, a.capital,
-              a.created_at, v.document->>'name' AS strategy,
+              a.created_at, v.document->>'name' AS strategy, a.live_connection_id IS NOT NULL AS live,
               v.document->'definition'->>'asset' AS asset,
               coalesce(u.display_name, 'Trader ' || upper(left(a.owner_id::text, 4))) AS owner,
               totals.fills, totals.realized_pnl,

@@ -28,6 +28,7 @@ let state: Record<string, MarketSummary> = {};
 let source: EventSource | null = null;
 let users = 0;
 let retry: number | undefined;
+let backoff = 3000;
 const listeners = new Set<(data: MarketSummary[]) => void>();
 
 function list(): MarketSummary[] {
@@ -81,15 +82,19 @@ function connect() {
     .catch(() => undefined);
   if (typeof EventSource === "undefined") return;
   source = new EventSource("/platform/public/prices/stream");
+  source.onopen = () => {
+    backoff = 3000;
+  };
   source.addEventListener("price", (event) => {
     apply(JSON.parse((event as MessageEvent).data) as PriceQuote);
     publish();
   });
   source.onerror = () => {
-    // EventSource retries by itself; if it gives up, reconnect and reload the snapshot.
+    // A closed stream (outage, rate limit) reconnects with exponential backoff.
     if (source?.readyState === EventSource.CLOSED) {
       source = null;
-      retry = window.setTimeout(() => users && connect(), 3000);
+      retry = window.setTimeout(() => users && connect(), backoff);
+      backoff = Math.min(backoff * 2, 60000);
     }
   };
 }
