@@ -25,7 +25,7 @@
 | 📰 **Live news and sentiment**  | Real-time headlines from 300+ sources through [cryptocurrency.cv](https://github.com/nirholas/cryptocurrency.cv), plus the Fear & Greed index and per-coin sentiment.                                                               |
 | 📈 **Live markets**             | Streaming Binance prices in the ticker, candlestick charts with RSI, ATR, MACD and a market-regime read.                                                                                                                            |
 | 👛 **Wallet view**              | Connect MetaMask or any EIP-1193 wallet to see balances next to your exchange accounts. View-only: Krono never asks you to sign anything.                                                                                           |
-| 🌗 **Light and dark themes**    | Follows your system theme, with a toggle that remembers your choice.                                                                                                                                                                |
+| 🌗 **Light and dark themes**    | Starts in light mode, with a toggle that remembers your choice.                                                                                                                                                                     |
 
 Every data source is free and needs no API key.
 
@@ -35,7 +35,7 @@ Every data source is free and needs no API key.
 
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/overview-light.png">
-  <img alt="Overview with paper and live portfolios, equity chart and virtual balance" src="docs/screenshots/overview.png" width="100%">
+  <img alt="Overview with sample paper-account balances, equity chart and asset allocation" src="docs/screenshots/overview.png" width="100%">
 </picture>
 
 ### AI strategy builder

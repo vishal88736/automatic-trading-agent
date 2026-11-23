@@ -13,8 +13,7 @@ import {
   Trophy,
   X,
 } from "lucide-react";
-import emblem from "../assets/krono-emblem.webp";
-import { KronoBrand } from "../brand";
+import { KronoBrand, KronoMark } from "../brand";
 import { ThemeToggle } from "../ThemeToggle";
 import {
   landingSectionHref,
@@ -76,6 +75,99 @@ const steps = [
   ],
   [Trophy, "Compete", "Track your agent against others on the leaderboard."],
 ] as const;
+
+const chart = [
+  42, 44, 43, 47, 46, 49, 52, 50, 54, 53, 57, 61, 59, 63, 62, 66, 70, 68, 72,
+  75,
+];
+
+function HeroPreview() {
+  const max = Math.max(...chart),
+    min = Math.min(...chart);
+  const points = chart
+    .map(
+      (v, i) =>
+        `${(i / (chart.length - 1)) * 100},${40 - ((v - min) / (max - min)) * 34}`,
+    )
+    .join(" ");
+  return (
+    <figure className="kx-showcase">
+      <div className="kx-preview" aria-hidden>
+        <div className="kx-preview-head">
+          <KronoMark />
+          <strong>Paper workspace</strong>
+          <span className="kx-pill">
+            <span className="kx-dot" /> Running
+          </span>
+        </div>
+        <div className="kx-preview-reading">
+          <small>ETH dip buyer</small>
+          <strong className="kx-num">+12.84%</strong>
+          <small>Paper return</small>
+        </div>
+        <svg
+          viewBox="0 0 100 42"
+          preserveAspectRatio="none"
+          className="kx-preview-chart"
+        >
+          <defs>
+            <linearGradient id="kx-hero-fill" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor="var(--lime)" stopOpacity="0.35" />
+              <stop offset="100%" stopColor="var(--lime)" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <polygon points={`0,42 ${points} 100,42`} fill="url(#kx-hero-fill)" />
+          <polyline
+            points={points}
+            fill="none"
+            stroke="var(--lime)"
+            strokeWidth="2"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+        <ul className="kx-preview-feed">
+          <li>
+            <span className="kx-side" data-side="buy">
+              BUY
+            </span>{" "}
+            0.42 ETH · RSI 27.9 crossed entry
+          </li>
+          <li>
+            <span className="kx-side" data-side="hold">
+              HOLD
+            </span>{" "}
+            Waiting for exit, RSI 54.2
+          </li>
+          <li>
+            <span className="kx-side" data-side="sell">
+              SELL
+            </span>{" "}
+            0.42 ETH · take profit hit
+          </li>
+        </ul>
+      </div>
+      <div className="kx-preview-board" aria-hidden>
+        <span>
+          <Trophy size={14} /> Paper leaderboard
+        </span>
+        <ol>
+          <li>
+            <b>1</b> BTC momentum <em className="kx-num">+18.2%</em>
+          </li>
+          <li>
+            <b>2</b> ETH dip buyer <em className="kx-num">+12.8%</em>
+          </li>
+          <li>
+            <b>3</b> SOL breakout <em className="kx-num">+9.4%</em>
+          </li>
+        </ol>
+      </div>
+      <figcaption className="kx-preview-caption">
+        Illustrative preview
+      </figcaption>
+    </figure>
+  );
+}
 
 export function Landing({ section }: { section?: LandingSection }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -202,14 +294,7 @@ export function Landing({ section }: { section?: LandingSection }) {
               </li>
             </ul>
           </div>
-          <img
-            className="kx-hero-emblem"
-            src={emblem}
-            alt="Krono emblem with a lime orbit around a metallic clock face"
-            width={1024}
-            height={1024}
-            fetchPriority="high"
-          />
+          <HeroPreview />
         </section>
 
         <section

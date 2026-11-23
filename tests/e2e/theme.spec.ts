@@ -58,6 +58,21 @@ test("the landing fits every viewport and opens sign-up and sign-in", async ({
   await page.goto("/#/dashboard");
   const hero = page.getByRole("heading", { level: 1 });
   await expect(hero).toContainText("Your strategy.");
+  await expect(page.locator('link[rel="icon"]')).toHaveAttribute(
+    "href",
+    "/krono-mark.svg",
+  );
+  const landingBrand = page.getByRole("link", { name: "Krono", exact: true });
+  await expect(landingBrand.locator(".krono-wordmark")).toBeVisible();
+  const preview = page.locator(".kx-showcase");
+  await expect(preview.getByText("Illustrative preview")).toBeVisible();
+  await expect
+    .poll(() =>
+      preview
+        .locator(".krono-mark")
+        .evaluate((element) => (element as HTMLImageElement).naturalWidth),
+    )
+    .toBeGreaterThan(0);
   const start = page.getByRole("link", { name: /Start paper trading free/ });
   await expect(start).toHaveCSS("background-color", LIME);
 
@@ -73,6 +88,8 @@ test("the landing fits every viewport and opens sign-up and sign-in", async ({
       await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBe(width);
     await expect(start).toBeVisible();
+    await expect(landingBrand).toBeVisible();
+    await expect(preview).toBeVisible();
   }
   const menu = page.getByRole("button", { name: "Open site navigation" });
   const nav = page.getByRole("navigation", { name: "About Krono" });
@@ -99,6 +116,10 @@ test("the landing fits every viewport and opens sign-up and sign-in", async ({
   await page.getByRole("button", { name: "Back to sign in" }).click();
   await expect(
     page.getByRole("heading", { name: "Welcome back" }),
+  ).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(
+    page.getByRole("link", { name: "Krono", exact: true }),
   ).toBeVisible();
   await page.goBack();
   await expect(hero).toBeVisible();
@@ -207,6 +228,11 @@ test("the signed-in dashboard uses recorded equity and marks, with a responsive 
   await page.goto("/#/dashboard");
   const workspace = page.locator(".unified-workspace");
   await expect(workspace).toHaveCSS("background-color", LIGHT_BG);
+  await expect(
+    page
+      .getByRole("link", { name: "Krono", exact: true })
+      .locator(".krono-wordmark"),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Switch to dark theme" }).click();
   await expect(workspace).toHaveCSS("background-color", DARK_BG);
   const positions = page.getByRole("region", {
@@ -275,6 +301,9 @@ test("the signed-in dashboard uses recorded equity and marks, with a responsive 
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
     320,
   );
+  await expect(
+    page.getByRole("link", { name: "Krono overview" }),
+  ).toBeVisible();
   const menu = page.getByRole("button", { name: "Open navigation" });
   await expect(sidebar).toBeHidden();
   await menu.click();
