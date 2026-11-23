@@ -26,6 +26,24 @@ async function stubSignedOutSession(page: Page) {
   );
 }
 
+test("loopback aliases open sign-in on the local gateway origin", async ({
+  page,
+  baseURL,
+}) => {
+  test.skip(process.env.KRONO_E2E_BUILD === "1", "Vite development redirect");
+  await stubSignedOutSession(page);
+  const signIn = new URL("/?origin-check=1#/sign-in", baseURL);
+  for (const hostname of ["localhost", "0.0.0.0"]) {
+    const alias = new URL(signIn);
+    alias.hostname = hostname;
+    await page.goto(alias.href);
+    await expect(page).toHaveURL(signIn.href);
+    await expect(
+      page.getByRole("heading", { name: "Welcome back" }),
+    ).toBeVisible();
+  }
+});
+
 test("Krono defaults to light and persists an explicit theme choice", async ({
   page,
 }) => {

@@ -185,6 +185,7 @@ run(
   {
     ...process.env,
     TERMINAL_UI_PORT: String(ports.ui),
+    KRONO_PUBLIC_ORIGIN: gatewayEnv.KRONO_PUBLIC_ORIGIN,
     KRONO_PLATFORM_URL: `http://127.0.0.1:${ports.gateway}`,
   },
 );
