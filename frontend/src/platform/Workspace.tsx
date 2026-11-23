@@ -39,6 +39,11 @@ const MarketResearch = lazy(() => import("./MarketResearch"));
 const PaperAgents = lazy(() => import("./PaperAgents"));
 const PaperAccount = lazy(() => import("./PaperTrading"));
 const Strategies = lazy(() => import("./Strategies"));
+const StrategyBuilder = lazy(() =>
+  import("./Strategies").then(({ StrategyBuilder }) => ({
+    default: StrategyBuilder,
+  })),
+);
 const Leaderboard = lazy(() => import("./Leaderboard"));
 const LiveTrading = lazy(() => import("./LiveTrading"));
 const LiveNews = lazy(() => import("./LiveNews"));
@@ -480,7 +485,7 @@ export function Workspace() {
               {page === "leaderboard" && <Leaderboard />}
               {page === "live" && <LiveTrading />}
               {page === "strategies" && <Strategies key="strategies" />}
-              {page === "builder" && <Strategies key="builder" builder />}
+              {page === "builder" && <StrategyBuilder />}
               {page === "backtests" && (
                 <BacktestingLab key={reportId ?? "new"} reportId={reportId} />
               )}

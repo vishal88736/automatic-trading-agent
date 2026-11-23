@@ -80,7 +80,15 @@ test("Fund, version, backtest, and isolate a tenant strategy", async ({
   await expect(
     preview.getByRole("heading", { name: "Fixture RSI draft" }),
   ).toBeVisible();
-  await expect(page.getByText("No saved strategies.")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Saved strategies" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("combobox", { name: "Strategy template" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Structured JSON" }),
+  ).toHaveCount(0);
   await chat.getByLabel("Trading prompt").fill("Use 3%");
   await chat.getByRole("button", { name: "Send prompt" }).click();
   await expect(preview).toContainText("3.00% of cash");
@@ -88,11 +96,16 @@ test("Fund, version, backtest, and isolate a tenant strategy", async ({
     .getByRole("button", { name: "Save strategy", exact: true })
     .click();
   await expect(chat.getByRole("button", { name: "Saved v1" })).toBeDisabled();
+  await expect(chat.getByRole("button", { name: "Edit strategy" })).toHaveCount(
+    0,
+  );
+  await page.getByRole("link", { name: "Strategies", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Fixture RSI draft · BTC · v1" }),
   ).toBeVisible();
-  await chat.getByRole("button", { name: "Edit strategy" }).click();
-  await page.getByRole("button", { name: "Structured JSON" }).click();
+  await page
+    .getByRole("button", { name: "Fixture RSI draft · BTC · v1" })
+    .click();
   await expect(page.getByLabel("Strategy JSON")).toHaveValue(
     /"cash_fraction": "0.03"/,
   );

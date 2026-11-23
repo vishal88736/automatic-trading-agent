@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { platform } from "./client";
 import { timestamp } from "../ui";
 import { StrategyAuthoring, type AuthoringMode } from "./StrategyAuthoring";
+import { StrategyChat } from "./StrategyChat";
 import type { StrategyRevision } from "./strategy-types";
 
 const example = JSON.stringify(
@@ -28,13 +29,25 @@ const example = JSON.stringify(
   2,
 );
 
-export default function Strategies({ builder = false }: { builder?: boolean }) {
+export function StrategyBuilder() {
+  return (
+    <div className="platform-product-panel">
+      <StrategyChat
+        onSave={(document) =>
+          platform<StrategyRevision>("/custom-strategies", "POST", document)
+        }
+      />
+    </div>
+  );
+}
+
+export default function Strategies() {
   const [records, setRecords] = useState<StrategyRevision[]>([]);
   const [active, setActive] = useState<StrategyRevision | null>(null);
   const [history, setHistory] = useState<StrategyRevision[]>([]);
   const [historical, setHistorical] = useState<StrategyRevision | null>(null);
   const [draft, setDraft] = useState(example);
-  const [mode, setMode] = useState<AuthoringMode>(builder ? "natural" : "json");
+  const [mode, setMode] = useState<AuthoringMode>("json");
   const [chatKey, setChatKey] = useState(0);
   const [nextCursor, setNextCursor] = useState<string>();
   const [busy, setBusy] = useState(true);
@@ -175,9 +188,7 @@ export default function Strategies({ builder = false }: { builder?: boolean }) {
         className="platform-product-panel"
         aria-labelledby="structured-heading"
       >
-        <h3 id="structured-heading">
-          {builder ? "Build a strategy" : "Strategy editor"}
-        </h3>
+        <h3 id="structured-heading">Strategy editor</h3>
         <StrategyAuthoring
           mode={mode}
           onMode={setMode}

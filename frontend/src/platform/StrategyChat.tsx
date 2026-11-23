@@ -58,15 +58,15 @@ function describeRules(group: RuleGroup) {
 }
 
 export function StrategyChat({
-  disabled,
+  disabled = false,
   onEdit,
   onSave,
   onStarted,
 }: {
-  disabled: boolean;
-  onEdit: (document: StrategyDocument, saved?: StrategyRevision) => void;
+  disabled?: boolean;
+  onEdit?: (document: StrategyDocument, saved?: StrategyRevision) => void;
   onSave: (document: StrategyDocument) => Promise<StrategyRevision>;
-  onStarted: (strategy: StrategyRevision) => void;
+  onStarted?: (strategy: StrategyRevision) => void;
 }) {
   const [prompt, setPrompt] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -172,7 +172,7 @@ export function StrategyChat({
             request_key: attempt.key,
           },
         );
-        if (result.strategy) onStarted(result.strategy);
+        if (result.strategy) onStarted?.(result.strategy);
         setProposal({
           document,
           saved: result.strategy ?? saved,
@@ -302,13 +302,15 @@ export function StrategyChat({
             )}
           </dl>
           <div className="platform-product-actions">
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => onEdit(proposal.document, proposal.saved)}
-            >
-              Edit strategy
-            </button>
+            {onEdit && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => onEdit(proposal.document, proposal.saved)}
+              >
+                Edit strategy
+              </button>
+            )}
             <button
               type="button"
               disabled={busy || Boolean(proposal.saved)}
