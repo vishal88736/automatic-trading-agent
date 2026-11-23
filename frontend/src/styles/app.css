@@ -2811,14 +2811,6 @@ body {
 .kx-pad {
   padding: 16px 16px 0;
 }
-.dashboard-live-total {
-  display: grid;
-  gap: 2px;
-}
-.dashboard-live-total strong {
-  font-size: 26px;
-  font-weight: 720;
-}
 @media (max-width: 1000px) {
   .kx-link-card,
   .kx-live-grid {

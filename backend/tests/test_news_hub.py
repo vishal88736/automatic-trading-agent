@@ -87,14 +87,14 @@ async def test_stream_events_and_rest_fallback_feed_the_hub():
                     ],
                 },
             )
-        if request.url.path == "/api/sentiment":
+        if request.url.path == "/api/search":
+            assert request.url.params["q"] == "Cardano"
             return httpx.Response(
                 200,
                 json={
                     "articles": [
-                        {"sentiment": "bullish"},
-                        {"sentiment": "bullish"},
-                        {"sentiment": "bearish"},
+                        article("Cardano roadmap update", "https://r.test/ada"),
+                        article("Unrelated market update", "https://r.test/unrelated"),
                     ]
                 },
             )
@@ -114,13 +114,12 @@ async def test_stream_events_and_rest_fallback_feed_the_hub():
     pulse = await hub.pulse()
     assert pulse["fear_greed"]["value"] == 21
     assert pulse["fear_greed"]["label"] == "Extreme Fear"
-    assert pulse["sentiment"]["BTC"] == {
-        "bullish": 2,
-        "bearish": 1,
-        "neutral": 0,
-        "total": 3,
-        "score": 0.333,
-    }
+    assert pulse["sentiment"]["BTC"]["total"] == 1
+    assert pulse["sentiment"]["ETH"]["total"] == 1
+    assert pulse["sentiment"]["SOL"]["total"] == 1
+    matches, search_available = await hub.asset_snapshot("ADA", 10)
+    assert search_available
+    assert [item.title for item in matches] == ["Cardano roadmap update"]
     assert await hub.pulse() is pulse  # cached
     await hub.client.aclose()
 

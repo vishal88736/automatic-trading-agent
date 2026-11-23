@@ -174,7 +174,7 @@ export function EquityChart({
     duration >= 86_400_000
       ? Math.min(visibleTicks, Math.floor(duration / 86_400_000) + 1)
       : visibleTicks;
-  const verticalGridCount = width < 400 ? 13 : 25;
+  const verticalGridCount = width < 400 ? 4 : 7;
   const timeTicks = timeScaled
     ? Array.from({ length: timeTickCount }, (_, i) => {
         const step = i / (timeTickCount - 1);
@@ -217,11 +217,11 @@ export function EquityChart({
           <>
             <defs>
               <linearGradient id={fill} x2="0" y2="1">
-                <stop stopColor="var(--positive)" stopOpacity="0.64" />
+                <stop stopColor="var(--positive)" stopOpacity="0.23" />
                 <stop
                   offset="100%"
                   stopColor="var(--positive)"
-                  stopOpacity="0.04"
+                  stopOpacity="0.01"
                 />
               </linearGradient>
             </defs>

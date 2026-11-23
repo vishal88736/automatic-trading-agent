@@ -38,14 +38,15 @@ const BacktestingLab = lazy(() => import("./BacktestingLab"));
 const MarketResearch = lazy(() => import("./MarketResearch"));
 const PaperAgents = lazy(() => import("./PaperAgents"));
 const PaperAccount = lazy(() => import("./PaperTrading"));
-const Strategies = lazy(() => import("./Strategies"));
+const SavedStrategies = lazy(() => import("./Strategies"));
+const StrategyRankings = lazy(() => import("./StrategyRankings"));
 const StrategyBuilder = lazy(() =>
   import("./Strategies").then(({ StrategyBuilder }) => ({
     default: StrategyBuilder,
   })),
 );
-const Leaderboard = lazy(() => import("./Leaderboard"));
 const LiveTrading = lazy(() => import("./LiveTrading"));
+const LiveOverview = lazy(() => import("./LiveOverview"));
 const LiveNews = lazy(() => import("./LiveNews"));
 
 const moduleIcons = {
@@ -54,9 +55,9 @@ const moduleIcons = {
   live: Plug,
   portfolio: Wallet,
   agents: Bot,
-  leaderboard: Trophy,
   builder: WandSparkles,
   strategies: SlidersHorizontal,
+  "saved-strategies": SlidersHorizontal,
   backtests: ChartNoAxesColumn,
   markets: Activity,
   news: Newspaper,
@@ -74,7 +75,6 @@ type Authentication =
       state: "signed-in";
       session: Session;
       available: boolean;
-      liveEnabled: boolean;
     }
   | { state: "error"; message: string };
 
@@ -135,8 +135,8 @@ function DashboardAgents() {
               <dd>{paused}</dd>
             </div>
           </dl>
-          <a className="kx-link" href={workspaceHref("leaderboard")}>
-            <Trophy size={14} aria-hidden /> See the leaderboard
+          <a className="kx-link" href={workspaceHref("strategies")}>
+            <Trophy size={14} aria-hidden /> See strategy rankings
           </a>
         </>
       )}
@@ -186,7 +186,6 @@ export function Workspace() {
     try {
       const health = await platform<{
         productConfigured: boolean;
-        liveEnabled: boolean;
       }>("/health");
       const session = await platform<Session>("/auth/session");
       if (readRoute().signIn) {
@@ -198,7 +197,6 @@ export function Workspace() {
         state: "signed-in",
         session,
         available: health.productConfigured,
-        liveEnabled: health.liveEnabled === true,
       });
       if (health.productConfigured) {
         try {
@@ -423,20 +421,17 @@ export function Workspace() {
             </div>
             {page === "dashboard" && (
               <div className="kx-actions">
-                <a
-                  className="button secondary"
-                  href={workspaceHref("portfolio")}
-                >
-                  <Wallet size={15} aria-hidden /> View portfolio
-                </a>
                 <a className="button primary" href={workspaceHref("builder")}>
                   <WandSparkles size={15} aria-hidden /> Build an agent
                 </a>
               </div>
             )}
-            {page === "strategies" && (
-              <a className="button primary" href={workspaceHref("builder")}>
-                <WandSparkles size={15} /> New with AI
+            {page === "settings" && (
+              <a
+                className="button secondary"
+                href={workspaceHref("saved-strategies")}
+              >
+                My strategies
               </a>
             )}
             {page === "agents" && (
@@ -474,17 +469,29 @@ export function Workspace() {
               key={auth.session.userId}
             >
               {page === "dashboard" && (
-                <PaperAccount
-                  view="dashboard"
-                  liveEnabled={auth.liveEnabled}
-                  dashboardAgents={<DashboardAgents />}
-                  dashboardMarkets={<DashboardMarkets />}
-                />
+                <section
+                  className="overview-section"
+                  aria-labelledby="overview-paper"
+                >
+                  <div className="overview-section-header">
+                    <h2 id="overview-paper">Paper trading overview</h2>
+                  </div>
+                  <PaperAccount
+                    view="dashboard"
+                    dashboardAgents={<DashboardAgents />}
+                    dashboardMarkets={<DashboardMarkets />}
+                  />
+                </section>
               )}
               {page === "agents" && <PaperAgents key={route.href} />}
-              {page === "leaderboard" && <Leaderboard />}
               {page === "live" && <LiveTrading />}
-              {page === "strategies" && <Strategies key="strategies" />}
+              {page === "strategies" && <StrategyRankings />}
+              {page === "saved-strategies" && (
+                <SavedStrategies
+                  key={route.href}
+                  strategyId={route.strategyId}
+                />
+              )}
               {page === "builder" && <StrategyBuilder />}
               {page === "backtests" && (
                 <BacktestingLab key={reportId ?? "new"} reportId={reportId} />
@@ -498,6 +505,13 @@ export function Workspace() {
               )}
               {page === "markets" && <MarketResearch key={route.href} />}
               {page === "news" && <LiveNews />}
+            </Suspense>
+          )}
+          {page === "dashboard" && (
+            <Suspense
+              fallback={<p role="status">Loading live trading dashboard…</p>}
+            >
+              <LiveOverview key={auth.session.userId} />
             </Suspense>
           )}
         </main>

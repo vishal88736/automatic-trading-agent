@@ -41,7 +41,11 @@ export function StrategyBuilder() {
   );
 }
 
-export default function Strategies() {
+export default function SavedStrategies({
+  strategyId,
+}: {
+  strategyId?: string;
+}) {
   const [records, setRecords] = useState<StrategyRevision[]>([]);
   const [active, setActive] = useState<StrategyRevision | null>(null);
   const [history, setHistory] = useState<StrategyRevision[]>([]);
@@ -58,13 +62,25 @@ export default function Strategies() {
 
   useEffect(() => {
     let mounted = true;
-    platform<{ items: StrategyRevision[] }>(path)
-      .then(({ items }) => {
-        if (mounted) {
-          setRecords(items);
-          setNextCursor(
-            items.length === pageSize ? items.at(-1)?.id : undefined,
-          );
+    Promise.all([
+      platform<{ items: StrategyRevision[] }>(path),
+      strategyId
+        ? platform<StrategyRevision>(
+            `${path}/${encodeURIComponent(strategyId)}`,
+          )
+        : null,
+    ])
+      .then(([{ items }, selected]) => {
+        if (!mounted) return;
+        setRecords(
+          selected && !items.some((item) => item.id === selected.id)
+            ? [selected, ...items]
+            : items,
+        );
+        setNextCursor(items.length === pageSize ? items.at(-1)?.id : undefined);
+        if (selected) {
+          setActive(selected);
+          setDraft(JSON.stringify(selected.document, null, 2));
         }
       })
       .catch((err: Error) => mounted && setError(err.message))
@@ -72,7 +88,7 @@ export default function Strategies() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [strategyId]);
 
   async function act(action: () => Promise<void>) {
     setBusy(true);

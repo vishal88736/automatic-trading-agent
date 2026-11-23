@@ -4,9 +4,9 @@ export const modules = [
   ["live", "Live Trading"],
   ["portfolio", "Portfolio"],
   ["agents", "My Agents"],
-  ["leaderboard", "Leaderboard"],
   ["builder", "AI Strategy Builder"],
   ["strategies", "Strategies"],
+  ["saved-strategies", "My Strategies"],
   ["backtests", "Backtesting"],
   ["markets", "Markets & AI Insights"],
   ["news", "Crypto News"],
@@ -19,22 +19,20 @@ export const moduleGroups: { label: string; items: Module[] }[] = [
   { label: "Trade", items: ["dashboard", "paper", "live", "portfolio"] },
   {
     label: "Agents",
-    items: ["agents", "leaderboard", "builder", "strategies", "backtests"],
+    items: ["agents", "builder", "strategies", "backtests"],
   },
   { label: "Research", items: ["markets", "news"] },
   { label: "Account", items: ["settings"] },
 ];
 
 export const moduleSubtitles: Partial<Record<Module, string>> = {
-  dashboard: "Your paper account, agents and markets at a glance.",
+  dashboard: "Paper performance and linked exchange balances.",
   paper: "Place simulated orders against live market prices.",
   live: "Link Binance, Bybit or OKX, trade by hand or let a proven agent trade for you. Start on a free testnet.",
   portfolio: "Holdings, allocation and performance of your paper account.",
   agents: "Autonomous agents keep running on the server after you close Krono.",
-  leaderboard:
-    "Every running agent on Krono, ranked by return on its allocation.",
   builder: "Describe a strategy in plain English. Krono turns it into rules.",
-  strategies: "Your saved strategies and their version history.",
+  strategies: "Copy strategies ranked by their recorded paper returns.",
   backtests:
     "Replay a strategy version on historical candles before risking funds.",
   markets: "Live prices, indicators and an AI read of current conditions.",
@@ -51,6 +49,7 @@ export type LandingSection = (typeof landingSections)[number][0];
 
 const historicalRoutes: Record<string, Module> = {
   platform: "agents",
+  leaderboard: "strategies",
   "platform/paper-agents": "agents",
   "platform/strategies": "strategies",
   "platform/backtests": "backtests",
@@ -93,6 +92,10 @@ export function readRoute() {
   return {
     page,
     reportId: report?.[1],
+    strategyId:
+      page === "saved-strategies"
+        ? (params.get("strategy") ?? undefined)
+        : undefined,
     signIn,
     register: signIn && params.get("mode") === "register",
     landingSection: landingSections.find(([id]) => id === section)?.[0],

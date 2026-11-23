@@ -42,8 +42,8 @@ const features = [
   },
   {
     icon: Trophy,
-    title: "Public leaderboard",
-    text: "See how every running agent performs, ranked by return on its allocation and drawdown.",
+    title: "Strategy rankings",
+    text: "Compare strategies by recorded paper returns and copy one to backtest.",
   },
   {
     icon: FlaskConical,
@@ -73,7 +73,7 @@ const steps = [
     "Deploy",
     "Start a paper agent that runs on the server around the clock.",
   ],
-  [Trophy, "Compete", "Track your agent against others on the leaderboard."],
+  [Trophy, "Compare", "Explore strategies with positive paper returns."],
 ] as const;
 
 const chart = [
@@ -148,7 +148,7 @@ function HeroPreview() {
       </div>
       <div className="kx-preview-board" aria-hidden>
         <span>
-          <Trophy size={14} /> Paper leaderboard
+          <Trophy size={14} /> Paper strategy rankings
         </span>
         <ol>
           <li>

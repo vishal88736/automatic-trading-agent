@@ -15,16 +15,16 @@ import json
 import logging
 import time
 from collections import OrderedDict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import httpx
 
-from backend.data import normalize_news
+from backend.data import NEWS_COIN_NAMES, normalize_news
 from backend.models import Article, NewsScoring, now
 
 log = logging.getLogger(__name__)
 
-TRACKED_ASSETS = ("BTC", "ETH", "SOL")
+NEWS_WINDOW = timedelta(hours=48)
 
 
 class NewsHub:
@@ -37,6 +37,7 @@ class NewsHub:
         pulse_seconds: float = 300,
         buffer: int = 300,
         stream: bool = True,
+        catalog=None,
     ):
         self.base_url = base_url.rstrip("/")
         self.client = httpx.AsyncClient(
@@ -50,6 +51,9 @@ class NewsHub:
         self.buffer = buffer
         self.stream_enabled = stream
         self.scoring = NewsScoring()
+        self.catalog = catalog
+        self.symbols = frozenset(NEWS_COIN_NAMES)
+        self._search_cache: OrderedDict[str, tuple[float, list[Article] | None]] = OrderedDict()
         self.articles: OrderedDict[str, Article] = OrderedDict()
         self.subscribers: set[asyncio.Queue] = set()
         self.connected = False
@@ -82,6 +86,48 @@ class NewsHub:
             items = [a for a in items if asset in a.assets]
         return items[:limit]
 
+    async def asset_snapshot(self, asset: str, limit: int) -> tuple[list[Article], bool]:
+        current = self.snapshot(asset, limit)
+        cutoff = now() - NEWS_WINDOW
+        if sum(
+            item.published_at is not None and item.published_at >= cutoff for item in current
+        ) >= min(3, limit):
+            return current, True
+        cached = self._search_cache.get(asset)
+        if cached and time.monotonic() - cached[0] < 300:
+            extra = cached[1]
+        else:
+            try:
+                response = await self.client.get(
+                    self.base_url + "/api/search",
+                    params={"q": NEWS_COIN_NAMES.get(asset, asset), "limit": 12},
+                    timeout=4,
+                )
+                response.raise_for_status()
+                extra = [
+                    item
+                    for item in normalize_news(
+                        response.json(),
+                        now(),
+                        scoring=self.scoring,
+                        symbols=self.symbols | {asset},
+                    )
+                    if asset in item.assets
+                    and item.published_at is not None
+                    and cutoff <= item.published_at <= now()
+                ]
+            except (httpx.HTTPError, ValueError):
+                extra = None
+            self._search_cache[asset] = (time.monotonic(), extra)
+            self._search_cache.move_to_end(asset)
+            if len(self._search_cache) > 400:
+                self._search_cache.popitem(last=False)
+        unique = {item.id: item for item in [*(extra or []), *current]}
+        items = sorted(
+            unique.values(), key=lambda item: item.published_at or item.available_at, reverse=True
+        )[:limit]
+        return items, extra is not None
+
     def status(self) -> dict:
         return {
             "source": "cryptocurrency.cv",
@@ -104,11 +150,20 @@ class NewsHub:
         """Normalize a provider payload, keep unseen articles and notify subscribers."""
         retrieved = now()
         fresh = []
-        for article in normalize_news(payload, retrieved, breaking, self.scoring):
+        for article in normalize_news(
+            payload, retrieved, breaking, self.scoring, symbols=self.symbols
+        ):
             known = self.articles.get(article.id)
             if known:
-                if breaking and known.urgency != "breaking":
-                    self.articles[article.id] = known.model_copy(update={"urgency": "breaking"})
+                if article.urgency == "breaking" or set(article.assets) - set(known.assets):
+                    self.articles[article.id] = known.model_copy(
+                        update={
+                            "urgency": "breaking"
+                            if article.urgency == "breaking"
+                            else known.urgency,
+                            "assets": sorted(set(known.assets) | set(article.assets)),
+                        }
+                    )
                 continue
             self.articles[article.id] = article
             fresh.append(article)
@@ -127,6 +182,8 @@ class NewsHub:
         return fresh
 
     async def refresh(self):
+        if self.catalog is not None:
+            self.symbols = frozenset(await asyncio.to_thread(self.catalog))
         for path, breaking in (("/api/news?limit=100", False), ("/api/breaking", True)):
             response = await self.client.get(self.base_url + path)
             response.raise_for_status()
@@ -216,27 +273,25 @@ class NewsHub:
                 }
             except (httpx.HTTPError, ValueError, KeyError, TypeError):
                 result["fear_greed"] = None
-            sentiment = {}
-            for asset in TRACKED_ASSETS:
-                try:
-                    response = await self.client.get(
-                        self.base_url + "/api/sentiment", params={"asset": asset}
+            sentiment: dict[str, dict] = {}
+            measured_at = now()
+            for article in self.articles.values():
+                if (
+                    article.published_at is None
+                    or not measured_at - NEWS_WINDOW <= article.published_at <= measured_at
+                ):
+                    continue
+                label = article.sentiment if article.sentiment != "uncertain" else "neutral"
+                for asset in article.assets:
+                    counts = sentiment.setdefault(
+                        asset, {"bullish": 0, "bearish": 0, "neutral": 0, "total": 0}
                     )
-                    response.raise_for_status()
-                    counts = {"bullish": 0, "bearish": 0, "neutral": 0}
-                    for item in response.json().get("articles", [])[:50]:
-                        label = str(item.get("sentiment", "neutral")).lower()
-                        counts[label if label in counts else "neutral"] += 1
-                    total = sum(counts.values())
-                    sentiment[asset] = {
-                        **counts,
-                        "total": total,
-                        "score": round((counts["bullish"] - counts["bearish"]) / total, 3)
-                        if total
-                        else None,
-                    }
-                except (httpx.HTTPError, ValueError, TypeError, AttributeError):
-                    sentiment[asset] = None
+                    counts[label] += 1
+                    counts["total"] += 1
+            for counts in sentiment.values():
+                counts["score"] = round(
+                    (counts["bullish"] - counts["bearish"]) / counts["total"], 3
+                )
             result["sentiment"] = sentiment
             self._pulse = (time.monotonic(), result)
             return result
@@ -249,6 +304,6 @@ def fixture_pulse() -> dict:
         "fear_greed": {"value": 42, "label": "Fear", "history": []},
         "sentiment": {
             asset: {"bullish": 3, "bearish": 2, "neutral": 1, "total": 6, "score": 0.167}
-            for asset in TRACKED_ASSETS
+            for asset in ("BTC", "ETH", "SOL")
         },
     }

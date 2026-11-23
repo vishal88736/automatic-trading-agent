@@ -19,6 +19,16 @@ interface Market {
 interface Insight {
   observations: string;
   uncertainty: string;
+  news_analysis?: string;
+  newsStatus?: string;
+  headlines?: {
+    title: string;
+    publisher: string;
+    url: string;
+    scope: "asset" | "broader market";
+    published_at: string | null;
+  }[];
+
   source: string;
   status: string;
   asOf: string;
@@ -61,15 +71,44 @@ function MarketInsight({
       >
         Generate insight for {asset}
       </button>
-      {busy && <p role="status">Summarizing market observations…</p>}
+      {busy && <p role="status">Analyzing the chart and recent news…</p>}
       {error && <p role="alert">{error}</p>}
       {result && (
         <>
+          <h4>Chart analysis</h4>
           <p>{result.observations}</p>
-          <p>{result.uncertainty}</p>
+          <h4>News analysis</h4>
           <p>
-            Model-generated · {result.model} · {result.source} · {result.status}{" "}
-            · {timestamp(result.asOf)}
+            {result.news_analysis ??
+              "The current backend returned chart analysis only."}
+          </p>
+          {result.newsStatus === "unavailable" && (
+            <p className="muted">Coin-specific news was unavailable.</p>
+          )}
+          {!!result.headlines?.length && (
+            <details>
+              <summary>Headlines used ({result.headlines.length})</summary>
+              <ul>
+                {result.headlines.map((item) => (
+                  <li key={item.url}>
+                    <a href={item.url} target="_blank" rel="noreferrer">
+                      {item.title}
+                    </a>
+                    <small>
+                      {" "}
+                      · {item.publisher} · {item.scope}
+                    </small>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+          <p className="muted">{result.uncertainty}</p>
+          <p>
+            {result.model === "krono-rules"
+              ? "Rules-based summary"
+              : result.model}{" "}
+            · {result.source} · {result.status} · {timestamp(result.asOf)}
           </p>
         </>
       )}

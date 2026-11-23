@@ -158,7 +158,7 @@ test("landing section links scroll to their content", async ({ page }) => {
   await nav.getByRole("link", { name: "AI agents" }).click();
   await expect(page).toHaveURL(/#\/dashboard\?section=agents$/);
   await expect(
-    page.getByRole("heading", { name: "Public leaderboard" }),
+    page.getByRole("heading", { name: "Strategy rankings" }),
   ).toBeVisible();
 });
 
@@ -310,27 +310,21 @@ test("the signed-in dashboard uses recorded equity and marks, with a responsive 
   await expect(equity).toBeVisible();
   const kpis = page.locator(".dashboard-kpis");
   await expect(kpis.locator(".dashboard-metric-value")).toHaveText([
-    "$12,500.00",
     "$7,000.00",
     "$2,500.00",
     "$0.00",
+    "$2,500.00",
+    "0.00%",
   ]);
-  await expect(kpis.locator(".sparkline")).toHaveCount(3);
-  await expect(
-    kpis.getByRole("img", { name: "No change across recorded snapshots" }),
-  ).toHaveCount(1);
-  await expect(kpis.locator(".dashboard-trend").first()).toHaveText("+25.00%");
-  await expect(kpis.locator(".dashboard-trend").nth(1)).toHaveAttribute(
+  await expect(kpis.locator(".sparkline")).toHaveCount(4);
+  await expect(kpis.locator(".dashboard-trend").first()).toHaveAttribute(
     "data-direction",
     "down",
   );
   const ticker = page.getByRole("region", { name: "Live prices" });
   await expect(ticker.locator(".sparkline")).toHaveCount(3);
   await expect(ticker.getByText("24h", { exact: true })).toHaveCount(3);
-  await expect(ticker.getByText("Recent ticks", { exact: true })).toHaveCount(
-    3,
-  );
-  expect((await kpis.boundingBox())!.y).toBeLessThan(
+  expect((await kpis.boundingBox())!.y).toBeGreaterThan(
     (await equity.boundingBox())!.y,
   );
   expect((await sidebar.boundingBox())!.width).toBeLessThan(
@@ -402,4 +396,157 @@ test("the signed-in dashboard uses recorded equity and marks, with a responsive 
   await sidebar.getByRole("link", { name: "Overview", exact: true }).click();
   await expect(menu).toBeFocused();
   await expect(sidebar).toBeHidden();
+});
+
+test("Strategies lists ranked results and opens a private copy", async ({
+  page,
+}) => {
+  await stubMarkets(page);
+  await page.route("**/platform/health", (route) =>
+    route.fulfill({ json: { productConfigured: true } }),
+  );
+  await page.route("**/platform/auth/session", (route) =>
+    route.fulfill({
+      json: { userId: "rank-viewer", email: "viewer@fixture.test" },
+    }),
+  );
+  await page.route("**/platform/paper-account", (route) =>
+    route.fulfill({ json: { account: null } }),
+  );
+  await page.route("**/platform/ranked-strategies?offset=0", (route) =>
+    route.fulfill({
+      json: {
+        next_offset: null,
+        items: [
+          {
+            rank: 1,
+            share_id: "winner",
+            owner: "Ana",
+            strategy: "ETH momentum",
+            asset: "ETH",
+            return_pct: "0.05",
+            max_drawdown: "0.02",
+            fills: 9,
+          },
+        ],
+      },
+    }),
+  );
+  const copied = {
+    id: "fixture-copy",
+    version: 1,
+    created_at: new Date().toISOString(),
+    document: { name: "ETH momentum", definition: { asset: "ETH" } },
+  };
+  await page.route("**/platform/ranked-strategies/winner/copy", (route) =>
+    route.fulfill({ status: 201, json: copied }),
+  );
+  await page.route("**/platform/custom-strategies", (route) =>
+    route.fulfill({ json: { items: [copied] } }),
+  );
+  await page.route("**/platform/custom-strategies/fixture-copy", (route) =>
+    route.fulfill({ json: copied }),
+  );
+
+  await page.goto("/#/leaderboard");
+  await expect(page).toHaveURL(/#\/strategies$/);
+  await expect(
+    page.getByRole("link", { name: "Leaderboard", exact: true }),
+  ).toHaveCount(0);
+  const row = page.getByRole("row", { name: /ETH momentum/ });
+  await expect(row).toContainText("+5.00%");
+  await expect(
+    page.getByRole("heading", { name: "Strategy editor" }),
+  ).toHaveCount(0);
+  await row.getByRole("button", { name: "Copy ETH momentum" }).click();
+  await row.getByRole("link", { name: "Open copy" }).click();
+  await expect(page.getByLabel("Strategy JSON")).toHaveValue(
+    /"name": "ETH momentum"/,
+  );
+});
+
+test("Overview keeps paper results separate from the selected exchange account", async ({
+  page,
+}) => {
+  await stubMarkets(page);
+  await page.route("**/platform/health", (route) =>
+    route.fulfill({ json: { productConfigured: true } }),
+  );
+  await page.route("**/platform/auth/session", (route) =>
+    route.fulfill({
+      json: { userId: "overview-user", email: "overview@fixture.test" },
+    }),
+  );
+  await page.route("**/platform/paper-account", (route) =>
+    route.fulfill({ json: { account: null } }),
+  );
+  await page.route("**/platform/live/connections", (route) =>
+    route.fulfill({
+      json: {
+        configured: true,
+        items: [
+          {
+            id: "main",
+            label: "Main",
+            exchange: "binance",
+            environment: "live",
+            status: "ACTIVE",
+          },
+          {
+            id: "demo",
+            label: "Demo",
+            exchange: "okx",
+            environment: "testnet",
+            status: "PAUSED",
+          },
+        ],
+      },
+    }),
+  );
+  await page.route("**/platform/live/connections/*/account", (route) => {
+    const demo = route.request().url().includes("/demo/");
+    const total = demo ? "250" : "640";
+    return route.fulfill({
+      json: {
+        total_value: total,
+        complete: !demo,
+        balances: [
+          {
+            asset: demo ? "ETH" : "USDT",
+            free: total,
+            locked: "0",
+            total,
+            value: total,
+          },
+        ],
+      },
+    });
+  });
+
+  await page.goto("/#/dashboard");
+  await expect(
+    page.getByRole("region", { name: "Paper trading overview" }),
+  ).toBeVisible();
+  const live = page.getByRole("region", { name: "Live trading dashboard" });
+  await expect(live.getByText("Binance · Live funds")).toBeVisible();
+  await expect(
+    live.getByRole("rowheader", { name: "USDT", exact: true }),
+  ).toBeVisible();
+  await live.getByLabel("Exchange account").selectOption("demo");
+  await expect(
+    live.getByText("OKX · Testnet funds · Trading paused"),
+  ).toBeVisible();
+  await expect(
+    live.getByRole("rowheader", { name: "ETH", exact: true }),
+  ).toBeVisible();
+  await expect(
+    live.getByRole("rowheader", { name: "USDT", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    live.getByText("Total includes balances with a USDT price."),
+  ).toBeVisible();
+  await page.setViewportSize({ width: 360, height: 800 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
+    360,
+  );
 });

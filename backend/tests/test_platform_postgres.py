@@ -926,6 +926,66 @@ def signed_client(database_dsn, key="signed-product-test-material" * 2, **option
     return client, call
 
 
+def test_ranked_strategy_copy_clones_profitable_version_for_the_viewer(
+    database_dsn, database, strategy_draft
+):
+    from backend.models import now
+    from backend.product.agents import DraftAgentStart, start_draft_agent
+    from backend.product.execution import OrderRequest, PaperQuote, PaperTerms, submit_order
+
+    owner, viewer = uuid4(), uuid4()
+    draft = strategy_draft.model_copy(update={"description": "Private working notes"})
+    with database() as db:
+        migrate(db)
+        ensure_account(db, owner)
+        agent, _ = start_draft_agent(
+            db,
+            owner,
+            DraftAgentStart(
+                name="Winner",
+                epoch=1,
+                document=draft,
+                capital="1000",
+            ),
+        )
+        at = now()
+        filled = submit_order(
+            db,
+            owner,
+            OrderRequest(request_key=uuid4(), epoch=1, asset="BTC", side="BUY", quantity="0.0015"),
+            {"BTC": PaperQuote(asset="BTC", price="50000", observed_at=at, source="fixture")},
+            PaperTerms(),
+            clock=lambda: at,
+            agent_id=agent,
+        )
+        assert filled["status"] == "FILLED"
+        db.execute(
+            "INSERT INTO paper_agent_equity VALUES (%s, %s, %s, %s)", (owner, agent, at, 1050)
+        )
+
+    client, call = signed_client(database_dsn)
+    with client:
+        path = "/platform/ranked-strategies"
+        rows = call("GET", path, subject=viewer).json()["items"]
+        assert len(rows) == 1 and rows[0]["return_pct"] == "0.050000"
+        assert str(agent) not in json.dumps(rows)
+        assert "document" not in rows[0]
+        response = call("POST", f"{path}/{rows[0]['share_id']}/copy", subject=viewer)
+        assert response.status_code == 201, response.text
+        copy = response.json()
+        assert copy["version"] == 1
+        assert copy["document"]["definition"] == draft.model_dump(mode="json")["definition"]
+        assert copy["document"]["description"] == ""
+        private_path = f"/platform/custom-strategies/{copy['id']}"
+        assert call("GET", private_path, subject=viewer).status_code == 200
+        assert call("GET", private_path, subject=owner).status_code == 404
+        with database() as db:
+            db.execute(
+                "UPDATE platform_strategies SET archived_at = now() WHERE owner_id = %s", (owner,)
+            )
+        assert call("POST", f"{path}/{rows[0]['share_id']}/copy", subject=viewer).status_code == 404
+
+
 def test_expanded_spot_markets_persist_paper_fills(database_dsn, database, strategy_draft):
     from backend.models import now
     from backend.product.execution import PaperQuote

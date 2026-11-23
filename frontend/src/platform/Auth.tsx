@@ -115,7 +115,7 @@ export function Auth({
             </li>
             <li>
               <Trophy size={18} aria-hidden /> Compete on the public agent
-              leaderboard
+              strategy rankings
             </li>
             <li>
               <ShieldCheck size={18} aria-hidden /> Server-side risk limits on
@@ -165,7 +165,7 @@ export function Auth({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 autoComplete="nickname"
-                placeholder="Shown on the leaderboard"
+                placeholder="Shown in strategy rankings"
                 required
                 maxLength={80}
               />

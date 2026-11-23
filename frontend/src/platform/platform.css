@@ -426,3 +426,7 @@
 .platform-backtest code {
   overflow-wrap: anywhere;
 }
+
+.strategy-rankings-message {
+  padding: 16px 20px;
+}

@@ -140,7 +140,10 @@ test("paper agent continues without a browser and survives API and worker restar
     await expect(
       page.getByText("This snapshot cannot establish future returns."),
     ).toBeVisible();
-    await nav.getByRole("link", { name: "Strategies", exact: true }).click();
+    await nav.getByRole("link", { name: "Settings", exact: true }).click();
+    await page
+      .getByRole("link", { name: "My strategies", exact: true })
+      .click();
     const editor = page.getByLabel("Strategy JSON");
     await expect(editor).toBeEnabled();
     const draft = JSON.parse(await editor.inputValue());

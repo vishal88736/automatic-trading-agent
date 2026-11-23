@@ -39,8 +39,10 @@ test("Fund, version, backtest, and isolate a tenant strategy", async ({
   await expect(
     paper.getByRole("cell", { name: "0.001", exact: true }),
   ).toBeVisible();
-  const live = page.getByRole("region", { name: "Live trading portfolio" });
-  await expect(live.getByText("Disabled", { exact: true })).toBeVisible();
+  const live = page.getByRole("region", { name: "Live trading dashboard" });
+  await expect(
+    live.getByText("Live trading is disabled on this server."),
+  ).toBeVisible();
   await expect(live.getByRole("table")).toHaveCount(0);
 
   await page
@@ -64,10 +66,27 @@ test("Fund, version, backtest, and isolate a tenant strategy", async ({
   await expect(
     page.getByRole("button", { name: "Remove from watchlist" }),
   ).toBeVisible();
+  await page.getByLabel("Asset name or symbol").fill("BTC");
+  await page.getByRole("button", { name: "BTC", exact: true }).click();
+  await page.getByRole("button", { name: "Generate insight for BTC" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Chart analysis" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "News analysis" }),
+  ).toBeVisible();
+  await page.getByText(/Headlines used/).click();
+  await expect(
+    page.getByRole("link", { name: /Fixture research: Bitcoin adoption/ }),
+  ).toBeVisible();
   await page.getByRole("link", { name: "Crypto News", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Latest crypto news" }),
   ).toBeVisible();
+  const newsFilter = page.getByRole("combobox", {
+    name: "Filter by cryptocurrency",
+  });
+  await expect(newsFilter.getByRole("option", { name: "ADA" })).toHaveCount(1);
   await page
     .getByRole("combobox", { name: "Filter by cryptocurrency" })
     .selectOption("BTC");
@@ -108,7 +127,8 @@ test("Fund, version, backtest, and isolate a tenant strategy", async ({
   await expect(chat.getByRole("button", { name: "Edit strategy" })).toHaveCount(
     0,
   );
-  await page.getByRole("link", { name: "Strategies", exact: true }).click();
+  await page.getByRole("link", { name: "Settings", exact: true }).click();
+  await page.getByRole("link", { name: "My strategies", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Fixture RSI draft · BTC · v1" }),
   ).toBeVisible();
@@ -199,7 +219,8 @@ test("Fund, version, backtest, and isolate a tenant strategy", async ({
   );
   expect(page.url()).toBe(report);
   await page.getByRole("button", { name: "Open navigation" }).click();
-  await page.getByRole("link", { name: "Strategies", exact: true }).click();
+  await page.getByRole("link", { name: "Settings", exact: true }).click();
+  await page.getByRole("link", { name: "My strategies", exact: true }).click();
   await expect(page.getByText("No saved strategies.")).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Reviewed RSI · BTC · v2" }),

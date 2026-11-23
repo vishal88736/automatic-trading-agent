@@ -167,7 +167,9 @@ def create_product_api(
             news_key=os.environ.get("NEWS_API_KEY", ""),
         )
         application.state.feeds = feeds
-        hub = NewsHub(get_settings().providers.news_base_url, stream=not fixture_feeds)
+        hub = NewsHub(
+            get_settings().providers.news_base_url, stream=not fixture_feeds, catalog=listed_assets
+        )
         if fixture_feeds:
             for article in fixture_news().articles:
                 hub.articles[article.id] = article
@@ -666,14 +668,21 @@ def create_product_api(
         )
 
     @app.get("/platform/news/live")
-    def news_live(
+    async def news_live(
         request: Request,
         subject: Principal,
         asset: Asset | None = None,
         limit: Annotated[int, Query(ge=1, le=200)] = 100,
     ):
         hub: NewsHub = request.app.state.news
-        return {**hub.status(), "items": hub.snapshot(asset, limit)}
+        status = hub.status()
+        if asset and not fixture_feeds:
+            await asyncio.to_thread(require_paper_market, asset)
+            items, search_available = await hub.asset_snapshot(asset, limit)
+            status["error"] = None if search_available else "Coin news search unavailable"
+        else:
+            items = hub.snapshot(asset, limit)
+        return {**status, "items": items}
 
     @app.get("/platform/news/stream")
     async def news_stream(request: Request, subject: Principal, asset: Asset | None = None):
@@ -751,6 +760,31 @@ def create_product_api(
         except ValueError as exc:
             raise ProductError(409, "AGENT_START_REJECTED", str(exc)) from None
         return {"id": agent, "strategy": strategy}
+
+    @app.get("/platform/ranked-strategies")
+    def ranked_strategies(
+        subject: Principal,
+        db: Database,
+        offset: Annotated[int, Query(ge=0, le=100000)] = 0,
+    ):
+        items = leaderboard(db, subject, "all", 51, strategies=True, offset=offset)
+        return financial(
+            {"items": items[:50], "next_offset": offset + 50 if len(items) > 50 else None}
+        )
+
+    @app.post("/platform/ranked-strategies/{share_id}/copy", status_code=201)
+    def copy_ranked_strategy(
+        share_id: str,
+        subject: Principal,
+        db: Database,
+    ):
+        items = leaderboard(db, subject, "all", 1, strategies=True, share_id=share_id)
+        if not items:
+            raise ProductError(404, "NOT_FOUND", "This strategy is no longer ranked")
+        document = StrategyDraft.model_validate(items[0]["document"])
+        require_paper_market(document.definition.asset)
+        ensure_account(db, subject, initial_usdt)
+        return create_strategy(db, subject, document)
 
     @app.get("/platform/custom-strategies")
     def strategies(

@@ -337,15 +337,27 @@ function insight(raw: string) {
   try {
     const data = JSON.parse(raw) as {
       asset: string;
+      market?: { candles: { close: string | number }[] };
+      headlines?: { title: string; scope: string }[];
+      news_status?: string;
       indicators?: {
         rsi?: string | number | null;
         macd?: string | number | null;
         regime?: string | null;
       } | null;
     };
-    const rsi = Number(data.indicators?.rsi);
-    const macd = Number(data.indicators?.macd);
+    const rsi = Number(data.indicators?.rsi ?? NaN);
+    const macd = Number(data.indicators?.macd ?? NaN);
     const parts: string[] = [];
+    const closes = data.market?.candles ?? [];
+    const start = Number(closes[0]?.close);
+    const end = Number(closes.at(-1)?.close);
+    if (closes.length > 1 && start > 0 && Number.isFinite(end)) {
+      const change = (end / start - 1) * 100;
+      parts.push(
+        `${data.asset} changed ${change.toFixed(2)}% from the first to the last of ${closes.length} hourly closes.`,
+      );
+    }
     if (Number.isFinite(rsi))
       parts.push(
         `RSI is ${rsi.toFixed(1)}${rsi < 30 ? ", in the oversold zone" : rsi > 70 ? ", in the overbought zone" : ", in a neutral range"}.`,
@@ -356,16 +368,32 @@ function insight(raw: string) {
       );
     if (data.indicators?.regime)
       parts.push(`The regime classifier reads ${data.indicators.regime}.`);
+    const assetNews =
+      data.headlines?.filter((item) => item.scope === "asset") ?? [];
+    const broader = data.headlines?.find((item) => item.scope !== "asset");
+    const assetNote = assetNews.length
+      ? `Recent ${data.asset} coverage includes ${assetNews
+          .slice(0, 2)
+          .map((item) => `“${item.title}”`)
+          .join(" and ")}.`
+      : data.news_status === "unavailable"
+        ? `News coverage for ${data.asset} was unavailable.`
+        : `No matching ${data.asset} headlines were found in the past 48 hours.`;
+    const context = broader
+      ? ` Broader crypto coverage includes “${broader.title}”.`
+      : "";
     return {
       observations: (
         parts.join(" ") || `No indicators were available for ${data.asset}.`
       ).slice(0, 1000),
+      news_analysis: `${assetNote}${context}`.slice(0, 1000),
       uncertainty:
-        "Indicators describe recent hourly candles only. They cannot establish future direction, and regimes can change abruptly.",
+        "The hourly chart and headlines cannot establish what drove price changes or what will happen next.",
     };
   } catch {
     return {
       observations: "Market evidence could not be read.",
+      news_analysis: "News evidence could not be read.",
       uncertainty: "No interpretation is possible without indicators.",
     };
   }

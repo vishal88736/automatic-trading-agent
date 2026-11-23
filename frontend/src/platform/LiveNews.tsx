@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ExternalLink, Radio, RefreshCw, Search, Zap } from "lucide-react";
 import { Coin } from "../ui";
 import { platform } from "./client";
-import { marketAssets, type MarketAsset } from "./market-assets";
+import { useSpotAssets } from "./market-assets";
 
 interface Article {
   id: string;
@@ -98,7 +98,10 @@ function FearGreed({ pulse }: { pulse: Pulse["fear_greed"] }) {
 }
 
 export default function LiveNews() {
-  const [asset, setAsset] = useState<MarketAsset | "">("");
+  const [asset, setAsset] = useState("");
+  const { assets: spotAssets, error: catalogError } = useSpotAssets();
+  const [sentimentLimit, setSentimentLimit] = useState(8);
+  const [pulseError, setPulseError] = useState(false);
   const [feed, setFeed] = useState<LiveFeed>();
   const [error, setError] = useState("");
   const [connected, setConnected] = useState(false);
@@ -158,8 +161,13 @@ export default function LiveNews() {
     let active = true;
     const load = () =>
       platform<Pulse>("/news/pulse")
-        .then((value) => active && setPulse(value))
-        .catch(() => undefined);
+        .then((value) => {
+          if (active) {
+            setPulse(value);
+            setPulseError(false);
+          }
+        })
+        .catch(() => active && setPulseError(true));
     void load();
     const pulseTimer = setInterval(load, 300_000);
     const clock = setInterval(() => tick((n) => n + 1), 30_000);
@@ -170,6 +178,33 @@ export default function LiveNews() {
       timers.current.forEach(clearTimeout);
     };
   }, []);
+
+  const sentimentAssets = asset
+    ? [asset]
+    : Object.keys(pulse?.sentiment ?? {}).sort(
+        (a, b) =>
+          (pulse?.sentiment[b]?.total ?? 0) - (pulse?.sentiment[a]?.total ?? 0),
+      );
+  const selectedSentiment =
+    asset && feed
+      ? feed.items.reduce(
+          (counts, article) => {
+            const published = Date.parse(article.published_at ?? "");
+            const age = Date.now() - published;
+            if (
+              !(age >= 0 && age <= 48 * 3600000) ||
+              !article.assets.includes(asset)
+            )
+              return counts;
+            counts[
+              article.sentiment === "uncertain" ? "neutral" : article.sentiment
+            ] += 1;
+            counts.total += 1;
+            return counts;
+          },
+          { bullish: 0, bearish: 0, neutral: 0, total: 0 },
+        )
+      : undefined;
 
   const articles = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -213,12 +248,10 @@ export default function LiveNews() {
             <select
               aria-label="Filter by cryptocurrency"
               value={asset}
-              onChange={(event) =>
-                setAsset(event.target.value as MarketAsset | "")
-              }
+              onChange={(event) => setAsset(event.target.value)}
             >
               <option value="">All coins</option>
-              {marketAssets.map((symbol) => (
+              {spotAssets.map((symbol) => (
                 <option key={symbol} value={symbol}>
                   {symbol}
                 </option>
@@ -243,6 +276,11 @@ export default function LiveNews() {
           </button>
         </div>
 
+        {catalogError && (
+          <p className="platform-error" role="alert">
+            {catalogError}
+          </p>
+        )}
         {breaking && !breakingOnly && (
           <a
             className="kx-breaking"
@@ -355,9 +393,18 @@ export default function LiveNews() {
         </section>
         <section className="kx-card">
           <h3 className="kx-card-title">News sentiment</h3>
+          {!asset && !sentimentAssets.length && (
+            <p className="muted">
+              {pulseError
+                ? "Sentiment feed unavailable."
+                : pulse
+                  ? "No recent headlines matched a supported coin."
+                  : "Loading sentiment…"}
+            </p>
+          )}
           <ul className="kx-sentiment">
-            {marketAssets.map((symbol) => {
-              const item = pulse?.sentiment[symbol];
+            {sentimentAssets.slice(0, sentimentLimit).map((symbol) => {
+              const item = asset ? selectedSentiment : pulse?.sentiment[symbol];
               return (
                 <li key={symbol}>
                   <span className="kx-asset">
@@ -384,12 +431,26 @@ export default function LiveNews() {
                       </small>
                     </>
                   ) : (
-                    <small>{pulse ? "No data" : "Loading…"}</small>
+                    <small>
+                      {error || feed?.error
+                        ? "News feed unavailable"
+                        : feed
+                          ? "No matched headlines in 48h"
+                          : "Loading…"}
+                    </small>
                   )}
                 </li>
               );
             })}
           </ul>
+          {sentimentAssets.length > sentimentLimit && (
+            <button
+              type="button"
+              onClick={() => setSentimentLimit((n) => n + 8)}
+            >
+              Show more coins
+            </button>
+          )}
         </section>
         <p className="kx-footnote">
           <Radio size={13} aria-hidden /> Live from{" "}

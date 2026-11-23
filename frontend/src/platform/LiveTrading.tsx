@@ -39,7 +39,7 @@ export interface Connection {
   status: "ACTIVE" | "PAUSED";
   verified_at: string;
 }
-interface Account {
+export interface LiveAccount {
   balances: {
     asset: string;
     free: string;
@@ -511,7 +511,7 @@ function ConnectionView({
   onChanged: (c: Connection) => void;
   onRemoved: () => void;
 }) {
-  const [account, setAccount] = useState<Account>();
+  const [account, setAccount] = useState<LiveAccount>();
   const [orders, setOrders] = useState<LiveOrder[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -523,7 +523,7 @@ function ConnectionView({
     async function load() {
       try {
         const [nextAccount, nextOrders] = await Promise.all([
-          platform<Account>(`${path}/account`),
+          platform<LiveAccount>(`${path}/account`),
           platform<{ items: LiveOrder[] }>(`${path}/orders`),
         ]);
         if (!active) return;
@@ -796,7 +796,10 @@ export default function LiveTrading() {
     items: Connection[];
     configured: boolean;
   }>();
-  const [selected, setSelected] = useState("");
+  const [selected, setSelected] = useState(
+    () =>
+      new URLSearchParams(location.hash.split("?")[1]).get("connection") ?? "",
+  );
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState("");
 

@@ -45,6 +45,19 @@ const auth = {
 const llm: LLMProvider = {
   converse: async (request) => {
     if (request.outputSchema?.name === "paper_market_insight") {
+      const input = request.messages[0]?.content[0];
+      if (!input || !("text" in input))
+        throw new Error("Missing market evidence");
+      const evidence = JSON.parse(input.text);
+      if (
+        !evidence.market.candles.length ||
+        !evidence.headlines.some(
+          (item: { scope: string }) => item.scope === "asset",
+        )
+      )
+        throw new Error(
+          "Chart data and asset headlines are required for fixture insight",
+        );
       return {
         message: {
           role: "assistant",
@@ -53,6 +66,7 @@ const llm: LLMProvider = {
               text: JSON.stringify({
                 observations:
                   "The fixture combines momentum and volatility indicators.",
+                news_analysis: "Headlines provide context for the chart.",
                 uncertainty: "This snapshot cannot establish future returns.",
               }),
             },

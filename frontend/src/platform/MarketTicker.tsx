@@ -68,7 +68,6 @@ export function MarketTicker({ detailed = false }: { detailed?: boolean }) {
                       neutral={movement === 0}
                       shaded
                     />
-                    <small>Recent ticks</small>
                   </span>
                 )}
               </>

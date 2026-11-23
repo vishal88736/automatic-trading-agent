@@ -12,7 +12,6 @@ import { platform } from "./client";
 import { workspaceHref } from "./navigation";
 import {
   AssetAllocation,
-  DashboardLivePortfolio,
   DashboardMetric,
   DashboardPaperPositions,
   PortfolioPerformance,
@@ -81,12 +80,10 @@ export default function PaperAccount({
   view = "trade",
   dashboardAgents,
   dashboardMarkets,
-  liveEnabled = false,
 }: {
   view?: "dashboard" | "portfolio" | "trade" | "settings";
   dashboardAgents?: ReactNode;
   dashboardMarkets?: ReactNode;
-  liveEnabled?: boolean;
 }) {
   const { assets: spotAssets, error: catalogError } = useSpotAssets(
     view === "trade",
@@ -208,14 +205,30 @@ export default function PaperAccount({
             : "platform-backtest"
       }
     >
+      {dashboard && value?.emergency_stop && (
+        <p className="dashboard-stop" role="alert">
+          Paper trading is stopped.{" "}
+          <a href={workspaceHref("settings")}>Review controls</a>
+        </p>
+      )}
+      {dashboard && value && <PortfolioPerformance rows={value.history} />}
+      {dashboard && value && account && (
+        <AssetAllocation
+          cash={value.cash}
+          currency={account.currency}
+          equity={value.equity}
+          holdings={value.holdings}
+        />
+      )}
       {dashboard && value && (
         <dl className="dashboard-kpis" aria-label="Paper account metrics">
           {(
             [
-              "equity",
               "available_cash",
               "unrealized_pnl",
               "realized_pnl",
+              "daily_pnl",
+              "drawdown",
             ] as const
           ).map((metric) => (
             <DashboardMetric
@@ -282,12 +295,6 @@ export default function PaperAccount({
           </p>
         )}
         <p role="status">{busy ? "Updating paper account…" : message}</p>
-        {dashboard && value?.emergency_stop && (
-          <p className="dashboard-stop" role="alert">
-            Paper trading is stopped.{" "}
-            <a href={workspaceHref("settings")}>Review controls</a>
-          </p>
-        )}
         {value && view !== "settings" && (
           <>
             {value.equity === null && (
@@ -296,23 +303,7 @@ export default function PaperAccount({
                 prices.
               </p>
             )}
-            {dashboard ? (
-              <dl
-                className="dashboard-risk-metrics"
-                aria-label="Paper risk metrics"
-              >
-                <DashboardMetric
-                  metric="daily_pnl"
-                  value={value.daily_pnl}
-                  rows={value.history}
-                />
-                <DashboardMetric
-                  metric="drawdown"
-                  value={value.drawdown}
-                  rows={value.history}
-                />
-              </dl>
-            ) : (
+            {!dashboard && (
               <dl className="platform-backtest-metrics">
                 {accountMetrics}
                 {riskMetrics}
@@ -345,15 +336,6 @@ export default function PaperAccount({
           </>
         )}
       </section>
-      {dashboard && value && <PortfolioPerformance rows={value.history} />}
-      {dashboard && value && account && (
-        <AssetAllocation
-          cash={value.cash}
-          currency={account.currency}
-          equity={value.equity}
-          holdings={value.holdings}
-        />
-      )}
       {dashboard && (
         <DashboardPaperPositions positions={value?.positions} loading={busy} />
       )}
@@ -523,7 +505,6 @@ export default function PaperAccount({
         <>
           {dashboardMarkets}
           {dashboardAgents}
-          <DashboardLivePortfolio enabled={liveEnabled} />
         </>
       )}
       {account && value && view === "settings" && (

@@ -5,7 +5,6 @@ import {
   ChartNoAxesColumn,
   FlaskConical,
   PieChart,
-  Wallet,
 } from "lucide-react";
 import { EquityChart, Sparkline } from "../charts";
 import { Coin, Delta, money, number, percent, timestamp } from "../ui";
@@ -104,101 +103,6 @@ export function DashboardPaperPositions({
   );
 }
 
-export function DashboardLivePortfolio({ enabled }: { enabled: boolean }) {
-  const [state, setState] = useState<{
-    configured: boolean;
-    label?: string;
-    environment?: string;
-    status?: string;
-    total?: string;
-    error?: string;
-  }>();
-  useEffect(() => {
-    let active = true;
-    async function load() {
-      try {
-        const { items, configured } = await platform<{
-          configured: boolean;
-          items: {
-            id: string;
-            label: string;
-            environment: string;
-            status: string;
-          }[];
-        }>("/live/connections");
-        const first = items[0];
-        if (!first) return active && setState({ configured });
-        const account = await platform<{ total_value: string }>(
-          `/live/connections/${first.id}/account`,
-        ).catch((err: Error) => ({
-          total_value: undefined,
-          error: err.message,
-        }));
-        if (active)
-          setState({
-            configured,
-            label: first.label,
-            environment: first.environment,
-            status: first.status,
-            total: account.total_value,
-            error: "error" in account ? account.error : undefined,
-          });
-      } catch {
-        if (active) setState({ configured: false });
-      }
-    }
-    void load();
-    const timer = setInterval(() => void load(), 30000);
-    return () => {
-      active = false;
-      clearInterval(timer);
-    };
-  }, []);
-  const connected = Boolean(state?.label);
-  return (
-    <section
-      className="platform-product-panel dashboard-live-portfolio"
-      aria-labelledby="dashboard-live-portfolio"
-    >
-      <div className="dashboard-panel-heading">
-        <h2 id="dashboard-live-portfolio">
-          <Wallet size={17} aria-hidden /> Live trading portfolio
-        </h2>
-        <span className="dashboard-live-status">
-          {connected
-            ? state?.environment === "live"
-              ? "Live"
-              : "Testnet"
-            : enabled || state?.configured
-              ? "Not linked"
-              : "Disabled"}
-        </span>
-      </div>
-      {connected ? (
-        <a className="dashboard-live-total" href={workspaceHref("live")}>
-          <small>{state?.label}</small>
-          <strong className="kx-num">{money(state?.total)}</strong>
-          {state?.error && <small>{state.error}</small>}
-          {state?.status === "PAUSED" && <small>Trading paused</small>}
-        </a>
-      ) : (
-        <p className="dashboard-empty">
-          {state?.configured ? (
-            <>
-              <a className="kx-link" href={workspaceHref("live")}>
-                Link an exchange account
-              </a>{" "}
-              to see live balances here.
-            </>
-          ) : (
-            "Live positions require a verified account connection."
-          )}
-        </p>
-      )}
-    </section>
-  );
-}
-
 export interface PaperPortfolioMark {
   at: string;
   equity: string;
@@ -265,41 +169,26 @@ export function DashboardMetric({
       >
         {drawdown ? percent(value) : money(value)}
       </dd>
-      <dd className="dashboard-metric-history">
-        {!unchanged && (
+      {ready && !unchanged && (
+        <dd className="dashboard-metric-history">
           <span
             className="dashboard-trend"
             data-direction={tone}
-            title={
-              ready
-                ? "Change across recorded snapshots"
-                : "Trend requires two recorded values"
-            }
-            aria-label={
-              ready ? `Recorded change ${signedChange}` : "Trend unavailable"
-            }
+            title="Change across recorded snapshots"
+            aria-label={`Recorded change ${signedChange}`}
           >
-            {ready ? signedChange : "—"}
+            {signedChange}
           </span>
-        )}
-        <span
-          className="dashboard-metric-line"
-          data-unchanged={unchanged || undefined}
-          role={unchanged ? "img" : undefined}
-          aria-label={
-            unchanged ? "No change across recorded snapshots" : undefined
-          }
-        >
-          {ready && !unchanged && (
+          <span className="dashboard-metric-line">
             <Sparkline
               values={recorded}
               positive={tone === "up"}
               neutral={tone === "flat"}
               shaded
             />
-          )}
-        </span>
-      </dd>
+          </span>
+        </dd>
+      )}
     </div>
   );
 }
@@ -331,6 +220,7 @@ export function PortfolioPerformance({ rows }: { rows: PaperPortfolioMark[] }) {
   const first = Number(marks[0]?.equity);
   const last = Number(marks.at(-1)?.equity);
   const change = marks.length > 1 && first > 0 ? (last - first) / first : null;
+  const hasMovement = marks.some((mark) => Number(mark.equity) !== first);
 
   return (
     <section className="platform-product-panel dashboard-performance">
@@ -363,14 +253,14 @@ export function PortfolioPerformance({ rows }: { rows: PaperPortfolioMark[] }) {
         <>
           <div className="dashboard-equity-reading">
             <div>
-              <p>Recorded paper equity</p>
+              <p>Paper portfolio value</p>
               <strong>{money(selected.equity)}</strong>
               <time dateTime={selected.at}>{timestamp(selected.at)}</time>
             </div>
             {change !== null && (
               <div className="dashboard-equity-change">
                 {change === 0 ? (
-                  <span>{percent(change)}</span>
+                  <span>{hasMovement ? percent(change) : "No change"}</span>
                 ) : (
                   <Delta value={change} />
                 )}
@@ -385,7 +275,7 @@ export function PortfolioPerformance({ rows }: { rows: PaperPortfolioMark[] }) {
             format={equityAxis.format}
             formatPoint={money}
             label="Recorded paper equity"
-            area
+            area={hasMovement}
             selectedIndex={selectedIndex}
             onInspect={(index) => setSelectedAt(marks[index].at)}
           />

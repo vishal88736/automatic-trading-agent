@@ -119,7 +119,16 @@ def list_agents(db, owner: UUID):
 LeaderboardScope = Literal["active", "all"]
 
 
-def leaderboard(db, viewer: UUID, scope: LeaderboardScope = "active", limit: int = 50):
+def leaderboard(
+    db,
+    viewer: UUID,
+    scope: LeaderboardScope = "active",
+    limit: int = 50,
+    *,
+    strategies: bool = False,
+    offset: int = 0,
+    share_id: str | None = None,
+):
     """Rank agents from every account by return on their own allocation.
 
     Equity comes from the worker's marks, so a ranking never depends on a browser session.
@@ -132,6 +141,8 @@ def leaderboard(db, viewer: UUID, scope: LeaderboardScope = "active", limit: int
             SELECT a.id, a.owner_id = %s AS mine, a.name, a.status, a.stage, a.capital,
               a.created_at, v.document->>'name' AS strategy, a.live_connection_id IS NOT NULL AS live,
               v.document->'definition'->>'asset' AS asset,
+              CASE WHEN %s THEN sha256(convert_to(v.strategy_id::text || ':' || v.version::text, 'UTF8')) END AS share_digest,
+              CASE WHEN %s THEN v.document - 'description' END AS shared_document,
               coalesce(u.display_name, 'Trader ' || upper(left(a.owner_id::text, 4))) AS owner,
               totals.fills, totals.realized_pnl,
               coalesce(last.equity, a.capital + totals.delta) AS equity,
@@ -160,16 +171,52 @@ def leaderboard(db, viewer: UUID, scope: LeaderboardScope = "active", limit: int
                     FROM paper_agent_equity WHERE owner_id = a.owner_id AND agent_id = a.id
                 ) marks
             ) curve
+            JOIN platform_strategies s ON (s.owner_id, s.id) = (v.owner_id, v.strategy_id)
             WHERE a.status = ANY(%s)
+              AND (NOT %s OR (s.archived_at IS NULL AND curve.samples > 0
+                   AND totals.fills > 0 AND last.equity > a.capital))
+              AND (%s::text IS NULL OR encode(sha256(convert_to(
+                   v.strategy_id::text || ':' || v.version::text, 'UTF8')), 'hex') = %s)
             """,
-            (viewer, list(statuses)),
+            (
+                viewer,
+                strategies,
+                share_id is not None,
+                list(statuses),
+                strategies,
+                share_id,
+                share_id,
+            ),
         ).fetchall()
     for row in rows:
         row["return_pct"] = round((row["equity"] - row["capital"]) / row["capital"], 6)
         if not row["mine"]:
             row["id"] = None
     rows.sort(key=lambda row: (row["return_pct"], -row["max_drawdown"]), reverse=True)
-    return [{"rank": index + 1, **row} for index, row in enumerate(rows[:limit])]
+    if strategies:
+        versions = {}
+        for row in rows:
+            if row["return_pct"] > 0:
+                versions.setdefault(row["share_digest"].hex(), row)
+        rows = [
+            {
+                "share_id": digest,
+                **{
+                    key: row[key]
+                    for key in ("strategy", "asset", "owner", "return_pct", "max_drawdown", "fills")
+                },
+                **({"document": row["shared_document"]} if share_id else {}),
+            }
+            for digest, row in versions.items()
+        ]
+    else:
+        for row in rows:
+            row.pop("share_digest")
+            row.pop("shared_document")
+    return [
+        {"rank": index + 1, **row}
+        for index, row in enumerate(rows[offset : offset + limit], start=offset)
+    ]
 
 
 def timeline(db, owner: UUID, agent: UUID, after: int = 0):

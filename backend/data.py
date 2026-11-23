@@ -142,8 +142,58 @@ def parse_time(raw) -> datetime | None:
         return None
 
 
+NEWS_COIN_NAMES = {
+    "BTC": "Bitcoin",
+    "ETH": "Ethereum",
+    "SOL": "Solana",
+    "ADA": "Cardano",
+    "XRP": "XRP",
+    "DOGE": "Dogecoin",
+    "LTC": "Litecoin",
+    "AVAX": "Avalanche",
+    "LINK": "Chainlink",
+    "DOT": "Polkadot",
+}
+
+
+def news_assets(content: str, symbols: frozenset[str]) -> list[str]:
+    # Cashtags are explicit, while short, ambiguous tickers need a coin name or cashtag.
+    tags = set(re.findall(r"\$([A-Za-z0-9]{2,20})\b", content))
+    tickers = set(re.findall(r"\b[A-Z][A-Z0-9]{2,19}\b", content))
+    tickers.difference_update(
+        {
+            "SOL",
+            "ADA",
+            "LINK",
+            "DOT",
+            "ETF",
+            "CEO",
+            "SEC",
+            "USD",
+            "USA",
+            "FED",
+            "GAS",
+            "ONE",
+            "MOVE",
+        }
+    )
+    matches = {tag.upper() for tag in tags} | tickers
+    matches.update(match.upper() for match in re.findall(r"\b(?:BTC|ETH)\b", content, re.I))
+    matches.update(
+        symbol
+        for symbol, name in NEWS_COIN_NAMES.items()
+        if re.search(rf"\b{re.escape(name)}\b", content, re.I if symbol != "XRP" else 0)
+    )
+    return sorted(matches & symbols)
+
+
 def normalize_news(
-    payload: dict, retrieved: datetime, breaking=False, scoring: NewsScoring | None = None
+    payload: dict,
+    retrieved: datetime,
+    breaking=False,
+    scoring: NewsScoring | None = None,
+    *,
+    symbols: frozenset[str] = frozenset(ASSETS),
 ) -> list[Article]:
     scoring = scoring or NewsScoring()
     if not isinstance(payload, dict) or not isinstance(payload.get("articles"), list):
@@ -163,14 +213,7 @@ def normalize_news(
             seen_titles.add(normalized_title)
             description = text_content(raw.get("description"))
             content = f"{title} {description}"
-            patterns = {
-                "BTC": r"\bbitcoin\b|\bBTC\b",
-                "ETH": r"\bethereum\b|\bETH\b",
-                "SOL": r"\bsolana\b|\$SOL\b",
-            }
-            assets = [
-                symbol for symbol, pattern in patterns.items() if re.search(pattern, content, re.I)
-            ]
+            assets = news_assets(content, symbols)
             published = parse_time(raw.get("pubDate") or raw.get("publishedAt"))
             valid_time = published is not None and published <= retrieved + timedelta(minutes=5)
             positive = len(
