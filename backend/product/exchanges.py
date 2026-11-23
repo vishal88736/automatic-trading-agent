@@ -22,6 +22,7 @@ from uuid import UUID
 
 import httpx
 
+from backend.product.errors import LiveRejected
 from backend.product.binance import BinanceClient, BinanceError, fill_summary
 
 Exchange = Literal["binance", "bybit", "okx"]
@@ -115,14 +116,14 @@ class BinanceAdapter:
     def verify(self) -> dict:
         account = self._call(self.raw.account)
         if not account.get("canTrade"):
-            raise ValueError("This key cannot trade. Enable Spot trading for the key and retry.")
+            raise LiveRejected("This key cannot trade. Enable Spot trading for the key and retry.")
         if self.environment == "testnet":
             return {"can_trade": True, "withdrawals": "testnet funds only", "ip_restricted": None}
         restrictions = self._call(self.raw.api_restrictions)
         if restrictions.get("enableWithdrawals"):
-            raise ValueError("This key can withdraw funds. Create a key with withdrawals disabled.")
+            raise LiveRejected("This key can withdraw funds. Create a key with withdrawals disabled.")
         if not restrictions.get("enableSpotAndMarginTrading"):
-            raise ValueError("Enable Spot & Margin trading for this key and retry.")
+            raise LiveRejected("Enable Spot & Margin trading for this key and retry.")
         return {
             "can_trade": True,
             "withdrawals": False,
@@ -268,9 +269,9 @@ class BybitAdapter:
         info = self._request("GET", "/v5/user/query-api")
         permissions = info.get("permissions") or {}
         if info.get("readOnly") or "SpotTrade" not in (permissions.get("Spot") or []):
-            raise ValueError("This key cannot trade spot. Enable Spot trading for the key.")
+            raise LiveRejected("This key cannot trade spot. Enable Spot trading for the key.")
         if self.environment == "live" and "Withdraw" in (permissions.get("Wallet") or []):
-            raise ValueError("This key can withdraw funds. Create a key without Withdraw.")
+            raise LiveRejected("This key can withdraw funds. Create a key without Withdraw.")
         ips = info.get("ips") or ["*"]
         return {
             "can_trade": True,
@@ -448,13 +449,13 @@ class OkxAdapter:
 
     def verify(self) -> dict:
         if not self.passphrase:
-            raise ValueError("OKX keys need the passphrase you set when creating them.")
+            raise LiveRejected("OKX keys need the passphrase you set when creating them.")
         config = self._request("GET", "/api/v5/account/config")[0]
         permissions = {p.strip() for p in str(config.get("perm", "")).split(",")}
         if "trade" not in permissions:
-            raise ValueError("This key cannot trade. Enable the Trade permission.")
+            raise LiveRejected("This key cannot trade. Enable the Trade permission.")
         if self.environment == "live" and "withdraw" in permissions:
-            raise ValueError("This key can withdraw funds. Create a key without Withdraw.")
+            raise LiveRejected("This key can withdraw funds. Create a key without Withdraw.")
         return {
             "can_trade": True,
             "withdrawals": False if self.environment == "live" else "demo funds only",

@@ -22,7 +22,23 @@ dependencies = [
 
 [project.optional-dependencies]
 platform = [
-  "psycopg[binary]>=3.2,<4",
+  "psycopg[binary,pool]>=3.2,<4",
+]
+legacy = [
+  "alpaca-py>=0.31,<1",
+  "chromadb>=1,<2",
+  "langchain-anthropic>=0.3.22,<0.4",
+  "langchain-google-genai>=2.1.12,<3",
+  "langgraph-checkpoint-sqlite>=2,<3",
+  "openai>=2.33,<3",
+  "python-dotenv>=1,<2",
+  "pytz",
+  "questionary>=2,<3",
+  "requests>=2.32,<3",
+  "rich>=13,<16",
+  "stockstats>=0.6,<1",
+  "typer>=0.15,<1",
+  "yfinance>=0.2.65,<2",
 ]
 
 [dependency-groups]

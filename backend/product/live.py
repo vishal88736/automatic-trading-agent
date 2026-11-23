@@ -25,6 +25,7 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from pydantic import Field, StringConstraints
 
+from backend.product.errors import LiveRejected
 from backend.models import Model
 from backend.product.credentials import CredentialVault
 from backend.product.exchanges import (
@@ -125,7 +126,7 @@ def link_connection(
         try:
             permissions = client.verify()
         except ExchangeError as exc:
-            raise ValueError(
+            raise LiveRejected(
                 f"The exchange rejected the key: {safe_message(exc.message)}"
             ) from None
     finally:
@@ -395,16 +396,16 @@ def place_order(db, owner, connection, request: LiveOrderRequest, vault, factory
                 and existing["quote_amount"] == request.quote_amount
             )
             if not same:
-                raise ValueError("This request key was already used for a different order")
+                raise LiveRejected("This request key was already used for a different order")
         else:
             if row["status"] != "ACTIVE":
-                raise ValueError("Trading is paused for this connection. Resume it first.")
+                raise LiveRejected("Trading is paused for this connection. Resume it first.")
             if request.quote_amount > row["max_order_usdt"]:
-                raise ValueError(
+                raise LiveRejected(
                     f"Order exceeds this connection's limit of {row['max_order_usdt']} USDT"
                 )
             if row["environment"] == "live" and not request.acknowledge_live:
-                raise ValueError("Confirm that this order uses real funds")
+                raise LiveRejected("Confirm that this order uses real funds")
             order_id = _insert_order(
                 db,
                 row,
@@ -498,7 +499,7 @@ def promote_agent(db, owner: UUID, agent: UUID, request: Promotion, vault, facto
         raise LookupError("Agent unavailable")
     (asset,) = selection
     if asset not in connection_spot_assets(db, owner, request.connection_id, vault, factory, asset):
-        raise ValueError(f"{asset}/USDT is unavailable on this exchange")
+        raise LiveRejected(f"{asset}/USDT is unavailable on this exchange")
 
     with db.transaction():
         with db.cursor(row_factory=dict_row) as cursor:
@@ -513,17 +514,17 @@ def promote_agent(db, owner: UUID, agent: UUID, request: Promotion, vault, facto
             raise LookupError("Agent unavailable")
         connection = _load(db, owner, request.connection_id, lock=True)
         if row["live_connection_id"]:
-            raise ValueError("This agent is already trading live")
+            raise LiveRejected("This agent is already trading live")
         if row["status"] != "RUNNING" or row["stage"] != "MONITOR":
-            raise ValueError("Only a running agent that passed validation can go live")
+            raise LiveRejected("Only a running agent that passed validation can go live")
         if connection["status"] != "ACTIVE":
-            raise ValueError("The exchange connection is paused")
+            raise LiveRejected("The exchange connection is paused")
         if connection["environment"] == "live":
             if not request.acknowledge_live:
-                raise ValueError("Confirm that this agent will trade real funds")
+                raise LiveRejected("Confirm that this agent will trade real funds")
             (age,) = db.execute("SELECT now() - %s", (row["created_at"],)).fetchone()
             if age < timedelta(days=promotion_days()):
-                raise ValueError(
+                raise LiveRejected(
                     f"Agents need {promotion_days()} days of paper trading before trading real "
                     "funds. Use a testnet connection to try it now."
                 )

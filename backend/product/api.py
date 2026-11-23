@@ -39,7 +39,8 @@ from backend.product.agents import (
 )
 from backend.product.backtests import get_replay, save_replay
 from backend.product.credentials import CredentialVault
-from backend.product.database import DSN_ENV, open_database
+from backend.product.database import database_dsn, database_pool
+from backend.product.errors import ConflictError, LiveRejected
 from backend.product.exchanges import ExchangeError
 from backend.product.execution import (
     Asset,
@@ -159,6 +160,9 @@ def create_product_api(
 
     @asynccontextmanager
     async def lifespan(application):
+        pool = database_pool(dsn)
+        pool.open()
+        application.state.database_pool = pool
         cache = Store(":memory:")
         feeds = Providers(
             cache,
@@ -190,6 +194,7 @@ def create_product_api(
             await hub.stop()
             await feeds.close()
             cache.close()
+            await asyncio.to_thread(pool.close)
 
     app = FastAPI(
         title="Krono Product API",
@@ -200,9 +205,9 @@ def create_product_api(
     )
 
     @app.get("/healthz")
-    def health():
+    def health(request: Request):
         try:
-            with open_database(dsn) as db:
+            with request.app.state.database_pool.connection() as db:
                 (ready,) = db.execute(
                     "SELECT to_regclass('paper_worker_heartbeats') IS NOT NULL"
                 ).fetchone()
@@ -246,7 +251,7 @@ def create_product_api(
             status_code=404,
         )
 
-    @app.exception_handler(ValueError)
+    @app.exception_handler(ConflictError)
     async def conflict(_request, _exc):
         return JSONResponse(
             {"error": {"code": "CONFLICT", "message": "Reload the record and review the request"}},
@@ -294,9 +299,8 @@ def create_product_api(
             raise denied
         return identity
 
-    def database():
-        with open_database(dsn) as db:
-            db.execute("SET statement_timeout = '5s'")
+    def database(request: Request):
+        with request.app.state.database_pool.connection() as db:
             yield db
 
     Principal = Annotated[UUID, Depends(owner)]
@@ -313,7 +317,7 @@ def create_product_api(
     def user_register(request: Registration, _: Service, db: Database):
         try:
             return {"user": register(db, request)}
-        except ValueError as exc:
+        except ConflictError as exc:
             raise ProductError(409, "ACCOUNT_EXISTS", str(exc)) from None
 
     @app.post("/platform/internal/sessions")
@@ -421,7 +425,7 @@ def create_product_api(
             agent = start_agent(db, subject, request)
         except LookupError:
             raise ProductError(404, "NOT_FOUND", "Strategy or backtest is unavailable") from None
-        except ValueError as exc:
+        except ConflictError as exc:
             raise ProductError(409, "AGENT_START_REJECTED", str(exc)) from None
         return {"id": agent}
 
@@ -433,7 +437,7 @@ def create_product_api(
             return {"status": control_agent(db, subject, agent_id, command.action)}
         except LookupError:
             raise ProductError(404, "NOT_FOUND", "Paper agent is unavailable") from None
-        except ValueError as exc:
+        except ConflictError as exc:
             raise ProductError(409, "AGENT_CONTROL_REJECTED", str(exc)) from None
 
     @app.post("/platform/paper-agents/{agent_id}/close-position")
@@ -448,7 +452,7 @@ def create_product_api(
             )
         except LookupError:
             raise ProductError(404, "NOT_FOUND", "Paper agent is unavailable") from None
-        except ValueError as exc:
+        except ConflictError as exc:
             raise ProductError(409, "CLOSE_REJECTED", str(exc)) from None
 
     @app.get("/platform/paper-agents/{agent_id}/events")
@@ -468,7 +472,7 @@ def create_product_api(
         after: Annotated[int, Query(ge=0)] = 0,
     ):
         def latest(cursor):
-            with open_database(dsn) as db:
+            with request.app.state.database_pool.connection() as db:
                 return timeline(db, subject, agent_id, cursor)
 
         async def events():
@@ -539,7 +543,7 @@ def create_product_api(
             return action()
         except LookupError:
             raise ProductError(404, "NOT_FOUND", "Exchange connection is unavailable") from None
-        except ValueError as exc:
+        except LiveRejected as exc:
             raise ProductError(422, "LIVE_REJECTED", str(exc)) from None
         except ExchangeError as exc:
             raise ProductError(
@@ -757,7 +761,7 @@ def create_product_api(
         require_paper_market(request.document.definition.asset)
         try:
             agent, strategy = start_draft_agent(db, subject, request)
-        except ValueError as exc:
+        except ConflictError as exc:
             raise ProductError(409, "AGENT_START_REJECTED", str(exc)) from None
         return {"id": agent, "strategy": strategy}
 
@@ -871,7 +875,7 @@ def create_product_api(
 
 def app_from_environment():
     return create_product_api(
-        os.environ.get(DSN_ENV, ""),
+        database_dsn(),
         os.environ.get(KEY_ENV, ""),
         TypeAdapter(OpeningCredit).validate_python(
             os.environ.get("KRONO_PAPER_INITIAL_USDT", str(DEFAULT_INITIAL_USDT))

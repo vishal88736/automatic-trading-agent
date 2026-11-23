@@ -19,7 +19,7 @@ from langgraph.graph import END, START, StateGraph
 from backend.models import Market, RiskConfig, now
 from backend.product.agents import checkpoint, claim_agent, event, fence, mark_agent
 from backend.product.backtests import get_replay, save_replay
-from backend.product.database import DSN_ENV, open_database
+from backend.product.database import database_dsn, database_pool, open_database
 from backend.product.execution import (
     PX,
     OrderRequest,
@@ -184,14 +184,23 @@ class PaperWorker:
                 else ("HOLD", "No new closed candle")
             )
             if quantity:
-                fill_price = db.execute(
+                fill = db.execute(
                     """
                     SELECT l.price FROM paper_orders o JOIN paper_ledger_entries l ON o.id = l.order_id
-                    WHERE o.owner_id = %s AND o.agent_id = %s AND l.kind = 'BUY'
+                    WHERE o.owner_id = %s AND o.agent_id = %s AND o.epoch = %s
+                        AND l.asset = %s AND l.kind = 'BUY'
                     ORDER BY l.id DESC LIMIT 1
                     """,
-                    (owner, agent),
-                ).fetchone()[0]
+                    (owner, agent, account.epoch, definition.asset),
+                ).fetchone()
+                if fill is None:
+                    event(db, owner, agent, "RISK_PAUSED", {"reason": "MISSING_ENTRY_FILL"})
+                    checkpoint(
+                        db, work, status="PAUSED", candle=candle_at,
+                        quote=quote.observed_at, peak=peak,
+                    )
+                    return
+                fill_price = fill[0]
                 if quote.price <= fill_price * (1 - definition.stop_loss):
                     side, why = "SELL", "Stop loss"
                 elif definition.trailing_stop and quote.price <= peak * (
@@ -345,43 +354,43 @@ def service(dsn: str, stop: Event, worker: PaperWorker):
     vault = CredentialVault.from_environment()
     worker_id = worker_identity()
     last_heartbeat = float("-inf")
-    while not stop.is_set():
-        try:
-            with open_database(dsn) as db:
-                db.execute("SET statement_timeout = '5s'")
-                if time.monotonic() - last_heartbeat >= 5:
-                    db.execute(
+    with database_pool(dsn, max_size=1) as pool:
+        while not stop.is_set():
+            try:
+                with pool.connection() as db:
+                    if time.monotonic() - last_heartbeat >= 5:
+                        db.execute(
+                            """
+                            INSERT INTO paper_worker_heartbeats VALUES (%s, clock_timestamp())
+                            ON CONFLICT (worker_id) DO UPDATE SET seen_at = excluded.seen_at
+                            """,
+                            (worker_id,),
+                        )
+                        last_heartbeat = time.monotonic()
+                    work = claim_agent(db)
+                    if work:
+                        worker.tick(db, work)
+                    limit = db.execute(
                         """
-                        INSERT INTO paper_worker_heartbeats VALUES (%s, clock_timestamp())
-                        ON CONFLICT (worker_id) DO UPDATE SET seen_at = excluded.seen_at
-                        """,
-                        (worker_id,),
-                    )
-                    last_heartbeat = time.monotonic()
-                work = claim_agent(db)
-                if work:
-                    worker.tick(db, work)
-                limit = db.execute(
-                    """
-                    WITH due AS (
-                        SELECT id FROM paper_orders WHERE status = 'OPEN' AND next_check <= now()
-                        ORDER BY next_check FOR UPDATE SKIP LOCKED LIMIT 1
-                    )
-                    UPDATE paper_orders o SET next_check = now() + interval '15 seconds'
-                    FROM due WHERE due.id = o.id RETURNING o.id, o.owner_id, o.epoch, o.request->>'asset'
-                    """
-                ).fetchone()
-                if limit:
-                    ident, owner, epoch, asset = limit
-                    quotes = worker.quotes({asset} | set(positions(db, owner, epoch)))
-                    process_limit(db, owner, ident, quotes, PaperTerms())
-                # Promoted agents: copy new paper fills to their linked exchange accounts.
-                mirrored = mirror_fills(db, vault, default_client) if vault else 0
+                        WITH due AS (
+                            SELECT id FROM paper_orders WHERE status = 'OPEN' AND next_check <= now()
+                            ORDER BY next_check FOR UPDATE SKIP LOCKED LIMIT 1
+                        )
+                        UPDATE paper_orders o SET next_check = now() + interval '15 seconds'
+                        FROM due WHERE due.id = o.id RETURNING o.id, o.owner_id, o.epoch, o.request->>'asset'
+                        """
+                    ).fetchone()
+                    if limit:
+                        ident, owner, epoch, asset = limit
+                        quotes = worker.quotes({asset} | set(positions(db, owner, epoch)))
+                        process_limit(db, owner, ident, quotes, PaperTerms())
+                    # Promoted agents: copy new paper fills to their linked exchange accounts.
+                    mirrored = mirror_fills(db, vault, default_client) if vault else 0
                 if not work and not limit and not mirrored:
                     stop.wait(1)
-        except Exception as exc:
-            log.error("Paper worker operation failed: %s", type(exc).__name__)
-            stop.wait(2)
+            except Exception as exc:
+                log.error("Paper worker operation failed: %s", type(exc).__name__)
+                stop.wait(2)
 
 
 def main():
@@ -391,13 +400,13 @@ def main():
     )
     args = parser.parse_args()
     if args.health:
-        with open_database(os.environ[DSN_ENV]) as db:
+        with open_database(database_dsn()) as db:
             raise SystemExit(0 if heartbeat_fresh(db, worker_identity()) else 1)
     logging.basicConfig(level=logging.INFO)
     stop = Event()
     for signum in (signal.SIGINT, signal.SIGTERM):
         signal.signal(signum, lambda *_: stop.set())
-    service(os.environ[DSN_ENV], stop, PaperWorker())
+    service(database_dsn(), stop, PaperWorker())
 
 
 if __name__ == "__main__":

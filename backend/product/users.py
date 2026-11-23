@@ -16,6 +16,7 @@ from psycopg import Connection
 from psycopg.errors import UniqueViolation
 from pydantic import Field, StringConstraints
 
+from backend.product.errors import ConflictError
 from backend.models import Model
 
 SCRYPT = {"n": 2**14, "r": 8, "p": 1}
@@ -82,7 +83,7 @@ def register(db: Connection, request: Registration) -> dict:
                 ),
             ).fetchone()
     except UniqueViolation:
-        raise ValueError("An account with this email already exists") from None
+        raise ConflictError("An account with this email already exists") from None
     return _public(row)
 
 

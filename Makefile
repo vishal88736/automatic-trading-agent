@@ -3,7 +3,7 @@ PYTHON ?= .venv/bin/python
 .PHONY: setup dev demo test
 
 setup:
-	UV_CACHE_DIR="$(CURDIR)/.cache/uv" UV_PYTHON_INSTALL_DIR="$(CURDIR)/.python" uv sync --frozen --extra platform --python 3.12
+	UV_CACHE_DIR="$(CURDIR)/.cache/uv" UV_PYTHON_INSTALL_DIR="$(CURDIR)/.python" uv sync --frozen --extra platform --extra legacy --python 3.12
 	npm ci --ignore-scripts
 	npm run build
 

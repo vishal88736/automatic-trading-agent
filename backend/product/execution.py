@@ -12,6 +12,7 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from pydantic import AwareDatetime, Field, model_validator
 
+from backend.product.errors import ConflictError
 from backend.models import Model, RiskConfig, now
 from backend.product.accounts import PaperAccount, get_account
 from backend.product.spot_markets import Asset as Asset
@@ -64,7 +65,7 @@ def lock_account(db: Connection, owner: UUID) -> tuple[PaperAccount, bool]:
     ).fetchone()
     account = get_account(db, owner) if row else None
     if account is None:
-        raise ValueError("Open a paper account first")
+        raise ConflictError("Open a paper account first")
     return account, row[0]
 
 
@@ -300,6 +301,9 @@ def _evaluate(
     cash_delta = -(gross + fee) if buy else gross - fee
     if buy:
         cost_delta, realized = -cash_delta, 0
+    elif request.quantity == position["quantity"]:
+        cost_delta = -position["basis"]
+        realized = cash_delta + cost_delta
     else:
         cost_delta = -(position["basis"] * request.quantity / position["quantity"]).quantize(
             USDT, rounding=ROUND_DOWN
@@ -344,12 +348,12 @@ def submit_order(
         ).fetchone()
         if existing:
             if OrderRequest.model_validate(existing[1]) != request or existing[2] != agent_id:
-                raise ValueError("Order key already belongs to a different request")
+                raise ConflictError("Order key already belongs to a different request")
             return get_order(db, owner, existing[0])
         if agent_id is not None and request.limit_price is not None:
-            raise ValueError("Autonomous orders use market execution")
+            raise ConflictError("Autonomous orders use market execution")
         if request.epoch != account.epoch:
-            raise ValueError("Paper account epoch changed")
+            raise ConflictError("Paper account epoch changed")
         at, order = clock(), uuid4()
         db.execute(
             """
@@ -451,7 +455,7 @@ def reset_account(db, owner: UUID, expected_epoch: int, opening_credit: Decimal)
     with db.transaction():
         account, _ = lock_account(db, owner)
         if account.epoch != expected_epoch:
-            raise ValueError("Paper account epoch changed")
+            raise ConflictError("Paper account epoch changed")
         _cancel_open(db, owner, account.epoch, "ACCOUNT_RESET")
         _halt_agents(db, owner, account.epoch, "STOPPED", "Account reset")
         db.execute(

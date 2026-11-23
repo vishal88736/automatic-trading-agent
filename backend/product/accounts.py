@@ -12,6 +12,7 @@ DEFAULT_INITIAL_USDT = Decimal("10000")
 
 
 @dataclass(frozen=True)
+from backend.product.errors import ConflictError
 class PaperAccount:
     id: UUID
     epoch: int
@@ -71,5 +72,5 @@ def ensure_account(
             )
         account = get_account(db, owner_id)
         if account is None:
-            raise ValueError("Paper account has no funded open epoch")
+            raise ConflictError("Paper account has no funded open epoch")
     return account

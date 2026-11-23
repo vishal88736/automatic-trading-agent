@@ -10,6 +10,7 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from pydantic import Field, model_validator
 
+from backend.product.errors import ConflictError
 from backend.models import Model
 from backend.product.execution import (
     OrderRequest,
@@ -255,10 +256,10 @@ def start_agent(db, owner: UUID, request: AgentStart):
                 request.strategy_id,
                 request.strategy_version,
             ):
-                raise ValueError("Agent key already belongs to a different request")
+                raise ConflictError("Agent key already belongs to a different request")
             return request.request_key
         if stopped or account.epoch != request.epoch:
-            raise ValueError("Paper account cannot start agents in this state")
+            raise ConflictError("Paper account cannot start agents in this state")
         if request.report_id is not None:
             strategy = db.execute(
                 """
@@ -329,7 +330,7 @@ def start_draft_agent(db, owner: UUID, request: DraftAgentStart):
         if saved is None:
             saved = create_strategy(db, owner, request.document, strategy_id=strategy_id)
         elif saved.document != request.document:
-            raise ValueError("Agent key already belongs to a different strategy draft")
+            raise ConflictError("Agent key already belongs to a different strategy draft")
         agent = start_agent(
             db,
             owner,
@@ -365,7 +366,7 @@ def _validate_allocation(db, owner, epoch, cash, capital, exclude=None):
         ).fetchone()
         capital = max(Decimal(0), capital + delta)
     if count >= 10 or booked + pending + capital > cash:
-        raise ValueError("Agent allocation exceeds the available paper capital")
+        raise ConflictError("Agent allocation exceeds the available paper capital")
 
 
 def control_agent(db, owner: UUID, agent: UUID, action: str):
@@ -385,10 +386,10 @@ def control_agent(db, owner: UUID, agent: UUID, action: str):
         if target == status:
             return status
         if status == "STOPPED" or (status == "FAILED" and target != "STOPPED"):
-            raise ValueError("Paper agent has ended")
+            raise ConflictError("Paper agent has ended")
         if target == "RUNNING":
             if stopped or epoch != account.epoch:
-                raise ValueError("Paper account cannot resume agents in this state")
+                raise ConflictError("Paper account cannot resume agents in this state")
             _validate_allocation(db, owner, account.epoch, account.cash, capital, agent)
         db.execute(
             """
@@ -552,14 +553,14 @@ def close_agent_position(db, owner, agent, request_key, epoch, quotes):
         ).fetchone()
         if previous:
             if previous[1:] != (agent, epoch, "SELL"):
-                raise ValueError("Order key already belongs to a different request")
+                raise ConflictError("Order key already belongs to a different request")
             return get_order(db, owner, previous[0])
         if account.epoch != epoch or row[1] != epoch or row[0] == "RUNNING":
-            raise ValueError("Pause or stop the current-epoch agent before closing its position")
+            raise ConflictError("Pause or stop the current-epoch agent before closing its position")
         asset = position_asset(db, owner, agent)
         held = positions(db, owner, account.epoch, actor_only=True, agent_id=agent).get(asset)
         if not held or held["quantity"] <= 0:
-            raise ValueError("This agent has no open position")
+            raise ConflictError("This agent has no open position")
         order = submit_order(
             db,
             owner,
