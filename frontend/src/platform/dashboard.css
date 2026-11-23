@@ -607,6 +607,76 @@
   }
 }
 
+.dashboard-trade-link {
+  display: none;
+}
+
+@media (min-width: 1280px) {
+  .paper-overview {
+    grid-template-columns: minmax(175px, 0.8fr) minmax(0, 2.1fr) minmax(
+        182px,
+        0.95fr
+      );
+    grid-template-areas:
+      "balance performance allocation"
+      "kpis kpis kpis"
+      "positions positions orders"
+      "markets markets agents";
+  }
+
+  .paper-overview:has(> .dashboard-stop) {
+    grid-template-areas:
+      "stop stop stop"
+      "balance performance allocation"
+      "kpis kpis kpis"
+      "positions positions orders"
+      "markets markets agents";
+  }
+
+  .kx-app .paper-overview > .dashboard-metrics {
+    padding: clamp(13px, 1.25vw, 18px);
+    background: linear-gradient(
+      155deg,
+      var(--overview-surface),
+      var(--panel) 68%
+    );
+  }
+
+  .dashboard-metrics .paper-balance-heading {
+    display: grid;
+    justify-content: stretch;
+    gap: 12px;
+  }
+
+  .dashboard-metrics .paper-balance-heading > div {
+    display: grid;
+    gap: 6px;
+  }
+
+  .dashboard-metrics .paper-balance-heading button {
+    justify-self: start;
+  }
+
+  .paper-overview .dashboard-metrics .platform-product-balance strong {
+    display: block;
+    margin-bottom: 3px;
+    font-size: clamp(21px, 2vw, 34px);
+    letter-spacing: -0.055em;
+  }
+
+  .kx-app .paper-overview .dashboard-trade-link {
+    display: inline-flex;
+    margin-top: 12px;
+    min-height: 32px;
+    padding: 5px 11px;
+    font-size: 12px;
+  }
+
+  .dashboard-allocation-ring {
+    width: clamp(95px, 9vw, 150px);
+  }
+}
+
 @media (max-width: 1020px) {
   .paper-overview:has(> .dashboard-stop) {
     grid-template-areas: "stop" "balance" "performance" "allocation" "kpis" "positions" "orders" "markets" "agents";
@@ -642,11 +712,24 @@
   }
 }
 
-#live-overview-section {
-  margin-top: 28px;
-  padding-top: 18px;
-  border-top: 1px solid var(--border);
-  scroll-margin-block-start: 65px;
+.overview-switch a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 4px clamp(7px, 1vw, 12px);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.overview-switch a[aria-current="page"] {
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
 }
 
 .overview-section-header {

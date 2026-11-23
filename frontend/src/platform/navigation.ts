@@ -91,6 +91,7 @@ export function readRoute() {
   return {
     page,
     reportId: report?.[1],
+    liveOverview: page === "dashboard" && params.get("mode") === "live",
     strategyId:
       page === "saved-strategies"
         ? (params.get("strategy") ?? undefined)

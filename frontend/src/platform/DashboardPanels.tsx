@@ -274,7 +274,8 @@ export function PortfolioPerformance({ rows }: { rows: PaperPortfolioMark[] }) {
             format={equityAxis.format}
             formatPoint={money}
             label="Recorded paper equity"
-            area={hasMovement}
+            area
+            shade={hasMovement}
             selectedIndex={selectedIndex}
             onInspect={(index) => setSelectedAt(marks[index].at)}
           />

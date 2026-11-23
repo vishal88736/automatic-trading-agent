@@ -528,6 +528,18 @@ test("Overview keeps paper results separate from the selected exchange account",
     page.getByRole("region", { name: "Paper trading overview" }),
   ).toBeVisible();
   const live = page.getByRole("region", { name: "Live trading dashboard" });
+  await expect(live).toHaveCount(0);
+  const switcher = page.getByRole("navigation", { name: "Overview dashboard" });
+  const paperToggle = switcher.getByRole("link", { name: "Paper dashboard" });
+  const liveToggle = switcher.getByRole("link", { name: "Live dashboard" });
+  await expect(paperToggle).toHaveAttribute("aria-current", "page");
+  await liveToggle.click();
+  await expect(page).toHaveURL(/#\/dashboard\?mode=live$/);
+  await expect(liveToggle).toHaveAttribute("aria-current", "page");
+  await expect(
+    page.getByRole("region", { name: "Paper trading overview" }),
+  ).toHaveCount(0);
+
   await expect(live.getByText("Binance · Live funds")).toBeVisible();
   await expect(
     live.getByRole("rowheader", { name: "USDT", exact: true }),
@@ -545,6 +557,10 @@ test("Overview keeps paper results separate from the selected exchange account",
   await expect(
     live.getByText("Total includes balances with a USDT price."),
   ).toBeVisible();
+  await page.goBack();
+  await expect(paperToggle).toHaveAttribute("aria-current", "page");
+  await expect(live).toHaveCount(0);
+  await liveToggle.click();
   await page.setViewportSize({ width: 360, height: 800 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
     360,

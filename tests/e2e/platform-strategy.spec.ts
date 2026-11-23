@@ -39,6 +39,7 @@ test("Fund, version, backtest, and isolate a tenant strategy", async ({
   await expect(
     paper.getByRole("cell", { name: "0.001", exact: true }),
   ).toBeVisible();
+  await page.getByRole("link", { name: "Live dashboard", exact: true }).click();
   const live = page.getByRole("region", { name: "Live trading dashboard" });
   await expect(
     live.getByText("Live trading is disabled on this server."),
@@ -83,11 +84,9 @@ test("Fund, version, backtest, and isolate a tenant strategy", async ({
   ).toBeVisible();
   await expect(page.getByText("BTC chart and news at a glance.")).toBeVisible();
   await expect(
-    page
-      .getByRole("listitem")
-      .filter({
-        hasText: "Momentum and volatility indicators were available.",
-      }),
+    page.getByRole("listitem").filter({
+      hasText: "Momentum and volatility indicators were available.",
+    }),
   ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Portfolio", exact: true }),

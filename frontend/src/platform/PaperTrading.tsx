@@ -254,6 +254,14 @@ export default function PaperAccount({
             </button>
           )}
         </div>
+        {dashboard && account && (
+          <a
+            className="button secondary dashboard-trade-link"
+            href={workspaceHref("paper")}
+          >
+            Paper trading
+          </a>
+        )}
         {!dashboard && (
           <p className="paper-money-note">
             Simulated funds. USD market prices are modeled at 1 virtual USDT per

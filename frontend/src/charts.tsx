@@ -118,6 +118,7 @@ export function EquityChart({
   format = (value: number) => value.toFixed(0),
   formatPoint = (value: number) => `$${value.toFixed(4)} simulated equity`,
   area = false,
+  shade = true,
   selectedIndex,
   onInspect,
 }: {
@@ -128,6 +129,7 @@ export function EquityChart({
   format?: (value: number) => string;
   formatPoint?: (value: number) => string;
   area?: boolean;
+  shade?: boolean;
   selectedIndex?: number;
   onInspect?: (index: number) => void;
 }) {
@@ -213,7 +215,7 @@ export function EquityChart({
         onPointerLeave={onInspect ? () => setPointed(false) : undefined}
         onPointerDown={onInspect ? inspect : undefined}
       >
-        {area && rows.length > 1 && (
+        {area && shade && rows.length > 1 && (
           <>
             <defs>
               <linearGradient id={fill} x2="0" y2="1">

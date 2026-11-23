@@ -233,7 +233,7 @@ export function Workspace() {
     }
   }
 
-  const { page, reportId } = route;
+  const { page, reportId, liveOverview } = route;
   const title = modules.find(([id]) => id === page)![1];
   const session = auth.state === "signed-in" ? auth.session : null;
   const showLanding =
@@ -278,7 +278,7 @@ export function Workspace() {
     if (menuOpen) menuButton.current?.focus({ preventScroll: true });
     setMenuOpen(false);
   }
-  const liveMode = page === "live";
+  const liveMode = page === "live" || liveOverview;
 
   return (
     <div className="kx-app unified-workspace" data-page={page}>
@@ -420,22 +420,28 @@ export function Workspace() {
             </div>
             {page === "dashboard" && (
               <div className="kx-actions">
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() => {
-                    const section = document.getElementById(
-                      "live-overview-section",
-                    );
-                    section?.focus({ preventScroll: true });
-                    section?.scrollIntoView({ block: "start" });
-                  }}
+                <nav
+                  className="kx-segmented overview-switch"
+                  aria-label="Overview dashboard"
                 >
-                  <Wallet size={15} aria-hidden /> Live dashboard
-                </button>
-                <a className="button primary" href={workspaceHref("builder")}>
-                  <WandSparkles size={15} aria-hidden /> Build an agent
-                </a>
+                  <a
+                    href={workspaceHref("dashboard")}
+                    aria-current={liveOverview ? undefined : "page"}
+                  >
+                    <FlaskConical size={15} aria-hidden /> Paper dashboard
+                  </a>
+                  <a
+                    href={workspaceHref("dashboard", "?mode=live")}
+                    aria-current={liveOverview ? "page" : undefined}
+                  >
+                    <Wallet size={15} aria-hidden /> Live dashboard
+                  </a>
+                </nav>
+                {!liveOverview && (
+                  <a className="button primary" href={workspaceHref("builder")}>
+                    <WandSparkles size={15} aria-hidden /> Build an agent
+                  </a>
+                )}
               </div>
             )}
             {page === "settings" && (
@@ -452,7 +458,7 @@ export function Workspace() {
               </a>
             )}
           </section>
-          {accountError && (
+          {accountError && !liveOverview && (
             <p className="platform-error" role="alert">
               {accountError}
             </p>
@@ -463,7 +469,7 @@ export function Workspace() {
               <p>The account and strategy service is not reachable.</p>
               <button onClick={() => void check()}>Retry connection</button>
             </section>
-          ) : !accountReady ? (
+          ) : !accountReady && !liveOverview ? (
             accountError ? (
               <button onClick={() => void check()}>Retry connection</button>
             ) : (
@@ -480,7 +486,7 @@ export function Workspace() {
               }
               key={auth.session.userId}
             >
-              {page === "dashboard" && (
+              {page === "dashboard" && !liveOverview && (
                 <section
                   className="overview-section"
                   aria-labelledby="overview-paper"
@@ -495,6 +501,7 @@ export function Workspace() {
                   />
                 </section>
               )}
+              {liveOverview && <LiveOverview />}
               {page === "agents" && <PaperAgents key={route.href} />}
               {page === "live" && <LiveTrading />}
               {page === "strategies" && <StrategyRankings />}
@@ -515,15 +522,6 @@ export function Workspace() {
               {page === "markets" && <MarketResearch key={route.href} />}
               {page === "news" && <LiveNews />}
             </Suspense>
-          )}
-          {page === "dashboard" && (
-            <div id="live-overview-section" tabIndex={-1}>
-              <Suspense
-                fallback={<p role="status">Loading live trading dashboard…</p>}
-              >
-                <LiveOverview key={auth.session.userId} />
-              </Suspense>
-            </div>
           )}
         </main>
       </div>
