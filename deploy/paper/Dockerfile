@@ -5,6 +5,7 @@ ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PATH=/app/.venv/bin:$PATH
 WORKDIR /app
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --extra platform --no-dev --no-cache
+RUN python -c "from urllib.request import urlretrieve; urlretrieve('https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem', '/etc/ssl/certs/rds-global-bundle.pem')"
 COPY backend backend
 COPY tradingagents tradingagents
 COPY config config

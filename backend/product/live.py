@@ -203,7 +203,7 @@ def account_summary(db, owner, connection, vault, factory, price) -> dict:
         if amount <= 0:
             continue
         asset = item["asset"]
-        mark = Decimal(1) if asset in STABLECOINS else price(asset) if asset in ASSETS else None
+        mark = Decimal(1) if asset in STABLECOINS else price(asset)
         value = (amount * mark).quantize(Decimal("0.01")) if mark is not None else None
         if value is None:
             complete = False
@@ -648,12 +648,17 @@ def mirror_fills(db, vault: CredentialVault, factory: ClientFactory, limit: int 
             if amount < MIN_ORDER_USDT:
                 skip = f"Scaled order of {amount} USDT is below the {MIN_ORDER_USDT} USDT minimum"
         else:
-            remaining = max(_paper_position(db, owner, agent, asset), Decimal(0))
-            share = fill["quantity"] / (fill["quantity"] + remaining)
             held = live_holding(db, owner, agent, asset)
-            fields["quantity"] = (held * share) if held > 0 else Decimal("0.00000001")
-            if held <= 0:
+            quantity = fill["quantity"]
+            if quantity <= 0:
+                skip = "Paper sell has no fill quantity"
+            elif held <= 0:
                 skip = "No live position to sell"
+            else:
+                remaining = max(_paper_position(db, owner, agent, asset), Decimal(0))
+                fields["quantity"] = held * (quantity / (quantity + remaining))
+            if skip:
+                fields["quantity"] = Decimal("0.00000001")
         if connection["status"] != "ACTIVE":
             skip = "Connection paused by the kill switch"
         try:

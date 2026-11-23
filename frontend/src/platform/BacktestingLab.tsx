@@ -94,7 +94,9 @@ interface Report {
 }
 const layouts = ["in_sample", "out_of_sample"] as const;
 const ratio = (value: string | null) =>
-  value === null ? "—" : Number(value).toFixed(2);
+  value?.trim() && Number.isFinite(Number(value))
+    ? Number(value).toFixed(2)
+    : "—";
 
 function ReportView({ report }: { report: Report }) {
   const [sample, setSample] =

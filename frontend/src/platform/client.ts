@@ -1,4 +1,15 @@
 let csrf = "";
+let csrfRefresh: Promise<boolean> | undefined;
+
+function refreshCsrf() {
+  csrfRefresh ??= platform<{ csrf?: string }>("/auth/session")
+    .then((session) => Boolean(session.csrf))
+    .catch(() => false)
+    .finally(() => {
+      csrfRefresh = undefined;
+    });
+  return csrfRefresh;
+}
 
 export class PlatformRequestError extends Error {
   constructor(
@@ -29,6 +40,16 @@ export async function platform<T>(
       message: "The Krono service is unavailable.",
     },
   }));
+  if (
+    response.status === 403 &&
+    retry &&
+    method !== "GET" &&
+    result.error?.code === "CSRF" &&
+    (await refreshCsrf())
+  ) {
+    // The gateway rejects CSRF before a mutation reaches its handler.
+    return platform<T>(path, method, body, false);
+  }
   if (
     response.status === 401 &&
     retry &&

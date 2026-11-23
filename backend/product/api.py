@@ -100,6 +100,8 @@ from backend.strategies import indicators
 KEY_ENV = "KRONO_PRODUCT_API_KEY"
 SERVICE_SUBJECT = UUID(int=0)
 BODY_LIMIT = 65536
+SIGNATURE_TTL_SECONDS = 20
+SIGNATURE_CLOCK_SKEW_SECONDS = 30
 OpeningCredit = Annotated[Decimal, Field(gt=0, le=100000000, decimal_places=6)]
 Version = Annotated[int, Field(ge=1, le=2**31 - 1)]
 
@@ -261,13 +263,26 @@ def create_product_api(
     async def owner(request: Request) -> UUID:
         denied = ProductError(401, "UNAUTHENTICATED", "Invalid platform identity")
         subject = request.headers.get("x-krono-product-sub", "")
+        issued_at = request.headers.get("x-krono-product-issued-at")
         expires = request.headers.get("x-krono-product-expires", "")
         signature = request.headers.get("x-krono-product-signature", "")
         try:
             identity = UUID(subject)
             if not expires.isascii() or not expires.isdecimal() or len(expires) > 12:
                 raise denied
-            if not 0 < int(expires) - time.time() <= 30:
+            current = time.time()
+            if issued_at is None:
+                # Allow an older gateway during a rolling deployment.
+                if not 0 < int(expires) - current <= 30:
+                    raise denied
+            elif (
+                not issued_at.isascii()
+                or not issued_at.isdecimal()
+                or len(issued_at) > 12
+                or int(expires) - int(issued_at) != SIGNATURE_TTL_SECONDS
+                or int(issued_at) > current + SIGNATURE_CLOCK_SKEW_SECONDS
+                or int(expires) <= current - SIGNATURE_CLOCK_SKEW_SECONDS
+            ):
                 raise denied
         except ValueError:
             raise denied from None
@@ -287,6 +302,7 @@ def create_product_api(
             path += b"?" + query
         message = b"\n".join(
             (
+                *((issued_at.encode(),) if issued_at is not None else ()),
                 expires.encode(),
                 subject.encode(),
                 request.method.encode(),

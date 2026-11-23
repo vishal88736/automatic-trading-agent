@@ -10,11 +10,11 @@ from pydantic import StringConstraints
 from backend.settings import get_settings
 
 Asset = Annotated[str, StringConstraints(pattern=r"^[A-Z0-9]{2,20}$")]
-FEATURED = ("BTC", "ETH", "SOL")
-FIXTURE_ASSETS = (*FEATURED, "ADA")
+FEATURED = get_settings().providers.featured_assets
+FIXTURE_ASSETS = ("BTC", "ETH", "SOL", "ADA")
 
 _lock = Lock()
-_assets = FEATURED
+_assets = tuple(get_settings().providers.assets)
 _refresh_at = 0.0
 
 
@@ -22,7 +22,9 @@ def listed_assets(*, fixture: bool = False) -> tuple[str, ...]:
     if fixture:
         return FIXTURE_ASSETS
     global _assets, _refresh_at
-    with _lock:
+    if monotonic() < _refresh_at or not _lock.acquire(blocking=False):
+        return _assets
+    try:
         if monotonic() < _refresh_at:
             return _assets
         try:
@@ -68,6 +70,8 @@ def listed_assets(*, fixture: bool = False) -> tuple[str, ...]:
         else:
             _refresh_at = monotonic() + 300
         return _assets
+    finally:
+        _lock.release()
 
 
 def product_id(symbol: str) -> str:

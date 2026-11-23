@@ -4,6 +4,7 @@ import { PlatformError } from "../domain/errors.js";
 
 // The product API reserves its account routes for this subject.
 export const SERVICE_SUBJECT = "00000000-0000-0000-0000-000000000000";
+const SIGNATURE_TTL_SECONDS = 20;
 
 export type ProductForward = (
   subject: string,
@@ -32,15 +33,17 @@ export function productClient(config: Config): ProductForward {
         400,
       );
     }
-    const expires = String(Math.floor(Date.now() / 1000) + 20);
+    const issuedAt = Math.floor(Date.now() / 1000);
+    const expires = String(issuedAt + SIGNATURE_TTL_SECONDS);
     const body = payload === undefined ? "" : JSON.stringify(payload);
     const digest = createHash("sha256").update(body).digest("hex");
-    const message = [expires, subject, method, path, digest].join("\n");
+    const message = [issuedAt, expires, subject, method, path, digest].join("\n");
     const signature = createHmac("sha256", key).update(message).digest("hex");
     return fetch(new URL(api).origin + path, {
       method,
       headers: {
         "x-krono-product-sub": subject,
+        "x-krono-product-issued-at": String(issuedAt),
         "x-krono-product-expires": expires,
         "x-krono-product-signature": signature,
         ...(body && { "content-type": "application/json" }),

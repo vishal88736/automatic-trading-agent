@@ -47,6 +47,24 @@ Endpoint = Annotated[str, AfterValidator(public_https)]
 Amount = Annotated[Decimal, Field(ge=0, max_digits=38, decimal_places=18)]
 
 
+def public_wss(value: str) -> str:
+    if not value.startswith("wss://"):
+        raise ValueError("Configure a secure WebSocket endpoint")
+    return "wss://" + public_https("https://" + value[6:])[8:]
+
+
+class SpotEndpoints(SettingsModel):
+    binance_live: Endpoint = "https://api.binance.com"
+    binance_testnet: Endpoint = "https://testnet.binance.vision"
+    bybit_live: Endpoint = "https://api.bybit.com"
+    bybit_testnet: Endpoint = "https://api-testnet.bybit.com"
+    okx: Endpoint = "https://www.okx.com"
+    ticker_rest: Endpoint = "https://data-api.binance.vision/api/v3/ticker/24hr"
+    ticker_stream: Annotated[str, AfterValidator(public_wss)] = (
+        "wss://data-stream.binance.vision/stream"
+    )
+
+
 class ProviderRefresh(SettingsModel):
     ticker_seconds: int = Field(default=5, ge=1, le=60)
     candles_seconds: int = Field(default=300, ge=60, le=3600)
@@ -72,15 +90,25 @@ class DataSettings(SettingsModel):
     retry_delay_seconds: float = Field(ge=0.1, le=2)
     refresh: ProviderRefresh
     assets: dict[str, ReferenceAsset]
+    ticker_assets: tuple[str, ...] | None = Field(default=None, min_length=1, max_length=20)
+    spot_endpoints: SpotEndpoints = Field(default_factory=SpotEndpoints)
 
     @model_validator(mode="after")
     def supported_identity(self):
-        # New assets require a reviewed adapter/schema addition, never a symbol alias.
-        if not self.assets or not self.assets.keys() <= {"BTC", "ETH", "SOL"}:
-            raise ValueError("Only registered reference assets are supported")
+        if not self.assets:
+            raise ValueError("Configure at least one reference asset")
         if any(a.product_id != f"{symbol}-USD" for symbol, a in self.assets.items()):
             raise ValueError("Reference product identity must match its asset")
+        if self.ticker_assets and (
+            len(set(self.ticker_assets)) != len(self.ticker_assets)
+            or not set(self.ticker_assets) <= self.assets.keys()
+        ):
+            raise ValueError("Ticker assets must be unique configured reference assets")
         return self
+
+    @property
+    def featured_assets(self) -> tuple[str, ...]:
+        return self.ticker_assets or tuple(self.assets)[:3]
 
 
 class SimulationSettings(SettingsModel):
