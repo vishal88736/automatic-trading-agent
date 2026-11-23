@@ -282,7 +282,7 @@ test("a fabricated model draft cannot replace user risk settings", async (t) => 
       assert.ok("text" in content);
       const candidate = JSON.parse(content.text);
       const draft = JSON.parse(candidate.strategy_json);
-      draft.definition.stop_loss = "0.09";
+      draft.stop_loss = "0.09";
       content.text = JSON.stringify({
         ...candidate,
         strategy_json: JSON.stringify(draft),

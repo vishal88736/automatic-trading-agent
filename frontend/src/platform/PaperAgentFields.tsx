@@ -27,7 +27,12 @@ export function PaperAgentFields({ name = "" }: { name?: string }) {
           required
         />
       </label>
-      <details className="paper-agent-advanced">
+      <details
+        className="paper-agent-advanced"
+        onInvalidCapture={(event) => {
+          event.currentTarget.open = true;
+        }}
+      >
         <summary>Advanced agent settings</summary>
         <div className="platform-backtest-fields">
           <label>

@@ -45,7 +45,9 @@ export class RulesProvider implements LLMProvider {
     return reply(request, {
       status: decision.status,
       strategy_json:
-        decision.status === "READY" ? JSON.stringify(decision.document) : "",
+        decision.status === "READY"
+          ? JSON.stringify(decision.document.definition)
+          : "",
       notes: decision.status === "UNSUPPORTED" ? decision.notes : "",
       missing_fields:
         decision.status === "NEEDS_CLARIFICATION"

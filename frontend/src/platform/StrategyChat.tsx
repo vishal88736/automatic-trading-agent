@@ -97,6 +97,7 @@ export function StrategyChat({
   const history = useRef<Turn[]>([]);
   const inFlight = useRef(false);
   const composer = useRef<HTMLTextAreaElement>(null);
+  const focusComposer = useRef(false);
   const [proposal, setProposal] = useState<Proposal>();
   const [showSettings, setShowSettings] = useState(false);
   const [pending, setPending] = useState("");
@@ -114,6 +115,13 @@ export function StrategyChat({
     if (conversation.current)
       conversation.current.scrollTop = conversation.current.scrollHeight;
   }, [messages, pending]);
+
+  useEffect(() => {
+    if (!busy && focusComposer.current) {
+      focusComposer.current = false;
+      composer.current?.focus({ preventScroll: true });
+    }
+  }, [busy]);
 
   async function run(label: string, action: () => Promise<void>) {
     if (disabled || inFlight.current) return;
@@ -140,6 +148,7 @@ export function StrategyChat({
       role: "user",
       text: objective,
     };
+    focusComposer.current = true;
     setShowSettings(false);
     setProposal(undefined);
     // A failed request leaves the reply in the composer for a retry.

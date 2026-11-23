@@ -629,8 +629,13 @@ export function interpretStrategy(
       missing,
       missing[0] === "asset" ? categoryOptions : [],
     );
-  if (!changed || !draft.asset || !allowed.has(draft.asset))
-    return clarification(["strategy"]);
+  if (!changed || !draft.asset || !allowed.has(draft.asset)) {
+    const result = clarification(["strategy"]);
+    if (new RegExp(percent, "i").test(turns.at(-1)?.text ?? ""))
+      result.questions[0].question =
+        "Which setting should that percentage change? Please give the setting and its value.";
+    return result;
+  }
   return {
     status: "READY",
     document: {
@@ -662,12 +667,10 @@ function comparable(value: Definition[StrategyField]): string | number | null {
 }
 
 export function changedStrategyFields(
-  author: StrategyDocument,
-  proposed: StrategyDocument,
+  author: Definition,
+  proposed: Definition,
 ) {
   return fields.filter(
-    (field) =>
-      comparable(author.definition[field]) !==
-      comparable(proposed.definition[field]),
+    (field) => comparable(author[field]) !== comparable(proposed[field]),
   );
 }
