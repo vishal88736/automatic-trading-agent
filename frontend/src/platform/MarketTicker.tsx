@@ -29,6 +29,7 @@ export function MarketTicker({ detailed = false }: { detailed?: boolean }) {
           >
             {item.change24h >= 0 ? "+" : ""}
             {(item.change24h * 100).toFixed(2)}%
+            {detailed && <small className="kx-ticker-period">24h</small>}
           </span>
         );
         const history = item?.history ?? [];
@@ -56,20 +57,20 @@ export function MarketTicker({ detailed = false }: { detailed?: boolean }) {
                   </span>
                   {price}
                 </span>
-                <span
-                  className="kx-ticker-history"
-                  aria-hidden="true"
-                  title="Recent observed prices"
-                >
-                  {history.length > 1 && (
+                {history.length > 1 && (
+                  <span
+                    className="kx-ticker-history"
+                    title="Recent observed prices"
+                  >
                     <Sparkline
                       values={history}
                       positive={movement >= 0}
                       neutral={movement === 0}
                       shaded
                     />
-                  )}
-                </span>
+                    <small>Recent ticks</small>
+                  </span>
+                )}
               </>
             ) : (
               <>

@@ -12,6 +12,7 @@ import base64
 import hashlib
 import hmac
 import json
+import re
 import time
 from datetime import datetime, timezone
 from decimal import ROUND_DOWN, Decimal
@@ -26,7 +27,20 @@ from backend.product.binance import BinanceClient, BinanceError, fill_summary
 Exchange = Literal["binance", "bybit", "okx"]
 Environment = Literal["testnet", "live"]
 Side = Literal["BUY", "SELL"]
-ASSETS = ("BTC", "ETH", "SOL")
+
+
+def spot_symbols(rows, base_key, quote_key, eligible) -> list[str]:
+    return sorted(
+        {
+            row[base_key]
+            for row in rows
+            if isinstance(row, dict)
+            and isinstance(row.get(base_key), str)
+            and re.fullmatch(r"[A-Z0-9]{2,20}", row[base_key])
+            and row.get(quote_key) == "USDT"
+            and eligible(row)
+        }
+    )
 
 
 class ExchangeError(Exception):
@@ -59,6 +73,7 @@ class ExchangeClient(Protocol):
 
     def verify(self) -> dict: ...
     def balances(self) -> list[dict]: ...
+    def spot_assets(self, asset: str | None = None) -> list[str]: ...
     def market_order(
         self,
         asset: str,
@@ -119,6 +134,23 @@ class BinanceAdapter:
             {"asset": b["asset"], "free": Decimal(b["free"]), "locked": Decimal(b["locked"])}
             for b in self._call(self.raw.account).get("balances", [])
         ]
+
+    def spot_assets(self, asset=None):
+        params = {"symbol": f"{asset}USDT"} if asset else {"symbolStatus": "TRADING"}
+        data = self._call(
+            lambda: self.raw._request("GET", "/api/v3/exchangeInfo", params, signed=False)
+        )
+        return spot_symbols(
+            data.get("symbols", []),
+            "baseAsset",
+            "quoteAsset",
+            lambda row: (
+                row.get("status") == "TRADING"
+                and row.get("isSpotTradingAllowed") is True
+                and row.get("quoteOrderQtyMarketAllowed") is True
+                and "MARKET" in row.get("orderTypes", [])
+            ),
+        )
 
     def _step(self, symbol: str) -> Decimal:
         if symbol not in self._steps:
@@ -255,6 +287,18 @@ class BybitAdapter:
             locked = Decimal(coin.get("locked") or "0")
             out.append({"asset": coin["coin"], "free": total - locked, "locked": locked})
         return out
+
+    def spot_assets(self, asset=None):
+        params = {"category": "spot"}
+        if asset:
+            params["symbol"] = f"{asset}USDT"
+        data = self._request("GET", "/v5/market/instruments-info", params, signed=False)
+        return spot_symbols(
+            data.get("list", []),
+            "baseCoin",
+            "quoteCoin",
+            lambda row: row.get("status") == "Trading",
+        )
 
     def _step(self, symbol: str) -> Decimal:
         if symbol not in self._steps:
@@ -427,6 +471,13 @@ class OkxAdapter:
             }
             for d in details
         ]
+
+    def spot_assets(self, asset=None):
+        params = {"instType": "SPOT"}
+        if asset:
+            params["instId"] = f"{asset}-USDT"
+        data = self._request("GET", "/api/v5/public/instruments", params, signed=False)
+        return spot_symbols(data, "baseCcy", "quoteCcy", lambda row: row.get("state") == "live")
 
     def _step(self, inst: str) -> Decimal:
         if inst not in self._steps:

@@ -17,7 +17,7 @@
     "positions orders"
     "markets agents"
     "live live";
-  gap: clamp(11px, 1vw, 16px);
+  gap: clamp(10px, 0.8vw, 13px);
 }
 
 .dashboard-kpis {
@@ -31,8 +31,7 @@
 .dashboard-kpis > div {
   position: relative;
   min-width: 0;
-  min-height: 102px;
-  padding: 13px clamp(11px, 1.2vw, 19px) 8px;
+  padding: 9px clamp(11px, 1.2vw, 19px) 6px;
   border: 1px solid var(--overview-edge);
   border-radius: 13px;
   background:
@@ -128,13 +127,18 @@
 .dashboard-metric-line {
   grid-area: line;
   min-width: 0;
-  min-height: 29px;
-  border-bottom: 1px solid var(--border);
+  min-height: 15px;
+}
+
+.dashboard-metric-line[data-unchanged] {
+  background: linear-gradient(var(--subtle), var(--subtle)) center / 100% 1px
+    no-repeat;
+  opacity: 0.65;
 }
 
 .dashboard-metric-line .sparkline {
   width: 100%;
-  height: 28px;
+  height: 17px;
 }
 
 .dashboard-performance {
@@ -176,6 +180,27 @@
 
 .paper-overview .paper-balance-heading h3 {
   margin: 0;
+}
+
+.dashboard-metrics .paper-balance-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 8px;
+}
+
+.dashboard-metrics .paper-balance-heading > div {
+  display: contents;
+}
+
+.dashboard-metrics .paper-balance-heading button {
+  grid-area: 1 / 2;
+  min-height: 29px;
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+.dashboard-metrics .paper-balance-heading .platform-product-balance {
+  grid-area: 2 / 1 / auto / -1;
 }
 
 .unified-workspace .dashboard-panel-heading :is(h2, h3) {
@@ -256,7 +281,7 @@
   align-items: end;
   flex-wrap: wrap;
   gap: 10px 24px;
-  margin-block: 8px 2px;
+  margin-block: 4px 0;
   font-variant-numeric: tabular-nums;
 }
 
@@ -271,11 +296,11 @@
 
 .dashboard-equity-reading strong {
   display: block;
-  margin-block: 4px;
+  margin-block: 2px;
   overflow-wrap: anywhere;
   color: var(--text);
   font-family: var(--font-mono);
-  font-size: clamp(22px, 2.3vw, 33px);
+  font-size: clamp(22px, 2vw, 28px);
   font-weight: 650;
   line-height: 1.05;
   letter-spacing: -0.06em;
@@ -422,14 +447,20 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   margin: 13px 0 0;
+  border: 1px solid var(--overview-edge);
+  border-radius: 9px;
+  background: var(--surface-inset);
 }
 
 .dashboard-risk-metrics .dashboard-metric {
   min-width: 0;
-  padding-inline-start: 11px;
-  border-inline-start: 1px solid var(--overview-edge);
+  padding-inline: 8px;
   grid-template-columns: minmax(0, 1fr) minmax(30px, 0.48fr);
   grid-template-areas: "label label" "value line" "trend line";
+}
+
+.dashboard-risk-metrics .dashboard-metric + .dashboard-metric {
+  border-inline-start: 1px solid var(--border);
 }
 
 .dashboard-risk-metrics .dashboard-metric-value {
@@ -446,7 +477,7 @@
     grid-template-columns: minmax(230px, 1fr) minmax(260px, 0.99fr);
     align-items: center;
     gap: 4px 18px;
-    padding-block: 9px;
+    padding-block: 7px;
   }
   .dashboard-metrics .paper-balance-heading {
     grid-area: 1 / 1;

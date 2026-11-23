@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import { Coin, money, number, timestamp } from "../ui";
 import { platform } from "./client";
-import { marketAssets, type MarketAsset } from "./market-assets";
 import { useMarkets } from "./useMarkets";
 import { WalletView } from "./WalletView";
 
@@ -54,7 +53,7 @@ interface Account {
 }
 export interface LiveOrder {
   id: string;
-  asset: MarketAsset;
+  asset: string;
   side: "BUY" | "SELL";
   quote_amount: string | null;
   quantity?: string | null;
@@ -317,7 +316,31 @@ function OrderTicket({
   onPlaced: () => void;
 }) {
   const markets = useMarkets();
-  const [asset, setAsset] = useState<MarketAsset>("BTC");
+  const [asset, setAsset] = useState("");
+  const [spotAssets, setSpotAssets] = useState<string[]>([]);
+  const [catalogError, setCatalogError] = useState("");
+  useEffect(() => {
+    let active = true;
+    setSpotAssets([]);
+    setAsset("");
+    setCatalogError("");
+    platform<{ assets: string[] }>(
+      `/live/connections/${connection.id}/spot-markets`,
+    )
+      .then(({ assets }) => {
+        if (active) {
+          setSpotAssets(assets);
+          setAsset(assets.includes("BTC") ? "BTC" : (assets[0] ?? ""));
+          if (!assets.length) setCatalogError("No eligible USDT spot markets.");
+        }
+      })
+      .catch((err: Error) => {
+        if (active) setCatalogError(err.message);
+      });
+    return () => {
+      active = false;
+    };
+  }, [connection.id]);
   const [side, setSide] = useState<"BUY" | "SELL">("BUY");
   const [amount, setAmount] = useState("20");
   const [confirm, setConfirm] = useState(false);
@@ -369,25 +392,22 @@ function OrderTicket({
   return (
     <section className="kx-card kx-ticket" aria-label="Order ticket">
       <h2 className="kx-card-title">Market order</h2>
-      <div className="kx-asset-picker">
-        {marketAssets.map((symbol) => {
-          const quote = markets?.find((m) => m.asset === symbol);
-          return (
-            <button
-              key={symbol}
-              type="button"
-              aria-pressed={asset === symbol}
-              onClick={() => setAsset(symbol)}
-            >
-              <Coin symbol={symbol} />
-              <span>
-                <strong>{symbol}</strong>
-                <small className="kx-num">{money(quote?.price)}</small>
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      <label>
+        Spot market
+        <select
+          value={asset}
+          disabled={!spotAssets.length}
+          onChange={(event) => setAsset(event.target.value)}
+        >
+          {!spotAssets.length && <option value="">Select a market</option>}
+          {spotAssets.map((symbol) => (
+            <option key={symbol} value={symbol}>
+              {symbol}/USDT
+            </option>
+          ))}
+        </select>
+      </label>
+      {catalogError && <p role="alert">{catalogError}</p>}
       <div className="kx-side-toggle" role="group" aria-label="Order side">
         {(["BUY", "SELL"] as const).map((value) => (
           <button
@@ -432,7 +452,11 @@ function OrderTicket({
         </div>
         <p className="kx-estimate">
           ≈ {price ? number(Number(amount) / price, 6) : "—"} {asset}
-          <small> at {money(price)} (live price)</small>
+          <small>
+            {price
+              ? ` at ${money(price)} (reference price)`
+              : " · Exchange sets the fill price"}
+          </small>
         </p>
         {live && (
           <label className="kx-check">
@@ -448,7 +472,10 @@ function OrderTicket({
         <button
           className={side === "BUY" ? "primary kx-block" : "danger kx-block"}
           disabled={
-            busy || connection.status !== "ACTIVE" || (live && !confirm)
+            busy ||
+            !spotAssets.includes(asset) ||
+            connection.status !== "ACTIVE" ||
+            (live && !confirm)
           }
         >
           {busy

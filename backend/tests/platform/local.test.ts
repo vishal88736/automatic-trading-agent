@@ -144,6 +144,19 @@ test("the rules drafter turns plain English into a valid strategy and revises it
 
   assert.equal(draftStrategy("what's the weather").strategy, null);
 
+  const ada = draftStrategy("Buy ada when RSI drops below 30", undefined, [
+    "BTC",
+    "ADA",
+  ]);
+  assert.equal(ada.strategy?.definition.asset, "ADA");
+  assert.equal(
+    draftStrategy("Buy UNKNOWN when RSI drops below 30", undefined, [
+      "BTC",
+      "ADA",
+    ]).strategy,
+    null,
+  );
+
   // The exit level is found even when a number sits between "RSI" and "above".
   const plain = draftStrategy(
     "Buy ETH when RSI drops below 30 and sell when it goes above 65",

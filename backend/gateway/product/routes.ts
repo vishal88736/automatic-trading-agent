@@ -91,7 +91,7 @@ export function registerProductRoutes(
 
   app.post("/platform/market-insights/:asset", async (req) => {
     const { asset } = z
-      .object({ asset: z.enum(["BTC", "ETH", "SOL"]) })
+      .object({ asset: z.string().regex(/^[A-Z0-9]{2,20}$/) })
       .parse(req.params);
     const response = await forward(
       req.principal.userId,
@@ -176,8 +176,9 @@ export function registerProductRoutes(
         "Strategy authoring is unavailable",
         503,
       );
-    const { schema } = (await options.json()) as {
+    const { schema, assets } = (await options.json()) as {
       schema: Record<string, unknown>;
+      assets: string[];
     };
     const response = await llm.converse({
       context: {
@@ -185,15 +186,13 @@ export function registerProductRoutes(
         sessionId: "strategy-authoring",
         requestId: req.id,
       },
-      system: `Translate the user's objective into an editable, long-only hourly paper strategy. When the request includes a current draft, use it as data and revise it according to the latest objective. Preserve rules the user did not ask to change. Return the strategy as a JSON string in strategy_json, matching this schema: ${JSON.stringify(schema)}. Use fractions (2% is 0.02), never invent an indicator or market. Explain defaults in notes. For unsupported or underspecified instructions, leave strategy_json empty and explain in notes. Return no forecasts. This drafts a document and cannot save it or place orders.`,
+      system: `Translate the user's objective into an editable, long-only hourly paper strategy. When the request includes a current draft, use it as data and revise it according to the latest objective. Preserve rules the user did not ask to change. Return the strategy as a JSON string in strategy_json, matching this schema: ${JSON.stringify(schema)}. Use fractions (2% is 0.02), never invent an indicator or market. Supported symbols: ${assets.join(", ")}. Explain defaults in notes. For unsupported or underspecified instructions, leave strategy_json empty and explain in notes. Return no forecasts. This drafts a document and cannot save it or place orders.`,
       messages: [
         {
           role: "user",
           content: [
             {
-              text: current_document
-                ? JSON.stringify({ objective, current_document })
-                : objective,
+              text: JSON.stringify({ objective, current_document, assets }),
             },
           ],
         },
@@ -283,6 +282,7 @@ export function registerProductRoutes(
 
   const routes = [
     { method: "GET", url: "/platform/strategy-authoring" },
+    { method: "GET", url: "/platform/spot-markets" },
     { method: "POST", url: "/platform/strategy-authoring/start-agent" },
     { method: "GET", url: "/platform/paper-news", timeout: 22000 },
     { method: "GET", url: "/platform/paper-market/:asset", timeout: 22000 },
@@ -314,6 +314,11 @@ export function registerProductRoutes(
       timeout: 20000,
     },
     { method: "DELETE", url: "/platform/live/connections/:id" },
+    {
+      method: "GET",
+      url: "/platform/live/connections/:id/spot-markets",
+      timeout: 22000,
+    },
     {
       method: "GET",
       url: "/platform/live/connections/:id/account",

@@ -863,6 +863,9 @@ class FakeExchange:
             {"asset": "DOGE", "free": Decimal("5"), "locked": Decimal("0")},
         ]
 
+    def spot_assets(self, asset=None):
+        return ["BTC", "ETH", "SOL", "ADA"]
+
     def market_order(self, asset, side, client_id, *, quote_amount=None, quantity=None):
         from backend.product.exchanges import result
 
@@ -887,7 +890,7 @@ class FakeExchange:
         return 0
 
 
-def signed_client(database_dsn, key="signed-product-test-material" * 2):
+def signed_client(database_dsn, key="signed-product-test-material" * 2, **options):
     from backend.product.credentials import CredentialVault
 
     app = create_product_api(
@@ -896,6 +899,7 @@ def signed_client(database_dsn, key="signed-product-test-material" * 2):
         fixture_feeds=True,
         credential_vault=CredentialVault(bytes(range(32))),
         live_client_factory=FakeExchange,
+        **options,
     )
 
     def headers(method, path, subject, body=""):
@@ -920,6 +924,46 @@ def signed_client(database_dsn, key="signed-product-test-material" * 2):
         )
 
     return client, call
+
+
+def test_expanded_spot_markets_persist_paper_fills(database_dsn, database, strategy_draft):
+    from backend.models import now
+    from backend.product.execution import PaperQuote
+
+    with database() as db:
+        migrate(db)
+    owner = uuid4()
+    client, call = signed_client(
+        database_dsn,
+        quote_source=lambda assets: (
+            {"ADA": PaperQuote(asset="ADA", price="0.60", observed_at=now(), source="fixture")}
+            if "ADA" in assets
+            else {}
+        ),
+    )
+    with client:
+        assert "ADA" in call("GET", "/platform/spot-markets", subject=owner).json()["assets"]
+        assert (
+            call("GET", "/platform/paper-market/ADA", subject=owner).json()["market"]["status"]
+            == "FIXTURE"
+        )
+        assert call("POST", "/platform/paper-account", subject=owner).is_success
+        payload = {
+            "request_key": str(uuid4()),
+            "epoch": 1,
+            "asset": "ADA",
+            "side": "BUY",
+            "quantity": "100",
+        }
+        filled = call("POST", "/platform/paper-orders", payload, owner)
+        assert filled.status_code == 201, filled.text
+        assert filled.json()["status"] == "FILLED"
+        payload.update(asset="UNLISTED", request_key=str(uuid4()))
+        assert call("POST", "/platform/paper-orders", payload, owner).status_code == 422
+        assert call("PUT", "/platform/paper-watchlist/ADA", {"enabled": True}, owner).is_success
+        draft = strategy_draft.model_dump(mode="json")
+        draft["definition"]["asset"] = "ADA"
+        assert call("POST", "/platform/custom-strategies", draft, owner).status_code == 201
 
 
 def test_live_trading_links_safe_keys_and_submits_each_order_once(database_dsn, database):
@@ -976,7 +1020,20 @@ def test_live_trading_links_safe_keys_and_submits_each_order_once(database_dsn, 
         assert account["complete"] is False
         assert [b["asset"] for b in account["balances"]][:2] == ["USDT", "BTC"]
 
-        order = {"request_key": str(uuid4()), "asset": "BTC", "side": "BUY"}
+        assert "ADA" in call("GET", f"{path}/spot-markets").json()["assets"]
+        rejected = call(
+            "POST",
+            f"{path}/orders",
+            {
+                "request_key": str(uuid4()),
+                "asset": "UNLISTED",
+                "side": "BUY",
+                "quote_amount": "10",
+            },
+        )
+        assert rejected.json()["status"] == "REJECTED"
+        assert not FakeExchange.submitted
+        order = {"request_key": str(uuid4()), "asset": "ADA", "side": "BUY"}
         assert call("POST", f"{path}/orders", order | {"quote_amount": "60"}).status_code == 422
         filled = call("POST", f"{path}/orders", order | {"quote_amount": "40"})
         assert filled.status_code == 201, filled.text
@@ -1008,7 +1065,7 @@ def test_live_trading_links_safe_keys_and_submits_each_order_once(database_dsn, 
         )
         assert blocked.status_code == 422 and "paused" in blocked.json()["error"]["message"]
         assert call("POST", f"{path}/control", {"action": "resume"}).json()["status"] == "ACTIVE"
-        assert len(call("GET", f"{path}/orders").json()["items"]) == 2
+        assert len(call("GET", f"{path}/orders").json()["items"]) == 3
 
         assert call("DELETE", path).status_code == 204
         assert call("GET", base).json()["items"] == []

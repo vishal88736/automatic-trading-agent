@@ -26,10 +26,10 @@ FIXTURE_START = datetime(2026, 1, 10, tzinfo=timezone.utc)
 
 
 def fixture_market(symbol: str, count=238) -> Market:
-    base = {"BTC": 67000, "ETH": 3200, "SOL": 145}[symbol]
+    base = {"BTC": 67000, "ETH": 3200, "SOL": 145, "ADA": 0.60}[symbol]
     bars = []
     previous = base
-    phase = {"BTC": 0, "ETH": 1.1, "SOL": 2.2}[symbol]
+    phase = {"BTC": 0, "ETH": 1.1, "SOL": 2.2, "ADA": 3.3}[symbol]
     for index in range(count):
         # Reproducible synthetic path: trend, cyclic pullbacks, widening recent participation.
         close = base * (
@@ -63,7 +63,7 @@ def fixture_market(symbol: str, count=238) -> Market:
         )
         previous = close
     return Market(
-        asset=ASSETS[symbol],
+        asset=ASSETS.get(symbol) or Token(asset_id=symbol, symbol=symbol, name=symbol),
         candles=bars,
         source="synthetic_fixture_v1",
         retrieved_at=now(),
@@ -356,7 +356,7 @@ class Providers:
                         raise
                     await asyncio.sleep(self.settings.retry_delay_seconds * 2**attempt)
 
-    async def _candles(self, symbol: str, refresh: bool) -> list[Candle]:
+    async def _candles(self, symbol: str, refresh: bool, product: str) -> list[Candle]:
         key = f"market_candles:{symbol}"
         cached = self.store.get("cache", key)
         if cached and not refresh:
@@ -364,7 +364,7 @@ class Providers:
             if 0 <= (now() - retrieved).total_seconds() < self.refresh.candles_seconds:
                 return [Candle.model_validate(c) for c in cached["candles"]]
         rows = await self.request(
-            f"{self.settings.market_base_url}/products/{self.settings.assets[symbol].product_id}/candles",
+            f"{self.settings.market_base_url}/products/{product}/candles",
             params={"granularity": "3600"},
         )
         bars = parse_coinbase_candles(rows, now())[-300:]
@@ -387,11 +387,12 @@ class Providers:
             result.limitation = "Provider unavailable; cached reference data. No executable quote."
         return result
 
-    async def market(self, symbol: str, refresh=False) -> Market:
-        if symbol not in ASSETS:
+    async def market(self, symbol: str, refresh=False, *, product: str | None = None) -> Market:
+        if product is None and symbol not in ASSETS:
             raise ValueError("Unsupported asset")
         if self.market_provider == "fixture":
             return fixture_market(symbol)
+        product = product or self.settings.assets[symbol].product_id
         key = f"market:{symbol}"
         async with self.locks.setdefault(key, asyncio.Lock()):
             cached = self.store.get("cache", key)
@@ -410,10 +411,8 @@ class Providers:
                 if cooling_down:
                     raise ValueError("Market provider retry cooldown")
                 bars, ticker = await asyncio.gather(
-                    self._candles(symbol, refresh),
-                    self.request(
-                        f"{self.settings.market_base_url}/products/{self.settings.assets[symbol].product_id}/ticker"
-                    ),
+                    self._candles(symbol, refresh, product),
+                    self.request(f"{self.settings.market_base_url}/products/{product}/ticker"),
                 )
                 if not isinstance(ticker, dict):
                     raise ValueError("Malformed market response")
@@ -421,7 +420,7 @@ class Providers:
                 if not price_time or price_time > now() + timedelta(minutes=1):
                     raise ValueError("Invalid ticker time")
                 market = Market(
-                    asset=ASSETS[symbol],
+                    asset=ASSETS.get(symbol) or Token(asset_id=symbol, symbol=symbol, name=symbol),
                     candles=bars,
                     source="coinbase_exchange",
                     retrieved_at=now(),
@@ -444,7 +443,7 @@ class Providers:
                 if cached:
                     return self._cached_market(cached, failed=True)
                 return Market(
-                    asset=ASSETS[symbol],
+                    asset=ASSETS.get(symbol) or Token(asset_id=symbol, symbol=symbol, name=symbol),
                     source="coinbase_exchange",
                     retrieved_at=now(),
                     status="UNAVAILABLE",

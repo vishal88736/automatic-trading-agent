@@ -4,11 +4,10 @@ import { CandleChart, type ChartViewport } from "../charts";
 import type { Candle } from "../types";
 import { Coin, money, timestamp } from "../ui";
 import { platform } from "./client";
-import {
-  marketAssets,
-  marketNames as assets,
-  type MarketAsset as Asset,
-} from "./market-assets";
+import { useSpotAssets, marketNames as assets } from "./market-assets";
+type Asset = string;
+const names: Readonly<Record<string, string>> = assets;
+
 interface Market {
   status: string;
   source: string;
@@ -83,11 +82,13 @@ function Markets() {
     const requested = new URLSearchParams(location.hash.split("?")[1]).get(
       "asset",
     );
-    return requested && Object.hasOwn(assets, requested)
+    return requested && /^[A-Z0-9]{2,20}$/.test(requested)
       ? (requested as Asset)
       : "BTC";
   });
   const [search, setSearch] = useState("");
+  const [limit, setLimit] = useState(18);
+  const { assets: spotAssets, error: catalogError } = useSpotAssets();
   const [pins, setPins] = useState<Asset[]>([]);
   const [market, setMarket] = useState<Market>();
   const [metrics, setMetrics] = useState<Record<string, unknown> | null>();
@@ -156,8 +157,8 @@ function Markets() {
       setSaving(false);
     }
   }
-  const visible = marketAssets.filter((symbol) =>
-    `${symbol} ${assets[symbol]}`
+  const visible = spotAssets.filter((symbol) =>
+    `${symbol} ${names[symbol] ?? symbol}`
       .toLowerCase()
       .includes(search.trim().toLowerCase()),
   );
@@ -172,7 +173,10 @@ function Markets() {
               type="search"
               id="paper-market-search"
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setLimit(18);
+              }}
             />
           </div>
         </div>
@@ -183,7 +187,7 @@ function Markets() {
             role="group"
             aria-label="Market"
           >
-            {visible.map((symbol) => (
+            {visible.slice(0, limit).map((symbol) => (
               <button
                 type="button"
                 key={symbol}
@@ -194,6 +198,12 @@ function Markets() {
               </button>
             ))}
           </div>
+          {visible.length > limit && (
+            <button type="button" onClick={() => setLimit(limit + 18)}>
+              Show more markets
+            </button>
+          )}
+          {catalogError && <p role="alert">{catalogError}</p>}
           {!visible.length && (
             <p className="muted">No matching paper markets.</p>
           )}
@@ -208,7 +218,7 @@ function Markets() {
                 aria-pressed={asset === symbol}
                 onClick={() => setAsset(symbol)}
               >
-                {assets[symbol]}
+                {names[symbol] ?? symbol}
               </button>
             ))}
           </div>
@@ -222,7 +232,7 @@ function Markets() {
             <span aria-hidden>
               <Coin symbol={asset} />
             </span>{" "}
-            {assets[asset]} ({asset}/USD)
+            {names[asset] ?? asset} ({asset}/USD)
           </h3>
           <button
             className="secondary"

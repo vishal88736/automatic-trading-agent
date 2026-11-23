@@ -11,7 +11,8 @@ from pydantic import AwareDatetime, Field, model_validator
 
 from backend.backtesting import RULE_WARMUP_HOURS
 from backend.data import ASSETS, parse_coinbase_candles
-from backend.models import BacktestAssumptions, Market, RiskConfig, now
+from backend.models import BacktestAssumptions, Market, RiskConfig, Token, now
+from backend.product.spot_markets import product_id
 from backend.settings import get_settings
 
 HOUR = timedelta(hours=1)
@@ -41,7 +42,7 @@ def load_candles(symbol: str, start: datetime, end: datetime, *, transport=None)
     settings = get_settings().providers
     start = start.astimezone(timezone.utc) - RULE_WARMUP_HOURS * HOUR
     end = end.astimezone(timezone.utc)
-    endpoint = f"{settings.market_base_url}/products/{settings.assets[symbol].product_id}/candles"
+    endpoint = f"{settings.market_base_url}/products/{product_id(symbol)}/candles"
     candles = []
     with httpx.Client(
         timeout=httpx.Timeout(3, connect=2),
@@ -71,7 +72,7 @@ def load_candles(symbol: str, start: datetime, end: datetime, *, transport=None)
     ):
         raise ValueError("Coinbase candle history has missing hours in the requested window")
     return Market(
-        asset=ASSETS[symbol],
+        asset=ASSETS.get(symbol) or Token(asset_id=symbol, symbol=symbol, name=symbol),
         candles=candles,
         source="coinbase_exchange",
         retrieved_at=now(),

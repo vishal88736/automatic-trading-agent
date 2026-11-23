@@ -237,6 +237,7 @@ export function DashboardMetric({
     .slice(-60);
   const ready = value !== null && recorded.length > 1;
   const change = (recorded.at(-1) ?? 0) - (recorded[0] ?? 0);
+  const unchanged = ready && recorded.every((mark) => mark === recorded[0]);
   const drawdown = metric === "drawdown";
   const relative =
     (metric === "equity" || metric === "available_cash") && recorded[0] > 0;
@@ -265,22 +266,31 @@ export function DashboardMetric({
         {drawdown ? percent(value) : money(value)}
       </dd>
       <dd className="dashboard-metric-history">
+        {!unchanged && (
+          <span
+            className="dashboard-trend"
+            data-direction={tone}
+            title={
+              ready
+                ? "Change across recorded snapshots"
+                : "Trend requires two recorded values"
+            }
+            aria-label={
+              ready ? `Recorded change ${signedChange}` : "Trend unavailable"
+            }
+          >
+            {ready ? signedChange : "—"}
+          </span>
+        )}
         <span
-          className="dashboard-trend"
-          data-direction={tone}
-          title={
-            ready
-              ? "Change across recorded snapshots"
-              : "Trend requires two recorded values"
-          }
+          className="dashboard-metric-line"
+          data-unchanged={unchanged || undefined}
+          role={unchanged ? "img" : undefined}
           aria-label={
-            ready ? `Recorded change ${signedChange}` : "Trend unavailable"
+            unchanged ? "No change across recorded snapshots" : undefined
           }
         >
-          {ready ? signedChange : "—"}
-        </span>
-        <span className="dashboard-metric-line">
-          {ready && (
+          {ready && !unchanged && (
             <Sparkline
               values={recorded}
               positive={tone === "up"}

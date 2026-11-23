@@ -16,7 +16,7 @@ type Strategy = {
   description: string;
   definition: {
     schema_version?: number;
-    asset: "BTC" | "ETH" | "SOL";
+    asset: string;
     timeframe?: string;
     entry: { combine?: string; conditions: Condition[] };
     exit: { combine?: string; conditions: Condition[] };
@@ -137,11 +137,39 @@ const templates: Template[] = [
   },
 ];
 
-export function draftStrategy(objective: string, current?: Strategy) {
+export function draftStrategy(
+  objective: string,
+  current?: Strategy,
+  assets: string[] = [],
+) {
   const text = objective.replace(/\s+/g, " ").trim();
   const understood: string[] = [];
+  const explicit = text.match(
+    /\b(?:buy|trade|sell|switch to)\s+([a-z0-9]{2,20})\b/i,
+  )?.[1];
+  const common = ASSETS.find(([, pattern]) => pattern.test(text))?.[0];
+  const listed = text
+    .match(/\b[A-Z0-9]{2,20}\b/g)
+    ?.find((symbol) => assets.includes(symbol));
+  const requested = explicit?.toUpperCase();
+  if (
+    explicit &&
+    explicit === requested &&
+    assets.length &&
+    !assets.includes(explicit) &&
+    !common &&
+    !listed
+  ) {
+    return {
+      strategy: null,
+      understood,
+      error: `${explicit} is unavailable for paper trading.`,
+    };
+  }
   const asset =
-    ASSETS.find(([, pattern]) => pattern.test(text))?.[0] ??
+    (requested && assets.includes(requested) ? requested : undefined) ??
+    common ??
+    listed ??
     current?.definition.asset ??
     "BTC";
   if (!current || asset !== current.definition.asset)
@@ -271,13 +299,16 @@ export class RulesProvider implements LLMProvider {
     }
     let objective = raw;
     let current: Strategy | undefined;
+    let assets: string[] = [];
     try {
       const parsed = JSON.parse(raw) as {
         objective?: string;
         current_document?: string;
+        assets?: string[];
       };
       if (typeof parsed.objective === "string") {
         objective = parsed.objective;
+        assets = parsed.assets ?? [];
         current = parsed.current_document
           ? (JSON.parse(parsed.current_document) as Strategy)
           : undefined;
@@ -285,8 +316,13 @@ export class RulesProvider implements LLMProvider {
     } catch {
       // A first message is plain text.
     }
-    const { strategy, understood } = draftStrategy(objective, current);
-    if (!strategy) return reply(request, { strategy_json: "", notes: HELP });
+    const { strategy, understood, error } = draftStrategy(
+      objective,
+      current,
+      assets,
+    );
+    if (!strategy)
+      return reply(request, { strategy_json: "", notes: error ?? HELP });
     const notes = understood.length
       ? `Understood: ${understood.join(", ")}. Hourly candles, long only. Review the rules, then backtest or start a paper agent.`
       : "No changes detected; the current draft is unchanged.";

@@ -36,6 +36,7 @@ from backend.product.exchanges import (
     create_client,
 )
 from backend.product.price_hub import ASSETS
+from backend.product.spot_markets import Asset
 
 ClientFactory = Callable[[Exchange, Environment, dict], ExchangeClient]
 STABLECOINS = {"USDT", "USDC", "FDUSD"}
@@ -63,7 +64,7 @@ class LinkRequest(Model):
 
 class LiveOrderRequest(Model):
     request_key: UUID
-    asset: Literal["BTC", "ETH", "SOL"]
+    asset: Asset
     side: Literal["BUY", "SELL"]
     quote_amount: Usdt
     acknowledge_live: bool = False
@@ -239,7 +240,13 @@ def control_connection(db, owner, connection, action, vault, factory) -> dict:
     if action == "pause":
         client = _client(row, vault, factory)
         try:
-            for asset in ASSETS:
+            assets = db.execute(
+                """SELECT DISTINCT asset FROM live_orders
+                   WHERE owner_id = %s AND connection_id = %s
+                   AND status IN ('NEW', 'SUBMITTING', 'UNKNOWN', 'PARTIALLY_FILLED')""",
+                (owner, connection),
+            ).fetchall()
+            for asset in sorted(set(ASSETS) | {asset for (asset,) in assets}):
                 try:
                     cancelled += client.cancel_open_orders(asset)
                 except ExchangeError as exc:
@@ -348,6 +355,12 @@ def _send(db, connection: dict, order_id: UUID, vault, factory) -> dict:
     client = _client(connection, vault, factory)
     try:
         try:
+            try:
+                supported = client.spot_assets(order["asset"])
+            except ExchangeError as exc:
+                raise ExchangeError(exc.message) from None
+            if order["asset"] not in supported:
+                raise ExchangeError(f"{order['asset']}/USDT is unavailable on this exchange")
             outcome = client.market_order(
                 order["asset"],
                 order["side"],
@@ -416,6 +429,15 @@ _ORDER_COLUMNS = """id, request_key, client_order_id, exchange_order_id, asset, 
     created_at, updated_at"""
 
 
+def connection_spot_assets(db, owner, connection, vault, factory, asset=None) -> list[str]:
+    row = _load(db, owner, connection)
+    client = _client(row, vault, factory)
+    try:
+        return client.spot_assets(asset)
+    finally:
+        client.close()
+
+
 def list_orders(db, owner: UUID, connection: UUID, limit: int = 50) -> list[dict]:
     _load(db, owner, connection)
     with db.cursor(row_factory=dict_row) as cursor:
@@ -459,8 +481,24 @@ def live_holding(db, owner: UUID, agent: UUID, asset: str) -> Decimal:
     return max(held, Decimal(0))
 
 
-def promote_agent(db, owner: UUID, agent: UUID, request: Promotion) -> dict:
+def promote_agent(db, owner: UUID, agent: UUID, request: Promotion, vault, factory) -> dict:
     from backend.product.agents import event
+
+    selection = db.execute(
+        """
+        SELECT v.document->'definition'->>'asset'
+        FROM paper_agents a JOIN platform_strategy_versions v
+          ON (v.owner_id, v.strategy_id, v.version) =
+             (a.owner_id, a.strategy_id, a.strategy_version)
+        WHERE a.owner_id = %s AND a.id = %s
+        """,
+        (owner, agent),
+    ).fetchone()
+    if selection is None:
+        raise LookupError("Agent unavailable")
+    (asset,) = selection
+    if asset not in connection_spot_assets(db, owner, request.connection_id, vault, factory, asset):
+        raise ValueError(f"{asset}/USDT is unavailable on this exchange")
 
     with db.transaction():
         with db.cursor(row_factory=dict_row) as cursor:

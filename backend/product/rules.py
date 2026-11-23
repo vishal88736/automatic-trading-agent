@@ -8,6 +8,7 @@ from typing import Annotated, Literal, get_args
 from pydantic import Field, StringConstraints
 
 from backend.models import Market, Model
+from backend.product.spot_markets import FEATURED, Asset
 from backend.strategies import indicators
 
 Indicator = Literal[
@@ -45,7 +46,7 @@ class RuleGroup(Model):
 
 class StrategyDefinition(Model):
     schema_version: Literal[1] = 1
-    asset: Literal["BTC", "ETH", "SOL"]
+    asset: Asset
     timeframe: Literal["1h"] = "1h"
     entry: RuleGroup
     exit: RuleGroup
@@ -116,7 +117,7 @@ def rule_signal(
     return "SELL" if holding else "BUY"
 
 
-def authoring_options() -> dict:
+def authoring_options(assets=FEATURED) -> dict:
     pairs = (
         ("RSI mean reversion", ("rsi", "lt", "30"), ("rsi", "gt", "65")),
         (
@@ -154,7 +155,7 @@ def authoring_options() -> dict:
         for name, entry, exit in pairs
     ]
     return {
-        "assets": get_args(StrategyDefinition.model_fields["asset"].annotation),
+        "assets": assets,
         "timeframes": get_args(StrategyDefinition.model_fields["timeframe"].annotation),
         "indicators": get_args(Indicator),
         "operators": get_args(Operator),

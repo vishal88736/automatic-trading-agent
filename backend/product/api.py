@@ -65,6 +65,7 @@ from backend.product.live import (
     Promotion,
     account_summary,
     agent_live_orders,
+    connection_spot_assets,
     control_connection,
     default_client,
     demote_agent,
@@ -80,6 +81,7 @@ from backend.product.market import load_quotes
 from backend.product.news_hub import NewsHub, fixture_pulse
 from backend.product.price_hub import PriceHub, quote
 from backend.product.rules import StrategyDraft, authoring_options
+from backend.product.spot_markets import FEATURED, listed_assets, product_id
 from backend.product.strategies import (
     archive_strategy,
     create_strategy,
@@ -148,6 +150,12 @@ def create_product_api(
             "Configure the platform database and a product API key of at least 32 bytes"
         )
     initial_usdt = TypeAdapter(OpeningCredit).validate_python(initial_usdt)
+
+    def require_paper_market(asset: str):
+        if asset not in FEATURED and asset not in listed_assets(fixture=fixture_feeds):
+            raise ProductError(
+                422, "MARKET_UNAVAILABLE", f"{asset} is unavailable for paper trading"
+            )
 
     @asynccontextmanager
     async def lifespan(application):
@@ -372,6 +380,7 @@ def create_product_api(
 
     @app.post("/platform/paper-orders", status_code=201)
     def paper_order_submit(order: OrderRequest, subject: Principal, db: Database):
+        require_paper_market(order.asset)
         quotes = quotes_for(db, subject, order.asset)
         return financial(submit_order(db, subject, order, quotes, PaperTerms()), 201)
 
@@ -478,9 +487,15 @@ def create_product_api(
             headers={"cache-control": "no-store", "x-accel-buffering": "no"},
         )
 
+    @app.get("/platform/spot-markets")
+    def paper_markets(subject: Principal):
+        return {"assets": listed_assets(fixture=fixture_feeds)}
+
     @app.get("/platform/paper-market/{asset}")
     async def paper_market(asset: Asset, request: Request, subject: Principal):
-        market = await request.app.state.feeds.market(asset)
+        await asyncio.to_thread(require_paper_market, asset)
+        product = f"{asset}-USD" if fixture_feeds else await asyncio.to_thread(product_id, asset)
+        market = await request.app.state.feeds.market(asset, product=product)
         technical = None
         if market.status in {"AVAILABLE", "FIXTURE"}:
             try:
@@ -563,6 +578,17 @@ def create_product_api(
             )
         )
 
+    @app.get("/platform/live/connections/{connection_id}/spot-markets")
+    def live_markets(connection_id: UUID, subject: Principal, db: Database):
+        secrets = live_vault()
+        return {
+            "assets": exchange_call(
+                lambda: connection_spot_assets(
+                    db, subject, connection_id, secrets, live_client_factory
+                )
+            )
+        }
+
     @app.get("/platform/live/connections/{connection_id}/orders")
     def live_order_history(connection_id: UUID, subject: Principal, db: Database):
         return financial({"items": exchange_call(lambda: list_orders(db, subject, connection_id))})
@@ -588,8 +614,10 @@ def create_product_api(
 
     @app.post("/platform/paper-agents/{agent_id}/live")
     def agent_go_live(agent_id: UUID, promotion: Promotion, subject: Principal, db: Database):
-        live_vault()
-        return exchange_call(lambda: promote_agent(db, subject, agent_id, promotion))
+        secrets = live_vault()
+        return exchange_call(
+            lambda: promote_agent(db, subject, agent_id, promotion, secrets, live_client_factory)
+        )
 
     @app.post("/platform/paper-agents/{agent_id}/live/stop")
     def agent_stop_live(agent_id: UUID, demotion: Demotion, subject: Principal, db: Database):
@@ -694,6 +722,7 @@ def create_product_api(
     def paper_watch(subject: Principal, db: Database, asset: Asset, change: PaperEmergency):
         ensure_account(db, subject, initial_usdt)
         if change.enabled:
+            require_paper_market(asset)
             db.execute(
                 "INSERT INTO platform_watchlist VALUES (%s, %s) ON CONFLICT DO NOTHING",
                 (subject, asset),
@@ -707,14 +736,16 @@ def create_product_api(
 
     @app.get("/platform/strategy-authoring")
     def strategy_authoring(subject: Principal):
-        return authoring_options()
+        return authoring_options(listed_assets(fixture=fixture_feeds))
 
     @app.post("/platform/strategy-authoring/validate")
     def validate_draft(draft: StrategyDraft, subject: Principal):
+        require_paper_market(draft.definition.asset)
         return {"document": draft}
 
     @app.post("/platform/strategy-authoring/start-agent", status_code=201)
     def start_agent_from_draft(request: DraftAgentStart, subject: Principal, db: Database):
+        require_paper_market(request.document.definition.asset)
         try:
             agent, strategy = start_draft_agent(db, subject, request)
         except ValueError as exc:
@@ -732,6 +763,7 @@ def create_product_api(
 
     @app.post("/platform/custom-strategies", status_code=201)
     def new_strategy(document: StrategyDraft, subject: Principal, db: Database):
+        require_paper_market(document.definition.asset)
         ensure_account(db, subject, initial_usdt)
         return create_strategy(db, subject, document)
 
@@ -749,6 +781,7 @@ def create_product_api(
 
     @app.put("/platform/custom-strategies/{strategy_id}")
     def edit_strategy(strategy_id: UUID, edit: StrategyEdit, subject: Principal, db: Database):
+        require_paper_market(edit.document.definition.asset)
         return update_strategy(
             db, subject, strategy_id, edit.document, expected_version=edit.expected_version
         )

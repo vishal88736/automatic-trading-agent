@@ -315,7 +315,10 @@ test("the signed-in dashboard uses recorded equity and marks, with a responsive 
     "$2,500.00",
     "$0.00",
   ]);
-  await expect(kpis.locator(".sparkline")).toHaveCount(4);
+  await expect(kpis.locator(".sparkline")).toHaveCount(3);
+  await expect(
+    kpis.getByRole("img", { name: "No change across recorded snapshots" }),
+  ).toHaveCount(1);
   await expect(kpis.locator(".dashboard-trend").first()).toHaveText("+25.00%");
   await expect(kpis.locator(".dashboard-trend").nth(1)).toHaveAttribute(
     "data-direction",
@@ -323,11 +326,24 @@ test("the signed-in dashboard uses recorded equity and marks, with a responsive 
   );
   const ticker = page.getByRole("region", { name: "Live prices" });
   await expect(ticker.locator(".sparkline")).toHaveCount(3);
+  await expect(ticker.getByText("24h", { exact: true })).toHaveCount(3);
+  await expect(ticker.getByText("Recent ticks", { exact: true })).toHaveCount(
+    3,
+  );
   expect((await kpis.boundingBox())!.y).toBeLessThan(
     (await equity.boundingBox())!.y,
   );
   expect((await sidebar.boundingBox())!.width).toBeLessThan(
     (await equity.boundingBox())!.x,
+  );
+  await page.setViewportSize({ width: 1366, height: 726 });
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect(equity).toBeInViewport({ ratio: 1 });
+  const settings = sidebar.getByRole("link", { name: "Settings", exact: true });
+  await settings.scrollIntoViewIfNeeded();
+  const settingsBox = (await settings.boundingBox())!;
+  expect(settingsBox.y + settingsBox.height).toBeLessThan(
+    (await page.locator(".kx-sidebar-foot").boundingBox())!.y,
   );
 
   const snapshot = page.getByRole("slider", {

@@ -7,6 +7,7 @@ import {
 } from "react";
 import { EquityChart } from "../charts";
 import { money, percent, timestamp } from "../ui";
+import { useSpotAssets } from "./market-assets";
 import { platform } from "./client";
 import { workspaceHref } from "./navigation";
 import {
@@ -87,6 +88,9 @@ export default function PaperAccount({
   dashboardMarkets?: ReactNode;
   liveEnabled?: boolean;
 }) {
+  const { assets: spotAssets, error: catalogError } = useSpotAssets(
+    view === "trade",
+  );
   const dashboard = view === "dashboard";
   const includeOrders = view !== "settings";
   const [data, setData] = useState<Awaited<ReturnType<typeof fetchPaper>>>();
@@ -363,11 +367,12 @@ export default function PaperAccount({
             <label>
               Asset
               <select name="asset">
-                <option>BTC</option>
-                <option>ETH</option>
-                <option>SOL</option>
+                {spotAssets.map((symbol) => (
+                  <option key={symbol}>{symbol}</option>
+                ))}
               </select>
             </label>
+            {catalogError && <p role="alert">{catalogError}</p>}
             <label>
               Side
               <select name="side">

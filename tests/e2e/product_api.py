@@ -28,7 +28,7 @@ def history(symbol, start, end):
 
 
 def quotes(assets):
-    prices = {"BTC": "50000", "ETH": "2500", "SOL": "130"}
+    prices = {"BTC": "50000", "ETH": "2500", "SOL": "130", "ADA": "0.60"}
     at = now()
     return {
         asset: PaperQuote(asset=asset, price=prices[asset], observed_at=at, source="fixture")

@@ -55,6 +55,15 @@ test("Fund, version, backtest, and isolate a tenant strategy", async ({
   await expect(
     page.getByRole("button", { name: "Ethereum", exact: true }),
   ).toBeVisible();
+  await page.getByLabel("Asset name or symbol").fill("ADA");
+  await page.getByRole("button", { name: "ADA", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "ADA (ADA/USD)" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Add to watchlist" }).click();
+  await expect(
+    page.getByRole("button", { name: "Remove from watchlist" }),
+  ).toBeVisible();
   await page.getByRole("link", { name: "Crypto News", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Latest crypto news" }),

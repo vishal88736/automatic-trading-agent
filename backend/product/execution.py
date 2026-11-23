@@ -14,11 +14,12 @@ from pydantic import AwareDatetime, Field, model_validator
 
 from backend.models import Model, RiskConfig, now
 from backend.product.accounts import PaperAccount, get_account
+from backend.product.spot_markets import Asset as Asset
 
 # Account-wide trade frequency limits applied to every manual and agent order.
 REVIEWED_TRADE_CAPS = {"max_trades_per_hour": 6, "max_trades_per_day": 20}
 
-Asset = Literal["BTC", "ETH", "SOL"]
+
 Quantity = Annotated[Decimal, Field(gt=0, le=1000000, decimal_places=12)]
 Price = Annotated[Decimal, Field(gt=0, le=100000000, decimal_places=12)]
 USDT = Decimal("0.000001")
