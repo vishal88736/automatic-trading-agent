@@ -15,7 +15,7 @@ from backend.models import Market
 from backend.product.history import HOUR, HistoricalBacktestRequest
 from backend.product.strategies import StoredStrategy
 
-REPLAY_VERSION = "krono-spot-hourly-v1"
+REPLAY_VERSION = "krono-spot-hourly-v2"
 
 
 def save_replay(
@@ -48,6 +48,12 @@ def save_replay(
         "dataset": {
             "sha256": checksum,
             "source": market.source,
+            "venue": market.venue,
+            "product_id": market.product_id,
+            "quote_currency": market.quote_currency,
+            "evaluation_start_utc": request.start.astimezone(timezone.utc).isoformat(),
+            "evaluation_end_utc": end.isoformat(),
+            "evaluation_candle_count": len(market.candles) - RULE_WARMUP_HOURS,
             "timeframe": market.timeframe,
             "as_of": market_data["as_of"],
             "retrieved_at": market_data["retrieved_at"],

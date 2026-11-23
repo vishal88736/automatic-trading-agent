@@ -10,7 +10,7 @@ from backend.models import (
     RiskConfig,
     StrategyConfig,
 )
-from backend.product.rules import StrategyDefinition, rule_signal
+from backend.product.rules import StrategyDefinition, rule_signal, spot_entry_budget
 from backend.strategies import evaluate, indicators
 
 D = Decimal
@@ -65,6 +65,7 @@ def _replay(
         opened_at = None
         day, day_equity = None, cash
         last_entry_index = None
+        capped_entries = 0
         fee_rate, slip = D(request.fee_bps) / 10000, D(request.slippage_bps) / 10000
 
         def close_position(at, raw_price, reason):
@@ -97,7 +98,9 @@ def _replay(
             # Only previously closed candles and previously available articles may influence this order.
             history = market.model_copy(
                 update={
-                    "candles": market.candles[:index],
+                    "candles": market.candles[index - warmup : index]
+                    if rules
+                    else market.candles[:index],
                     "price": previous.close,
                     "price_at": previous.closed_at,
                     "as_of": previous.closed_at,
@@ -150,17 +153,24 @@ def _replay(
                 and (rules is not None or current.open > entry_stop)
                 and (last_entry_index is None or (index - last_entry_index) * 3600 >= cooldown)
             ):
-                amount = min(
-                    cash * rules.cash_fraction if rules else cash,
-                    risk.max_trade_notional,
-                    opening_equity * risk.max_equity_per_trade,
-                    opening_equity * risk.max_asset_exposure,
-                    opening_equity * risk.max_aggregate_exposure,
+                amount = (
+                    spot_entry_budget(cash, opening_equity, rules, risk)
+                    if rules
+                    else min(
+                        cash,
+                        risk.max_trade_notional,
+                        opening_equity * risk.max_equity_per_trade,
+                        opening_equity * risk.max_asset_exposure,
+                        opening_equity * risk.max_aggregate_exposure,
+                    )
                 )
                 if amount >= 1:
+                    requested_amount = cash * rules.cash_fraction if rules else cash
+                    capped_entries += amount < requested_amount
                     price = current.open * (1 + slip)
-                    fee = amount * fee_rate
-                    units = (amount - fee) / price
+                    gross = amount / (1 + fee_rate) if rules else amount * (1 - fee_rate)
+                    fee = amount - gross
+                    units = gross / price
                     cash -= amount
                     basis = amount
                     stop = entry_stop
@@ -178,6 +188,8 @@ def _replay(
                             "price": str(price),
                             "fee": str(fee),
                             "signal_at": previous.closed_at.isoformat(),
+                            "requested_budget": str(requested_amount),
+                            "effective_budget": str(amount),
                         }
                     )
                     if current.low <= stop:
@@ -207,7 +219,30 @@ def _replay(
             exposed_hours += exposed_this_hour
             hourly_returns.append(equity / prior_equity - 1)
             prior_equity = equity
-        ending = cash + units * market.candles[end - 1].close
+        last = market.candles[end - 1]
+        marked_value = units * last.close
+        ending = cash + marked_value
+        open_position = liquidation = None
+        if units:
+            estimated_price = last.close * (1 - slip)
+            estimated_gross = units * estimated_price
+            estimated_fee = estimated_gross * fee_rate
+            estimated_proceeds = estimated_gross - estimated_fee
+            open_position = {
+                "opened_at": opened_at.isoformat(),
+                "mark_at": last.closed_at.isoformat(),
+                "quantity": str(units),
+                "mark_price": str(last.close),
+                "market_value": str(marked_value),
+                "cost_basis": str(basis),
+                "unrealized_pnl": str(marked_value - basis),
+            }
+            liquidation = {
+                "estimated_exit_price": str(estimated_price),
+                "estimated_exit_fee": str(estimated_fee),
+                "estimated_net_pnl": str(estimated_proceeds - basis),
+                "estimated_final_cash": str(cash + estimated_proceeds),
+            }
         gains = sum((p for p in closed if p > 0), D(0))
         losses = -sum((p for p in closed if p < 0), D(0))
         wins, loss_count = len([p for p in closed if p > 0]), len([p for p in closed if p < 0])
@@ -219,13 +254,32 @@ def _replay(
         return_variance = sum((value - mean_return) ** 2 for value in hourly_returns) / len(
             hourly_returns
         )
-        downside_variance = sum(min(value, D(0)) ** 2 for value in hourly_returns) / len(
-            hourly_returns
+        target_return = (
+            (1 + request.mar_annual_pct / 100) ** (D(1) / 8760) - 1
+            if rules and request.mar_annual_pct
+            else D(0)
         )
+        downside_variance = sum(
+            min(value - target_return, D(0)) ** 2 for value in hourly_returns
+        ) / len(hourly_returns)
         annualized_mean = mean_return * D(8760).sqrt()
+        metric_notes = {}
+        if not closed:
+            metric_notes["win_rate"] = "No closed trades in this window."
+        if not losses:
+            metric_notes["profit_factor"] = "No losing closed trades in this window."
+        if rules and not return_variance:
+            metric_notes["sharpe_ratio"] = "The hourly returns have no variation."
+        if rules and not downside_variance:
+            metric_notes["sortino_ratio"] = (
+                "No hourly returns fell below the minimum acceptable return."
+            )
         return {
             "starting_equity": str(request.initial_equity),
             "ending_equity": str(ending),
+            "ending_cash": str(cash),
+            "realized_pnl": str(sum(closed, D(0))),
+            "metric_notes": metric_notes,
             "total_return": str(ending / request.initial_equity - 1),
             "net_pnl": str(ending - request.initial_equity),
             "annualized_return": str((float(ending / request.initial_equity) ** (365 / days)) - 1)
@@ -233,6 +287,10 @@ def _replay(
             else None,
             "maximum_drawdown": str(maximum_drawdown),
             "trade_count": len(closed),
+            "winning_trades": wins,
+            "losing_trades": loss_count,
+            "breakeven_trades": len(closed) - wins - loss_count,
+            "capped_entries": capped_entries,
             "fill_count": len(trades),
             "win_rate": str(D(wins) / len(closed)) if closed else None,
             "profit_factor": str(gains / losses) if losses else None,
@@ -246,12 +304,16 @@ def _replay(
             "sharpe_ratio": str(annualized_mean / return_variance.sqrt())
             if rules and return_variance
             else None,
-            "sortino_ratio": str(annualized_mean / downside_variance.sqrt())
+            "sortino_ratio": str(
+                (mean_return - target_return) * D(8760).sqrt() / downside_variance.sqrt()
+            )
             if rules and downside_variance
             else None,
             "benchmark_return": str(benchmark),
             "benchmark_note": "Unscaled buy-and-hold reference, excluding costs; strategy is cash-constrained and not risk-matched.",
             "open_quantity": str(units),
+            "open_position": open_position,
+            "end_of_window_liquidation_estimate": liquidation,
             "trades": trades,
             "equity_history": curve,
             "duration_days": days,
@@ -270,6 +332,7 @@ def _replay(
         "assumptions": {
             "fee_bps": request.fee_bps,
             "slippage_bps": request.slippage_bps,
+            "sortino_mar_annual_pct": str(request.mar_annual_pct),
             "network_fee": "0; no blockchain",
             "liquidity": "assumed sufficient; no DEX route",
             "execution": "Signal from prior closed bar; fill at next open. Standing stops fill at stop or worse opening gap with slippage.",
@@ -279,11 +342,11 @@ def _replay(
             "news": "No news inputs"
             if rules
             else "Article publication AND availability must precede signal time. Current feeds cannot recreate historical knowledge.",
-            "annualization": "Hourly ratios use zero reference return and 8760 hours/year. Undefined ratios are null. Annualized return requires a full year."
+            "annualization": "Sharpe uses a zero reference return. Sortino uses the configured annual minimum acceptable return converted to an hourly target. Both use 8760 hours/year."
             if rules
             else "Annualized return only after a full year; Sharpe omitted because its assumptions are unverified.",
             "trade_timing": "Duration uses bar timestamps. Exposure counts hours with any modeled holding, including entry and exit bars.",
-            "survivorship": "Fixed BTC/ETH/SOL universe; not a market-wide survivorship-adjusted study.",
+            "survivorship": "Replay is limited to the selected listed spot market. No survivorship adjustment.",
             "out_of_sample": "Chronological holdout, frozen parameters, fresh portfolio, past warm-up only; not a hyperparameter search.",
         },
         "in_sample": segment(warmup, split),

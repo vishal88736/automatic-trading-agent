@@ -40,9 +40,19 @@ class HistoricalBacktestRequest(BacktestAssumptions):
 def load_candles(symbol: str, start: datetime, end: datetime, *, transport=None) -> Market:
     """Load an exact contiguous window plus required warm-up from the registered venue."""
     settings = get_settings().providers
-    start = start.astimezone(timezone.utc) - RULE_WARMUP_HOURS * HOUR
+    if start.utcoffset() is None or end.utcoffset() is None:
+        raise ValueError("Historical boundaries must include a UTC offset")
+    start = start.astimezone(timezone.utc)
     end = end.astimezone(timezone.utc)
-    endpoint = f"{settings.market_base_url}/products/{product_id(symbol)}/candles"
+    if any(
+        boundary != boundary.replace(minute=0, second=0, microsecond=0) for boundary in (start, end)
+    ):
+        raise ValueError("Historical boundaries must align to UTC hours")
+    if end < start or end > now():
+        raise ValueError("Historical window must end on a closed candle")
+    start -= RULE_WARMUP_HOURS * HOUR
+    product = product_id(symbol)
+    endpoint = f"{settings.market_base_url}/products/{product}/candles"
     candles = []
     with httpx.Client(
         timeout=httpx.Timeout(3, connect=2),
@@ -75,6 +85,9 @@ def load_candles(symbol: str, start: datetime, end: datetime, *, transport=None)
         asset=ASSETS.get(symbol) or Token(asset_id=symbol, symbol=symbol, name=symbol),
         candles=candles,
         source="coinbase_exchange",
+        venue="coinbase_exchange",
+        product_id=product,
+        quote_currency=product.rsplit("-", 1)[-1],
         retrieved_at=now(),
         as_of=end,
         status="AVAILABLE",

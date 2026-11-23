@@ -84,6 +84,9 @@ class Market(Model):
     asset: Token
     candles: list[Candle] = Field(default_factory=list)
     source: str
+    venue: str | None = None
+    product_id: str | None = None
+    quote_currency: str | None = None
     retrieved_at: AwareDatetime
     as_of: AwareDatetime | None = None
     status: Literal["AVAILABLE", "STALE", "UNAVAILABLE", "FIXTURE"]
@@ -444,6 +447,7 @@ class BacktestAssumptions(Model):
         default_factory=lambda: get_settings().simulation.slippage_bps, ge=0, le=100
     )
     holdout_fraction: float = Field(default=0.3, ge=0.2, le=0.5)
+    mar_annual_pct: Decimal = Field(default=Decimal(0), gt=-100, le=1000)
 
 
 class BacktestRequest(BacktestAssumptions):

@@ -21,6 +21,7 @@ export interface StrategyDocument {
     stop_loss: string | number;
     take_profit?: string | number | null;
     trailing_stop?: string | number | null;
+    max_position_usdt?: string | number | null;
   };
 }
 

@@ -7,7 +7,7 @@ from typing import Annotated, Literal, get_args
 
 from pydantic import Field, StringConstraints
 
-from backend.models import Market, Model
+from backend.models import Market, Model, RiskConfig
 from backend.product.spot_markets import FEATURED, Asset
 from backend.strategies import indicators
 
@@ -54,12 +54,30 @@ class StrategyDefinition(Model):
     stop_loss: Fraction
     take_profit: Fraction | None = None
     trailing_stop: Fraction | None = None
+    max_position_usdt: Annotated[Decimal, Field(gt=0, le=100000, decimal_places=6)] | None = None
 
 
 class StrategyDraft(Model):
     name: Name
     description: str = Field(default="", max_length=2000)
     definition: StrategyDefinition
+
+
+def spot_entry_budget(
+    cash: Decimal, equity: Decimal, strategy: StrategyDefinition, risk: RiskConfig
+) -> Decimal:
+    """Limit an entry for one flat spot strategy, including its modeled buy fee."""
+    return max(
+        Decimal(0),
+        min(
+            cash * strategy.cash_fraction,
+            strategy.max_position_usdt if strategy.max_position_usdt is not None else cash,
+            risk.max_trade_notional,
+            equity * risk.max_equity_per_trade,
+            equity * risk.max_asset_exposure,
+            equity * risk.max_aggregate_exposure,
+        ),
+    )
 
 
 def _threshold(condition: Condition, values: dict) -> Decimal:

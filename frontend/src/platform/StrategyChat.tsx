@@ -1,6 +1,6 @@
 import { Bot, Send, Sparkles, UserRound } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { percent } from "../ui";
+import { money, percent } from "../ui";
 import { platform, PlatformRequestError } from "./client";
 import { workspaceHref } from "./navigation";
 import { PaperAgentFields, paperAgentSettings } from "./PaperAgentFields";
@@ -18,6 +18,7 @@ type QuestionField =
   | "stop_loss"
   | "take_profit"
   | "trailing_stop"
+  | "max_position_usdt"
   | "strategy";
 
 interface Question {
@@ -410,6 +411,12 @@ export function StrategyChat({
               <dt>Stop loss</dt>
               <dd>{percent(definition.stop_loss)}</dd>
             </div>
+            {definition.max_position_usdt != null && (
+              <div>
+                <dt>Maximum entry budget</dt>
+                <dd>{money(definition.max_position_usdt)}</dd>
+              </div>
+            )}
             {definition.take_profit && (
               <div>
                 <dt>Take profit</dt>

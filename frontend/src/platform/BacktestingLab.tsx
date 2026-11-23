@@ -18,6 +18,8 @@ interface Fill {
   fee: string;
   pnl?: string;
   reason?: string;
+  requested_budget?: string;
+  effective_budget?: string;
 }
 interface Segment {
   from: string;
@@ -32,6 +34,26 @@ interface Segment {
   sharpe_ratio: string | null;
   sortino_ratio: string | null;
   trade_count: number;
+  winning_trades?: number;
+  losing_trades?: number;
+  breakeven_trades?: number;
+  capped_entries?: number;
+  ending_cash?: string;
+  realized_pnl?: string;
+  metric_notes?: Record<string, string>;
+  open_position?: {
+    quantity: string;
+    mark_price: string;
+    market_value: string;
+    cost_basis: string;
+    unrealized_pnl: string;
+  } | null;
+  end_of_window_liquidation_estimate?: {
+    estimated_exit_price: string;
+    estimated_exit_fee: string;
+    estimated_net_pnl: string;
+    estimated_final_cash: string;
+  } | null;
   average_trade_duration_seconds: string | null;
   average_win: string | null;
   average_loss: string | null;
@@ -44,7 +66,15 @@ interface Report {
   id: string;
   strategy_version: number;
   engine_version: string;
-  dataset: { sha256: string; source: string; candle_count: number };
+  dataset: {
+    sha256: string;
+    source: string;
+    candle_count: number;
+    product_id?: string | null;
+    quote_currency?: string | null;
+    evaluation_candle_count?: number;
+    warmup_hours?: number;
+  };
   request: object;
   market_data: { candles: Candle[] };
   result: {
@@ -71,6 +101,11 @@ function ReportView({ report }: { report: Report }) {
       Date.parse(candle.closed_at) <= Date.parse(segment.to),
   );
   const chartRows = segment.equity_history;
+  const open = segment.open_position;
+  const estimate = segment.end_of_window_liquidation_estimate;
+  const showBudgets = segment.trades.some(
+    (trade) => trade.requested_budget != null,
+  );
   const metrics = [
     ["Total return", percent(segment.total_return)],
     ["Net P&L", money(segment.net_pnl)],
@@ -104,8 +139,8 @@ function ReportView({ report }: { report: Report }) {
         Use report for a paper agent
       </a>
       <p>
-        {report.result.symbol}/USD · hourly · strategy v
-        {report.strategy_version} ·{" "}
+        {report.dataset.product_id ?? `${report.result.symbol}/USD`} · hourly ·
+        strategy v{report.strategy_version} ·{" "}
         {report.result.fixture ? "Synthetic fixture" : "Coinbase Exchange"}
       </p>
       <p>
@@ -138,6 +173,76 @@ function ReportView({ report }: { report: Report }) {
           </div>
         ))}
       </dl>
+      {segment.capped_entries != null && (
+        <p className="muted">
+          {segment.capped_entries}{" "}
+          {segment.capped_entries === 1 ? "entry was" : "entries were"} reduced
+          by sizing or risk caps in this window. See requested and filled
+          budgets in the fill history.
+        </p>
+      )}
+      {segment.winning_trades != null && (
+        <p className="muted">
+          {segment.winning_trades} winning · {segment.losing_trades} losing ·{" "}
+          {segment.breakeven_trades} breakeven closed trades
+        </p>
+      )}
+      {!!Object.keys(segment.metric_notes ?? {}).length && (
+        <details>
+          <summary>Metric notes</summary>
+          <ul>
+            {Object.entries(segment.metric_notes ?? {}).map(([key, note]) => (
+              <li key={key}>
+                {key.replaceAll("_", " ")} · {note}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {segment.open_position !== undefined && (
+        <>
+          <h4>End-of-window position</h4>
+          {open ? (
+            <>
+              <p className="muted">
+                {open.quantity} {report.result.symbol} remained open at{" "}
+                {money(open.mark_price)} per coin. Its value is included in
+                equity.
+              </p>
+              <dl className="platform-backtest-metrics">
+                <div>
+                  <dt>Marked value</dt>
+                  <dd>{money(open.market_value)}</dd>
+                </div>
+                <div>
+                  <dt>Unrealized P&amp;L</dt>
+                  <dd>{money(open.unrealized_pnl)}</dd>
+                </div>
+                <div>
+                  <dt>Realized P&amp;L</dt>
+                  <dd>{money(segment.realized_pnl)}</dd>
+                </div>
+                <div>
+                  <dt>Ending cash</dt>
+                  <dd>{money(segment.ending_cash)}</dd>
+                </div>
+              </dl>
+              {estimate && (
+                <details>
+                  <summary>Estimated cash if closed at the end</summary>
+                  <p>
+                    {money(estimate.estimated_final_cash)} after estimated
+                    selling fees and slippage. The estimate does not count as a
+                    fill or a closed trade.
+                  </p>
+                </details>
+              )}
+            </>
+          ) : (
+            <p className="muted">No position remained open.</p>
+          )}
+        </>
+      )}
       <h4>Equity</h4>
       <EquityChart
         rows={chartRows}
@@ -179,6 +284,7 @@ function ReportView({ report }: { report: Report }) {
                 <th>Quantity</th>
                 <th>Fee</th>
                 <th>P&L</th>
+                {showBudgets && <th>Requested / effective budget</th>}
               </tr>
             </thead>
             <tbody>
@@ -190,6 +296,13 @@ function ReportView({ report }: { report: Report }) {
                   <td>{trade.quantity}</td>
                   <td>{money(trade.fee)}</td>
                   <td>{money(trade.pnl)}</td>
+                  {showBudgets && (
+                    <td>
+                      {trade.requested_budget == null
+                        ? "—"
+                        : `${money(trade.requested_budget)} / ${money(trade.effective_budget)}`}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -202,7 +315,9 @@ function ReportView({ report }: { report: Report }) {
         <summary>Assumptions and dataset</summary>
         <p>
           {report.engine_version} · {report.dataset.source} ·{" "}
-          {report.dataset.candle_count} candles
+          {report.dataset.evaluation_candle_count != null
+            ? `${report.dataset.evaluation_candle_count} replay candles + ${report.dataset.warmup_hours} warm-up candles`
+            : `${report.dataset.candle_count} candles`}
         </p>
         <p>
           SHA-256 <code>{report.dataset.sha256}</code>
@@ -284,6 +399,8 @@ export default function BacktestingLab({ reportId }: { reportId?: string }) {
           initial_equity: fields.get("capital"),
           fee_bps: Number(fields.get("fees")),
           slippage_bps: Number(fields.get("slippage")),
+          holdout_fraction: Number(fields.get("holdout")) / 100,
+          mar_annual_pct: fields.get("mar"),
         },
       );
       window.location.hash = workspaceHref("backtests", `/${saved.id}`);
@@ -380,6 +497,34 @@ export default function BacktestingLab({ reportId }: { reportId?: string }) {
                 />
               </label>
             </div>
+            <details>
+              <summary>Advanced replay settings</summary>
+              <div className="platform-backtest-fields">
+                <label>
+                  Holdout (%)
+                  <input
+                    name="holdout"
+                    type="number"
+                    min="20"
+                    max="50"
+                    defaultValue="30"
+                    required
+                  />
+                </label>
+                <label>
+                  Annual Sortino target (%)
+                  <input
+                    name="mar"
+                    type="number"
+                    min="-99.99"
+                    max="1000"
+                    step="0.01"
+                    defaultValue="0"
+                    required
+                  />
+                </label>
+              </div>
+            </details>
             <button type="submit" className="primary" disabled={busy}>
               Run backtest
             </button>
@@ -389,7 +534,7 @@ export default function BacktestingLab({ reportId }: { reportId?: string }) {
       {!reportId && !busy && !error && !strategies.length && (
         <p>
           Save a strategy in{" "}
-          <a href={workspaceHref("strategies")}>Strategies</a> to run a
+          <a href={workspaceHref("builder")}>AI Strategy Builder</a> to run a
           backtest.
         </p>
       )}

@@ -32,7 +32,7 @@ from backend.product.execution import (
 )
 from backend.product.history import HistoricalBacktestRequest, load_candles
 from backend.product.market import load_quotes
-from backend.product.rules import StrategyDefinition, rule_signal
+from backend.product.rules import StrategyDefinition, rule_signal, spot_entry_budget
 from backend.product.strategies import get_strategy
 from backend.product.workflow import activation_graph
 from backend.strategies import indicators
@@ -208,14 +208,18 @@ class PaperWorker:
                     Decimal(0), min(work["capital"], equity - quantity * quote.price)
                 )
                 budget = min(
-                    cash_available * definition.cash_fraction,
+                    spot_entry_budget(cash_available, equity, definition, terms.risk),
                     account.cash * terms.risk.max_equity_per_trade,
                     terms.risk.max_trade_notional,
                 )
                 costs = (1 + Decimal(terms.fee_bps) / 10000) * (
                     1 + Decimal(terms.slippage_bps) / 10000
                 )
-                quantity = (budget / (quote.price * costs)).quantize(PX, rounding=ROUND_DOWN)
+                quantity = (
+                    (budget / (quote.price * costs)).quantize(PX, rounding=ROUND_DOWN)
+                    if budget >= 1
+                    else Decimal(0)
+                )
             detail = {
                 "decision": side,
                 "reason": why,

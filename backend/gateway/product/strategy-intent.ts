@@ -9,6 +9,7 @@ const fields = [
   "stop_loss",
   "take_profit",
   "trailing_stop",
+  "max_position_usdt",
 ] as const;
 const required = fields.slice(0, 5);
 export const questionField = z.enum([...fields, "strategy"]);
@@ -26,31 +27,6 @@ export interface StrategyQuestion {
   options: string[];
 }
 
-const conditionSchema = z.object({
-  indicator: z.string(),
-  operator: z.string(),
-  threshold: z.union([z.string(), z.number()]),
-});
-const groupSchema = z.object({
-  combine: z.enum(["all", "any"]).optional(),
-  conditions: z.array(conditionSchema).min(1),
-});
-const amountSchema = z.union([z.string(), z.number()]);
-export const strategyDocumentSchema = z.object({
-  name: z.string(),
-  description: z.string().optional(),
-  definition: z.object({
-    schema_version: z.literal(1).optional(),
-    asset: z.string(),
-    timeframe: z.literal("1h").optional(),
-    entry: groupSchema,
-    exit: groupSchema,
-    cash_fraction: amountSchema,
-    stop_loss: amountSchema,
-    take_profit: amountSchema.nullish(),
-    trailing_stop: amountSchema.nullish(),
-  }),
-});
 export type StrategyDocument = z.infer<typeof strategyDocumentSchema>;
 type Definition = StrategyDocument["definition"];
 type Condition = z.infer<typeof conditionSchema>;
@@ -107,6 +83,8 @@ const messages: Record<QuestionField, string> = {
     "What percentage gain should trigger take profit, or should take profit be turned off?",
   trailing_stop:
     "What trailing-stop percentage should the strategy use, or should it be turned off?",
+  max_position_usdt:
+    "What maximum position amount in USD or USDT should apply, or should the cap be removed?",
   strategy:
     "Which trading rule do you want to add or change? Please include the condition and its threshold.",
 };
@@ -191,7 +169,9 @@ function normalizeAsset(value: string) {
 }
 
 function mentionedAssets(turn: StrategyTurn, allowed: Set<string>) {
-  const text = turn.text.replace(quoteSuffix, "");
+  const text = turn.text
+    .replace(quoteSuffix, "")
+    .replace(/\$\d[\d,.]*(?!\w)|(?<=\d)\s+(?:USDT|USD)\b/gi, " ");
   const candidates = new Set<string>();
   const standalone = normalizeAsset(text.replace(/[.!?]$/, ""));
   if (allowed.has(standalone)) candidates.add(standalone);
@@ -236,7 +216,7 @@ function mentionedAssets(turn: StrategyTurn, allowed: Set<string>) {
   return [...candidates];
 }
 
-const indicators: Readonly<Record<string, string>> = {
+const indicators = {
   price: "price",
   "close price": "price",
   "closing price": "price",
@@ -273,9 +253,9 @@ const indicators: Readonly<Record<string, string>> = {
   "prior low 20": "prior_low_20",
   "prior 20 bar high": "prior_high_20",
   "prior 20 bar low": "prior_low_20",
-};
+} as const;
 
-const operators: Readonly<Record<string, string>> = {
+const operators = {
   "<": "lt",
   ">": "gt",
   "<=": "lte",
@@ -294,7 +274,51 @@ const operators: Readonly<Record<string, string>> = {
   "at least": "gte",
   "crosses above": "crosses_above",
   "crosses below": "crosses_below",
-};
+} as const;
+
+const indicatorName = z.enum([...new Set(Object.values(indicators))]);
+const operatorName = z.enum([...new Set(Object.values(operators))]);
+const amountSchema = z.union([z.string(), z.number()]);
+const conditionSchema = z.strictObject({
+  indicator: indicatorName,
+  operator: operatorName,
+  threshold: amountSchema,
+});
+const combineSchema = z.enum(["all", "any"]);
+const groupSchema = z.strictObject({
+  combine: combineSchema,
+  conditions: z.array(conditionSchema).min(1).max(12),
+});
+
+// Required keys and nullable optional values give structured-output providers
+// the same trade fields as the saved definition, in a closed JSON object.
+export const generatedDefinitionSchema = z.strictObject({
+  schema_version: z.literal(1),
+  asset: z.string(),
+  timeframe: z.literal("1h"),
+  entry: groupSchema,
+  exit: groupSchema,
+  cash_fraction: amountSchema,
+  stop_loss: amountSchema,
+  take_profit: amountSchema.nullable(),
+  trailing_stop: amountSchema.nullable(),
+  max_position_usdt: amountSchema.nullable(),
+});
+
+const savedGroupSchema = groupSchema.partial({ combine: true });
+export const strategyDocumentSchema = z.object({
+  name: z.string(),
+  description: z.string().optional(),
+  definition: generatedDefinitionSchema
+    .partial({
+      schema_version: true,
+      timeframe: true,
+      take_profit: true,
+      trailing_stop: true,
+      max_position_usdt: true,
+    })
+    .extend({ entry: savedGroupSchema, exit: savedGroupSchema }),
+});
 
 function indicator(value: string) {
   const key = value
@@ -303,8 +327,9 @@ function indicator(value: string) {
     .replace(/[()_-]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  return Object.getOwnPropertyDescriptor(indicators, key)?.value as
-    string | undefined;
+  return Object.hasOwn(indicators, key)
+    ? indicators[key as keyof typeof indicators]
+    : undefined;
 }
 
 function removeLeadingAsset(text: string, asset?: string) {
@@ -321,7 +346,7 @@ function removeLeadingAsset(text: string, asset?: string) {
 
 function readCondition(text: string, asset?: string): Condition | undefined {
   const comparison = text.match(
-    /^(.+?)\s*(crosses\s+(?:above|below)|at\s+or\s+(?:above|below)|at least|at most|less than|greater than|<=|>=|≤|≥|<|>|\bbelow\b|\bunder\b|\babove\b|\bover\b)\s*(.+)$/i,
+    /^(.+?)\s*(crosses[\s_]+(?:above|below)|at\s+or\s+(?:above|below)|at least|at most|less than|greater than|<=|>=|≤|≥|<|>|\bbelow\b|\bunder\b|\babove\b|\bover\b)\s*(.+)$/i,
   );
   if (!comparison) return;
   const [, rawLeft, rawOperator, rawRight] = comparison;
@@ -332,7 +357,10 @@ function readCondition(text: string, asset?: string): Condition | undefined {
     ),
   );
   if (!left) return;
-  const operator = operators[rawOperator.toLowerCase().replace(/\s+/g, " ")];
+  const operator =
+    operators[
+      rawOperator.toLowerCase().replace(/[\s_]+/g, " ") as keyof typeof operators
+    ];
   const right = rawRight.trim();
   const reference =
     left === "macd" && /^(?:(?:its|the) )?signal(?: line)?$/i.test(right)
@@ -381,6 +409,17 @@ function readGroup(
 
 const percent =
   "(?<![+\\d.-])(-?(?:\\d+(?:\\.\\d+)?|\\.\\d+))\\s*(?:%|percent\\b)";
+const budgetNumber = "-?(?:\\d{1,3}(?:,\\d{3})+|\\d+)(?:\\.\\d+)?";
+const positionCap = "(?:max(?:imum)? position(?: size)?|position cap)";
+const positionCapLabel = new RegExp(`\\b${positionCap}\\b`, "i");
+const positionCapAmount = new RegExp(
+  `\\b${positionCap}\\s*(?:[:=]|at|of|to|is)?\\s*(?:\\$(${budgetNumber})(?![\\w,]|\\.\\d)|(${budgetNumber})\\s*(?:USDT|USD)\\b)`,
+  "gi",
+);
+const removePositionCap = new RegExp(
+  `\\b(?:remove|disable|no|turn off)\\s+(?:the\\s+)?${positionCap}\\b`,
+  "i",
+);
 const riskRules = {
   cash_fraction: [
     `${percent}\\s*(?:per (?:trade|entry)|of (?:available |my |the )?(?:cash|capital|balance))`,
@@ -404,7 +443,7 @@ const riskRules = {
 function endOfRule(value: string) {
   return value
     .split(
-      /;|[.!?](?=\s|$)|[, ]+(?:(?:with|using|and)\s+)?(?=(?:use\s+|risk\s+|allocate\s+|position size|entry size|allocation|stop[ -]loss|take[ -]profit|trailing[ -]stop|\d+(?:\.\d+)?\s*(?:%|percent)))/i,
+      /;|[.!?](?=\s|$)|[, ]+(?:(?:with|using|and)\s+)?(?=(?:use\s+|risk\s+|allocate\s+|max(?:imum)? position|position cap|position size|entry size|allocation|stop[ -]loss|take[ -]profit|trailing[ -]stop|\d+(?:\.\d+)?\s*(?:%|percent)))/i,
     )[0]
     .replace(
       /\s+(?:on|using)\s+(?:the\s+)?(?:1\s*h(?:our)?|hourly)(?:\s+candles?)?\s*$/i,
@@ -602,6 +641,41 @@ export function interpretStrategy(
         new RegExp(`\\b${label}\\b`, "i").test(text)
       ) {
         unresolved.add(field);
+      }
+    }
+
+    if (positionCapLabel.test(text) || turn.answer_to === "max_position_usdt") {
+      const values = new Set(
+        [...text.matchAll(positionCapAmount)].map((match) =>
+          new Decimal((match[1] ?? match[2]).replaceAll(",", "")).toFixed(),
+        ),
+      );
+      const answer =
+        turn.answer_to === "max_position_usdt"
+          ? text.match(new RegExp(`^\\$?(${budgetNumber})\\s*(?:USDT|USD)?[.!]?$`, "i"))
+          : null;
+      if (answer) values.add(new Decimal(answer[1].replaceAll(",", "")).toFixed());
+      const [amount] = values;
+      const remove =
+        removePositionCap.test(text) ||
+        (turn.answer_to === "max_position_usdt" &&
+          /^(?:off|none|no)[.!]?$/i.test(text));
+      if (remove && !values.size) {
+        draft.max_position_usdt = null;
+        unresolved.delete("max_position_usdt");
+        changed = true;
+      } else if (
+        values.size === 1 &&
+        !remove &&
+        new Decimal(amount).gt(0) &&
+        new Decimal(amount).lte(100000) &&
+        new Decimal(amount).decimalPlaces() <= 6
+      ) {
+        draft.max_position_usdt = amount;
+        unresolved.delete("max_position_usdt");
+        changed = true;
+      } else {
+        unresolved.add("max_position_usdt");
       }
     }
 

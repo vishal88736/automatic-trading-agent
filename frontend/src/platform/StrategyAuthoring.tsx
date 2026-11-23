@@ -235,6 +235,19 @@ export function StrategyAuthoring({
                   />
                 </label>
               ))}
+              <label>
+                Maximum entry budget (USD, optional)
+                <input
+                  type="number"
+                  min="0.000001"
+                  max="100000"
+                  step="0.000001"
+                  value={visual.definition.max_position_usdt ?? ""}
+                  onChange={(event) =>
+                    patch({ max_position_usdt: event.target.value || null })
+                  }
+                />
+              </label>
             </div>
             <datalist id="strategy-indicator-options">
               <Choices items={options.indicators} />
