@@ -1,7 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 
-const DARK_BG = "rgb(10, 13, 20)";
-const LIGHT_BG = "rgb(244, 246, 250)";
+const DARK_BG = "rgb(6, 10, 7)";
+const LIGHT_BG = "rgb(245, 248, 245)";
+const LIME = "rgb(181, 242, 72)";
 
 async function stubMarkets(page: Page) {
   await page.route("**/platform/public/prices", (route) =>
@@ -25,21 +26,24 @@ async function stubSignedOutSession(page: Page) {
   );
 }
 
-test("Krono follows the system theme and persists a user choice", async ({
+test("Krono defaults to light and persists an explicit theme choice", async ({
   page,
 }) => {
   await stubSignedOutSession(page);
-  await page.emulateMedia({ colorScheme: "light" });
+  await page.emulateMedia({ colorScheme: "dark" });
   await page.goto("/");
   const root = page.locator("html");
   const landing = page.locator(".kx-landing");
   await expect(root).toHaveAttribute("data-theme", "light");
   await expect(landing).toBeVisible();
   await expect(page.locator("body")).toHaveCSS("background-color", LIGHT_BG);
-  await page.emulateMedia({ colorScheme: "dark" });
+  await page.getByRole("button", { name: "Switch to dark theme" }).click();
+  await page.reload();
   await expect(root).toHaveAttribute("data-theme", "dark");
   await expect(page.locator("body")).toHaveCSS("background-color", DARK_BG);
 
+  await page.emulateMedia({ colorScheme: "light" });
+  await expect(root).toHaveAttribute("data-theme", "dark");
   await page.getByRole("button", { name: "Switch to light theme" }).click();
   await page.reload();
   await expect(root).toHaveAttribute("data-theme", "light");
@@ -55,7 +59,7 @@ test("the landing fits every viewport and opens sign-up and sign-in", async ({
   const hero = page.getByRole("heading", { level: 1 });
   await expect(hero).toContainText("Your strategy.");
   const start = page.getByRole("link", { name: /Start paper trading free/ });
-  await expect(start).toHaveCSS("background-color", "rgb(139, 116, 255)");
+  await expect(start).toHaveCSS("background-color", LIME);
 
   for (const [width, height] of [
     [1502, 726],
@@ -70,15 +74,28 @@ test("the landing fits every viewport and opens sign-up and sign-in", async ({
     ).toBe(width);
     await expect(start).toBeVisible();
   }
+  const menu = page.getByRole("button", { name: "Open site navigation" });
+  const nav = page.getByRole("navigation", { name: "About Krono" });
+  await expect(nav).toBeHidden();
+  await menu.click();
+  await nav.getByRole("link", { name: "How it works" }).click();
+  await expect(nav).toBeHidden();
+  await expect(
+    page.getByRole("heading", {
+      name: "From idea to running agent in minutes",
+    }),
+  ).toBeInViewport();
+
   await page.setViewportSize({ width: 1366, height: 768 });
-  await page.getByRole("button", { name: "Switch to light theme" }).click();
-  await expect(start).toHaveCSS("background-color", "rgb(91, 61, 245)");
+  await page.getByRole("button", { name: "Switch to dark theme" }).click();
+  await expect(start).toHaveCSS("background-color", LIME);
   await start.click();
   await expect(page).toHaveURL(/#\/sign-in\?mode=register$/);
   await expect(
     page.getByRole("heading", { name: "Create your account" }),
   ).toBeVisible();
   await expect(page.getByLabel("Display name")).toBeVisible();
+  await expect(page.locator("body")).toHaveCSS("background-color", DARK_BG);
   await page.getByRole("button", { name: "Back to sign in" }).click();
   await expect(
     page.getByRole("heading", { name: "Welcome back" }),
@@ -189,6 +206,8 @@ test("the signed-in dashboard uses recorded equity and marks, with a responsive 
   await page.setViewportSize({ width: 1440, height: 960 });
   await page.goto("/#/dashboard");
   const workspace = page.locator(".unified-workspace");
+  await expect(workspace).toHaveCSS("background-color", LIGHT_BG);
+  await page.getByRole("button", { name: "Switch to dark theme" }).click();
   await expect(workspace).toHaveCSS("background-color", DARK_BG);
   const positions = page.getByRole("region", {
     name: "Paper trading portfolio",
@@ -207,6 +226,16 @@ test("the signed-in dashboard uses recorded equity and marks, with a responsive 
     name: "Recorded paper equity, 2 snapshots",
   });
   await expect(equity).toBeVisible();
+  const kpis = page.locator(".dashboard-kpis");
+  await expect(kpis.locator("dd")).toHaveText([
+    "$12,500.00",
+    "$7,000.00",
+    "$2,500.00",
+    "$0.00",
+  ]);
+  expect((await kpis.boundingBox())!.y).toBeLessThan(
+    (await equity.boundingBox())!.y,
+  );
   expect((await sidebar.boundingBox())!.width).toBeLessThan(
     (await equity.boundingBox())!.x,
   );
@@ -226,6 +255,9 @@ test("the signed-in dashboard uses recorded equity and marks, with a responsive 
   ).toBeVisible();
 
   const allocation = page.locator(".dashboard-allocation");
+  await expect(
+    allocation.locator(".dashboard-allocation-bar > span"),
+  ).toHaveCount(2);
   await expect(allocation).toContainText("60.0%");
   await expect(allocation).toContainText("40.0%");
   await expect(allocation).toContainText("$5,000.00 · 0.05 BTC");
@@ -234,7 +266,7 @@ test("the signed-in dashboard uses recorded equity and marks, with a responsive 
   await expect(allocation).toContainText(
     "Allocation requires fresh prices for every holding.",
   );
-  await expect(allocation.locator(".dashboard-allocation-ring")).toHaveCount(0);
+  await expect(allocation.locator(".dashboard-allocation-bar")).toHaveCount(0);
   await expect(positions.getByText("Awaiting price")).toBeVisible();
 
   await page.getByRole("button", { name: "Switch to light theme" }).click();

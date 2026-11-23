@@ -1,7 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { Workspace } from "./platform/Workspace";
-import "@fontsource-variable/inter/wght.css";
+import "@fontsource-variable/plus-jakarta-sans/wght.css";
+import "@fontsource-variable/jetbrains-mono/wght.css";
 import "./styles/base.css";
 import "./styles/theme.css";
 import "./styles/palette.css";

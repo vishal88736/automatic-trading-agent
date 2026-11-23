@@ -6,29 +6,56 @@
 
 .paper-overview {
   display: grid;
-  grid-template-columns: minmax(0, 1.64fr) minmax(276px, 1fr);
+  grid-template-columns: minmax(0, 1.9fr) minmax(280px, 1fr);
   grid-template-areas:
-    "positions live"
-    "performance balance"
-    "allocation markets"
-    "orders agents";
+    "kpis kpis"
+    "balance balance"
+    "performance allocation"
+    "positions orders"
+    "markets agents"
+    "live live";
   gap: clamp(12px, 1.3vw, 20px);
 }
 
-.rail-shell.unified-workspace .paper-overview > .platform-product-panel {
-  min-width: 0;
-  padding: clamp(15px, 1.8vw, 26px);
-  border-radius: 15px;
-  background: linear-gradient(
-    146deg,
-    color-mix(in srgb, var(--accent) 8%, var(--panel)),
-    var(--panel) 55%
-  );
-  box-shadow: inset 0 1px color-mix(in srgb, var(--accent) 12%, transparent);
+.dashboard-kpis {
+  grid-area: kpis;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: inherit;
+  margin: 0;
 }
 
-.rail-shell.unified-workspace .paper-overview > .dashboard-performance {
-  border-color: color-mix(in srgb, var(--accent) 29%, var(--border));
+.dashboard-kpis > div {
+  min-width: 0;
+  padding: clamp(13px, 1.6vw, 21px);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--panel);
+  box-shadow: var(--shadow-md);
+}
+
+.dashboard-kpis dt {
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.dashboard-kpis dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: clamp(15px, 2vw, 27px);
+  font-weight: 650;
+  letter-spacing: -0.055em;
+  overflow-wrap: anywhere;
+}
+
+.dashboard-kpis dd[data-sign="1"] {
+  color: var(--positive);
+}
+
+.dashboard-kpis dd[data-sign="-1"] {
+  color: var(--negative);
 }
 
 .dashboard-performance {
@@ -65,22 +92,8 @@
   gap: 10px;
 }
 
-.paper-overview .paper-balance-heading {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-}
-
-.paper-overview .paper-balance-heading > div {
-  display: contents;
-}
-
 .paper-overview .paper-balance-heading h3 {
-  grid-area: 1 / 1;
   margin: 0;
-}
-
-.paper-overview .paper-balance-heading button {
-  grid-area: 1 / 2;
 }
 
 .unified-workspace .dashboard-panel-heading :is(h2, h3) {
@@ -89,7 +102,7 @@
   gap: 8px;
   margin: 0;
   font-size: 16px;
-  font-weight: 625;
+  font-weight: 750;
 }
 
 .dashboard-panel-heading :is(h2, h3) svg {
@@ -133,6 +146,7 @@
   min-height: 34px;
   padding: 5px 8px;
   border: 1px solid var(--border);
+  border-radius: 999px;
   background: var(--raised);
   color: var(--text);
   font-size: 12px;
@@ -162,8 +176,9 @@
   margin-block: 4px;
   overflow-wrap: anywhere;
   color: var(--text);
-  font-size: clamp(25px, 3.05vw, 43px);
-  font-weight: 620;
+  font-family: var(--font-mono);
+  font-size: clamp(23px, 2.7vw, 37px);
+  font-weight: 650;
   line-height: 1.05;
   letter-spacing: -0.06em;
 }
@@ -182,7 +197,11 @@
 }
 
 .dashboard-performance .equity-chart {
+  margin-block: 12px 3px;
   padding-inline: 0;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--surface-inset);
 }
 
 .dashboard-performance .chart-empty-note {
@@ -239,17 +258,13 @@
 }
 
 .paper-overview .platform-product-balance {
-  grid-column: 1 / -1;
-  margin: 8px 0;
-  font-size: 13px;
-  color: var(--muted);
+  margin: 3px 0 0;
 }
 
 .paper-overview .platform-product-balance strong {
   color: var(--accent);
-  font-size: clamp(24px, 2.8vw, 38px);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.055em;
+  font-family: var(--font-mono);
+  font-size: 16px;
   overflow-wrap: anywhere;
 }
 
@@ -259,34 +274,38 @@
 
 .dashboard-metrics .platform-backtest-metrics {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 12px;
-  margin-top: 15px;
+  gap: 10px;
+  margin-top: 10px;
 }
 
 .dashboard-metrics .platform-backtest-metrics > div {
-  padding: 11px 0;
-  border: 0;
-  border-block-start: 1px solid var(--border);
-  border-radius: 0;
-  background: transparent;
-}
-
-.dashboard-metrics dt {
-  color: var(--muted);
-  font-size: 12px;
+  padding: 6px 8px;
+  background: var(--surface-inset);
 }
 
 .dashboard-metrics dd {
-  font-size: clamp(16px, 1.55vw, 23px);
-  letter-spacing: -0.045em;
+  font-family: var(--font-mono);
   overflow-wrap: anywhere;
 }
 
-.dashboard-metrics dd[data-sign="1"] {
-  color: var(--positive);
-}
-.dashboard-metrics dd[data-sign="-1"] {
-  color: var(--negative);
+@media (min-width: 780px) {
+  .unified-workspace .paper-overview > .dashboard-metrics {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(210px, 0.65fr);
+    align-items: center;
+    gap: 4px 22px;
+    padding-block: 12px;
+  }
+  .dashboard-metrics .paper-balance-heading {
+    grid-column: 1;
+  }
+  .dashboard-metrics .platform-backtest-metrics {
+    grid-area: 1 / 2 / span 2;
+    margin: 0;
+  }
+  .dashboard-metrics :is(.dashboard-stop, [role="status"], [role="alert"]) {
+    grid-column: 1 / -1;
+  }
 }
 
 .dashboard-stop {
@@ -302,45 +321,21 @@
 
 .dashboard-allocation-content {
   display: grid;
-  grid-template-columns: minmax(112px, 0.6fr) minmax(0, 1fr);
-  align-items: center;
-  gap: clamp(13px, 2vw, 26px);
+  gap: 14px;
   margin-top: 18px;
 }
 
-.dashboard-allocation-ring {
-  display: grid;
-  width: min(100%, 180px);
-  aspect-ratio: 1;
-  justify-self: center;
-  padding: clamp(13px, 2vw, 28px);
-  border-radius: 50%;
-  background: var(--allocation-fill), var(--raised);
-  box-shadow:
-    inset 0 2px 3px #fff4,
-    inset 0 -2px 6px #0005;
-}
-
-.dashboard-allocation-ring > div {
-  display: grid;
-  align-content: center;
-  justify-items: center;
-  min-width: 0;
-  padding: 4px;
+.dashboard-allocation-bar {
+  display: flex;
+  height: 14px;
+  overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 50%;
-  background: var(--panel);
-  text-align: center;
+  border-radius: 999px;
+  background: var(--raised);
 }
 
-.dashboard-allocation-ring strong {
-  font-size: clamp(14px, 1.4vw, 20px);
-  letter-spacing: -0.04em;
-}
-
-.dashboard-allocation-ring small {
-  color: var(--muted);
-  font-size: 10px;
+.dashboard-allocation-bar > span {
+  flex-basis: 0;
 }
 
 .dashboard-allocation-legend {
@@ -481,16 +476,17 @@
   }
 }
 
-@container (max-width: 694px) {
+@media (max-width: 1020px) {
   .paper-overview {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "positions" "live" "performance" "balance" "allocation" "markets" "agents" "orders";
+    grid-template-areas: "kpis" "balance" "performance" "allocation" "positions" "orders" "markets" "agents" "live";
   }
 }
 
-@container (max-width: 360px) {
-  .dashboard-allocation-content {
-    grid-template-columns: minmax(0, 1fr);
+@media (max-width: 640px) {
+  .dashboard-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
   }
 }
 

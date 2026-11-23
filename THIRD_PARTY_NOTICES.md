@@ -6,6 +6,6 @@ The original Apache License 2.0 is retained in [LICENSE](LICENSE). The inherited
 
 React, TypeScript, Vite, Tailwind CSS, Lucide, FastAPI, Pydantic, LangGraph, pandas, Backtrader and other installed dependencies retain their respective licenses; their source is not vendored into the public repository's runtime cache.
 
-Krono bundles Inter through Fontsource under the SIL Open Font License 1.1, included in the installed package. Krono's monogram and terminal layouts are original implementation work. The illustrated landing assets are stored locally as optimized WebP files.
+Krono bundles Plus Jakarta Sans and JetBrains Mono through Fontsource. Both fonts are licensed under the SIL Open Font License 1.1, included in their installed packages.
 
 cryptocurrency.cv is used through its hosted API. Its service source was not copied, redistributed or deployed. News records retain publisher attribution and original links. Synthetic fixture stories were authored for this demo and explicitly use non-real publisher URLs.

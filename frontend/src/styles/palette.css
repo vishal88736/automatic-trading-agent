@@ -1,89 +1,93 @@
-/* Krono color roles. Every surface reads these tokens; light-dark() follows the
-   color-scheme that ThemeToggle sets on <html data-theme>. */
+/* Pearl mint and forest obsidian. Lime is reserved for filled controls and
+   graphics, while accent text uses a darker green on light surfaces. */
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
 
-  --bg: light-dark(#f4f6fa, #0a0d14);
-  --sidebar: light-dark(#ffffff, #0d1119);
-  --panel: light-dark(#ffffff, #111622);
-  --raised: light-dark(#f1f3f8, #171d2b);
-  --border: light-dark(#e3e7ef, #1f2736);
-  --border-strong: light-dark(#cad1de, #2d384b);
-  --text: light-dark(#0e1424, #e8ecf4);
-  --muted: light-dark(#5b6578, #8b95a9);
-  --subtle: light-dark(#7a8396, #6c7689);
+  --bg: light-dark(#f5f8f5, #060a07);
+  --sidebar: light-dark(#ffffff, #0d140f);
+  --panel: light-dark(#ffffff, #0d140f);
+  --raised: light-dark(#edf3ee, #131d16);
+  --border: light-dark(#e2ebe4, #25352a);
+  --border-strong: light-dark(#c9dacd, #415636);
+  --text: light-dark(#0b140e, #f4f9f4);
+  --muted: light-dark(#526457, #9bb0a0);
+  --subtle: light-dark(#5e7163, #8da395);
 
-  --accent: light-dark(#5b3df5, #8b74ff);
-  --accent-strong: light-dark(#4a2de0, #a08dff);
-  --accent-hover: light-dark(#4426d6, #a594ff);
-  --accent-bg: light-dark(#efebff, #1d1838);
-  --accent-border: light-dark(#cfc4ff, #3b3170);
-  --on-accent: #ffffff;
-  --accent-2: light-dark(#0891b2, #22d3ee);
-  --gradient-brand: linear-gradient(
-    135deg,
-    #7c5cff 0%,
-    #4f7bff 50%,
-    #22d3ee 100%
-  );
+  --lime: #b5f248;
+  --lime-hover: light-dark(#a6e835, #c4fa5e);
+  --on-accent: #0a130c;
+  --accent: light-dark(#276b38, var(--lime));
+  --accent-strong: light-dark(#1b5c2e, #c4fa5e);
+  --accent-bg: light-dark(#ebf8dc, #23321d);
+  --accent-border: light-dark(#c5e1ab, #40592c);
+  --accent-2: light-dark(#167345, #6ee7b7);
+  --contrast-bg: light-dark(#0d1710, #19261d);
+  --contrast-fg: #fff;
+  --gradient-brand: linear-gradient(135deg, var(--lime), #22c55e);
+  --brand-glow: rgb(181 242 72 / 50%);
+  --spotlight: light-dark(rgb(181 242 72 / 24%), rgb(34 197 94 / 19%));
+  --spotlight-soft: light-dark(rgb(22 163 74 / 8%), rgb(181 242 72 / 7%));
+  --grid-line: light-dark(rgb(11 20 14 / 6%), rgb(181 242 72 / 6%));
 
-  --positive: light-dark(#059669, #16d49a);
-  --positive-bg: light-dark(#e6f7f0, #0f2a22);
-  --positive-border: light-dark(#a7e3cb, #1c4a3b);
-  --negative: light-dark(#e11d48, #ff5c7a);
-  --negative-bg: light-dark(#fdeef1, #2e141c);
-  --negative-border: light-dark(#f6b8c6, #5a2533);
-  --warning: light-dark(#b45309, #fbbf24);
+  --positive: light-dark(#15803d, #58e57f);
+  --positive-bg: light-dark(#e6f6ea, #102a1b);
+  --positive-border: light-dark(#bee2c7, #255d38);
+  --negative: light-dark(#b91c1c, #ff7777);
+  --negative-bg: light-dark(#fceeee, #2e1818);
+  --negative-border: light-dark(#f1c4c4, #60302e);
+  --warning: light-dark(#924a0b, #facc65);
   --warning-bg: light-dark(#fef5e6, #2b2110);
-  --warning-border: light-dark(#f2d39c, #5a451c);
+  --warning-border: light-dark(#efd6ae, #5a451c);
   --info: var(--accent-2);
-  --info-bg: light-dark(#e6f7fb, #0c2630);
-  --info-border: light-dark(#a5dfec, #18485a);
+  --info-bg: light-dark(#e6f4eb, #132a20);
+  --info-border: light-dark(#bddcca, #2b503d);
 
-  --surface-inset: light-dark(#f6f7fb, #0c1018);
-  --surface-hover: light-dark(#eef1f7, #1a2131);
-  --solid-light: #f4f6fa;
-  --scrim: light-dark(rgb(14 20 36 / 45%), rgb(0 0 0 / 65%));
+  --surface-inset: light-dark(#fafdfb, #080e0a);
+  --surface-hover: light-dark(#e1ebe3, #19261d);
+  --scrim: light-dark(rgb(11 20 14 / 45%), rgb(0 0 0 / 65%));
   --shadow-sm: light-dark(
-    0 1px 2px rgb(14 20 36 / 6%),
-    0 1px 2px rgb(0 0 0 / 40%)
+    0 1px 3px rgb(8 28 14 / 5%),
+    0 1px 3px rgb(0 0 0 / 35%)
   );
   --shadow-md: light-dark(
-    0 8px 24px -12px rgb(14 20 36 / 18%),
-    0 12px 32px -16px rgb(0 0 0 / 70%)
+    0 8px 28px rgb(8 28 14 / 6%),
+    0 14px 36px -14px rgb(0 0 0 / 66%)
   );
+  --chart-line: light-dark(#28853e, var(--lime));
 
-  --allocation-cash: var(--accent);
-  --allocation-btc: #f7931a;
-  --allocation-eth: light-dark(#4f6bdc, #7b93f0);
-  --allocation-sol: light-dark(#0f9f6e, #14f195);
+  --allocation-cash: light-dark(#80af35, var(--lime));
+  --allocation-btc: light-dark(#15803d, #22c55e);
+  --allocation-eth: light-dark(#7a937f, #6ee7b7);
+  --allocation-sol: light-dark(#576a31, #d8d4b8);
 
+  --font-sans:
+    "Plus Jakarta Sans Variable", system-ui, -apple-system, sans-serif;
   --font-mono:
-    "JetBrains Mono", "SFMono-Regular", ui-monospace, Menlo, monospace;
+    "JetBrains Mono Variable", "SFMono-Regular", ui-monospace, Menlo, monospace;
 }
-:root[data-theme="light"] {
-  color-scheme: light;
-}
+
 :root[data-theme="dark"] {
   color-scheme: dark;
 }
 
 .theme-toggle {
   flex: none;
-  display: inline-grid;
-  place-items: center;
-  width: 36px;
-  min-height: 36px;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  color: var(--text);
-  background: var(--raised);
-  transition:
-    background 0.15s,
-    color 0.15s;
+  min-width: 36px;
 }
-.theme-toggle:hover {
-  color: var(--accent);
-  background: var(--accent-bg);
+
+.theme-toggle span {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+@media (max-width: 1160px) {
+  .kx-topbar .theme-toggle span {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .theme-toggle span {
+    display: none;
+  }
 }

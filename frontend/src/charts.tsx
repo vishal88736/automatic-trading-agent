@@ -105,10 +105,10 @@ export function EquityChart({
           <>
             <defs>
               <linearGradient id={fill} x2="0" y2="1">
-                <stop stopColor="var(--accent)" stopOpacity="0.47" />
+                <stop stopColor="var(--chart-line)" stopOpacity="0.47" />
                 <stop
                   offset="100%"
-                  stopColor="var(--accent)"
+                  stopColor="var(--chart-line)"
                   stopOpacity="0.03"
                 />
               </linearGradient>
@@ -141,7 +141,7 @@ export function EquityChart({
           <polyline
             points={points}
             fill="none"
-            stroke="var(--accent)"
+            stroke="var(--chart-line)"
             strokeWidth={area ? 2.5 : 2}
             strokeLinejoin="round"
           />
@@ -154,7 +154,7 @@ export function EquityChart({
                 cx={coordinates[i].x}
                 cy={coordinates[i].y}
                 r={i === selectedIndex ? 5 : area ? 2 : 3}
-                fill="var(--accent)"
+                fill="var(--chart-line)"
                 stroke={i === selectedIndex ? "var(--panel)" : undefined}
                 strokeWidth={i === selectedIndex ? 2 : undefined}
               >

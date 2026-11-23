@@ -127,21 +127,15 @@ export default function PaperAccount({
 
   const account = data?.account;
   const value = data?.value;
-  const metrics = value && (
-    <dl className="platform-backtest-metrics">
-      <div>
-        <dt>Buying power</dt>
-        <dd>{money(value.available_cash)}</dd>
-      </div>
+  const accountMetrics = value && (
+    <>
       <div>
         <dt>Portfolio value</dt>
         <dd>{money(value.equity)}</dd>
       </div>
       <div>
-        <dt>Realized P&amp;L</dt>
-        <dd data-sign={Math.sign(Number(value.realized_pnl))}>
-          {money(value.realized_pnl)}
-        </dd>
+        <dt>Buying power</dt>
+        <dd>{money(value.available_cash)}</dd>
       </div>
       <div>
         <dt>Unrealized P&amp;L</dt>
@@ -149,6 +143,16 @@ export default function PaperAccount({
           {money(value.unrealized_pnl)}
         </dd>
       </div>
+      <div>
+        <dt>Realized P&amp;L</dt>
+        <dd data-sign={Math.sign(Number(value.realized_pnl))}>
+          {money(value.realized_pnl)}
+        </dd>
+      </div>
+    </>
+  );
+  const riskMetrics = value && (
+    <>
       <div>
         <dt>Daily P&amp;L</dt>
         <dd data-sign={Math.sign(Number(value.daily_pnl))}>
@@ -159,7 +163,7 @@ export default function PaperAccount({
         <dt>Drawdown</dt>
         <dd>{percent(value.drawdown)}</dd>
       </div>
-    </dl>
+    </>
   );
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -191,19 +195,18 @@ export default function PaperAccount({
   return (
     <div
       className={
-        dashboard ? "platform-backtest paper-overview" : "platform-backtest"
+        dashboard
+          ? "platform-backtest paper-overview"
+          : view === "trade"
+            ? "platform-backtest kx-paper-desk"
+            : "platform-backtest"
       }
     >
-      {dashboard && (
-        <>
-          <DashboardPaperPositions
-            positions={value?.positions}
-            loading={busy}
-          />
-          <DashboardLivePortfolio enabled={liveEnabled} />
-        </>
+      {dashboard && accountMetrics && (
+        <dl className="dashboard-kpis" aria-label="Paper account metrics">
+          {accountMetrics}
+        </dl>
       )}
-      {dashboard && value && <PortfolioPerformance rows={value.history} />}
       <section
         className={
           dashboard
@@ -269,7 +272,10 @@ export default function PaperAccount({
                 prices.
               </p>
             )}
-            {metrics}
+            <dl className="platform-backtest-metrics">
+              {!dashboard && accountMetrics}
+              {riskMetrics}
+            </dl>
             {view === "portfolio" && value.history.length > 1 && (
               <EquityChart
                 rows={value.history}
@@ -297,6 +303,7 @@ export default function PaperAccount({
           </>
         )}
       </section>
+      {dashboard && value && <PortfolioPerformance rows={value.history} />}
       {dashboard && value && account && (
         <AssetAllocation
           cash={value.cash}
@@ -305,9 +312,14 @@ export default function PaperAccount({
           holdings={value.holdings}
         />
       )}
-      {dashboard && dashboardMarkets}
+      {dashboard && (
+        <DashboardPaperPositions positions={value?.positions} loading={busy} />
+      )}
       {account && value && view === "trade" && (
-        <form className="platform-product-panel" onSubmit={submit}>
+        <form
+          className="platform-product-panel kx-paper-ticket"
+          onSubmit={submit}
+        >
           <h3>Place a paper order</h3>
           <div className="platform-backtest-fields">
             <label>
@@ -360,7 +372,7 @@ export default function PaperAccount({
           </div>
           <button
             type="submit"
-            className="primary"
+            className="primary kx-block"
             disabled={busy || value.emergency_stop}
           >
             Submit paper order
@@ -464,7 +476,13 @@ export default function PaperAccount({
           )}
         </section>
       )}
-      {dashboard && dashboardAgents}
+      {dashboard && (
+        <>
+          {dashboardMarkets}
+          {dashboardAgents}
+          <DashboardLivePortfolio enabled={liveEnabled} />
+        </>
+      )}
       {account && value && view === "settings" && (
         <section className="platform-product-panel">
           <h3>Paper trading controls</h3>

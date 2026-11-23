@@ -2,12 +2,7 @@
 
 :root {
   --radius: 12px;
-  font-family:
-    "Inter Variable",
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
+  font-family: var(--font-sans);
   font-size: 14px;
   font-weight: 400;
   color: var(--text);
@@ -206,12 +201,12 @@ main {
     border-color 0.15s;
 }
 .button.primary {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--lime);
+  border-color: var(--lime);
 }
 .button.primary:hover:not(:disabled) {
-  background: var(--accent-strong);
-  border-color: var(--accent-strong);
+  background: var(--lime-hover);
+  border-color: var(--lime-hover);
 }
 .button.secondary:hover:not(:disabled) {
   background: var(--panel);
@@ -393,7 +388,6 @@ td > small {
    rather than reducing the size of text. Fonts are bundled with the app. */
 :root {
   --sidebar-width: 244px;
-  --font-sans: "Inter Variable", system-ui, -apple-system, sans-serif;
   --font-editorial: var(--font-sans);
   line-height: 1.5;
 }

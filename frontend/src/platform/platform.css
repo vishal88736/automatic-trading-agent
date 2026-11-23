@@ -182,8 +182,8 @@
 }
 .platform-workspace button.primary,
 .platform-auth button.primary {
-  background: var(--accent-strong);
-  border-color: var(--accent-strong);
+  background: var(--lime);
+  border-color: var(--lime);
   color: var(--on-accent);
 }
 .platform-workspace button:hover:not(:disabled),

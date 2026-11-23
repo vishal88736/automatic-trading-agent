@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useState } from "react";
 import {
   Activity,
   ArrowUpRight,
@@ -344,13 +344,6 @@ export function AssetAllocation({
           })),
         ].filter((slice) => slice.share > 0)
       : [];
-  let angle = 0;
-  const stops = slices.map(({ share, color }) => {
-    const start = angle;
-    angle = Math.min(360, angle + share * 360);
-    return `${color} ${start}deg ${angle}deg`;
-  });
-
   return (
     <section className="platform-product-panel dashboard-allocation">
       <div className="dashboard-panel-heading">
@@ -361,19 +354,10 @@ export function AssetAllocation({
       </div>
       {slices.length ? (
         <div className="dashboard-allocation-content">
-          <div
-            className="dashboard-allocation-ring"
-            style={
-              {
-                "--allocation-fill": `conic-gradient(${stops.join(", ")}, transparent ${angle}deg 360deg)`,
-              } as CSSProperties
-            }
-            aria-hidden="true"
-          >
-            <div>
-              <strong>{equityAxis.format(total)}</strong>
-              <small>Paper equity</small>
-            </div>
+          <div className="dashboard-allocation-bar" aria-hidden="true">
+            {slices.map(({ name, share, color }) => (
+              <span key={name} style={{ flexGrow: share, background: color }} />
+            ))}
           </div>
           <dl className="dashboard-allocation-legend">
             {slices.map(({ name, share, value, color, quantity }) => (

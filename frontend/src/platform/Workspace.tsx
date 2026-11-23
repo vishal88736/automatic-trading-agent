@@ -406,6 +406,19 @@ export function Workspace() {
               <h1>{title}</h1>
               {moduleSubtitles[page] && <p>{moduleSubtitles[page]}</p>}
             </div>
+            {page === "dashboard" && (
+              <div className="kx-actions">
+                <a
+                  className="button secondary"
+                  href={workspaceHref("portfolio")}
+                >
+                  <Wallet size={15} aria-hidden /> View portfolio
+                </a>
+                <a className="button primary" href={workspaceHref("builder")}>
+                  <WandSparkles size={15} aria-hidden /> Build an agent
+                </a>
+              </div>
+            )}
             {page === "strategies" && (
               <a className="button primary" href={workspaceHref("builder")}>
                 <WandSparkles size={15} /> New with AI

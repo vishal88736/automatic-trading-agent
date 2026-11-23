@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
+import { Bookmark, Search, Sparkles } from "lucide-react";
 import { CandleChart, type ChartViewport } from "../charts";
 import type { Candle } from "../types";
-import { money, timestamp } from "../ui";
+import { Coin, money, timestamp } from "../ui";
 import { platform } from "./client";
 import {
   marketAssets,
@@ -50,8 +51,10 @@ function MarketInsight({
   }
 
   return (
-    <section className="market-insight">
-      <h4>AI market insight</h4>
+    <section className="platform-product-panel kx-market-insight">
+      <h3>
+        <Sparkles size={17} aria-hidden /> AI market insight
+      </h3>
       <button
         type="button"
         disabled={!available || busy}
@@ -159,58 +162,89 @@ function Markets() {
       .includes(search.trim().toLowerCase()),
   );
   return (
-    <div className="platform-product-editor">
-      <section className="platform-product-panel">
-        <h3>Search markets</h3>
-        <label htmlFor="paper-market-search">Asset name or symbol</label>
-        <input
-          id="paper-market-search"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-        />
-        <div className="platform-product-actions">
-          {visible.map((symbol) => (
-            <button
-              type="button"
-              key={symbol}
-              aria-pressed={asset === symbol}
-              onClick={() => setAsset(symbol)}
-            >
-              {symbol}
-            </button>
-          ))}
+    <div className="kx-stack">
+      <section className="platform-product-panel kx-market-filters">
+        <div className="kx-market-filter">
+          <label htmlFor="paper-market-search">Asset name or symbol</label>
+          <div className="kx-market-search">
+            <Search size={16} aria-hidden />
+            <input
+              type="search"
+              id="paper-market-search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </div>
         </div>
-        {!visible.length && <p>No matching paper markets.</p>}
-        <h4>Watchlist</h4>
-        <div className="platform-product-actions">
-          {pins.map((symbol) => (
-            <button type="button" key={symbol} onClick={() => setAsset(symbol)}>
-              {assets[symbol]}
-            </button>
-          ))}
+        <div className="kx-market-filter">
+          <h3>Markets</h3>
+          <div
+            className="platform-product-actions"
+            role="group"
+            aria-label="Market"
+          >
+            {visible.map((symbol) => (
+              <button
+                type="button"
+                key={symbol}
+                aria-pressed={asset === symbol}
+                onClick={() => setAsset(symbol)}
+              >
+                {symbol}
+              </button>
+            ))}
+          </div>
+          {!visible.length && (
+            <p className="muted">No matching paper markets.</p>
+          )}
         </div>
-        {!pins.length && <p>No watched markets.</p>}
-        {watchError && <p role="alert">{watchError}</p>}
+        <div className="kx-market-filter">
+          <h3>Watchlist</h3>
+          <div className="platform-product-actions">
+            {pins.map((symbol) => (
+              <button
+                type="button"
+                key={symbol}
+                aria-pressed={asset === symbol}
+                onClick={() => setAsset(symbol)}
+              >
+                {assets[symbol]}
+              </button>
+            ))}
+          </div>
+          {!pins.length && <p className="muted">No watched markets.</p>}
+          {watchError && <p role="alert">{watchError}</p>}
+        </div>
       </section>
-      <section className="platform-product-panel">
-        <h3>
-          {assets[asset]} ({asset}/USD)
-        </h3>
-        <button type="button" disabled={saving} onClick={() => void toggle()}>
-          {pins.includes(asset) ? "Remove from watchlist" : "Add to watchlist"}
-        </button>
+      <section className="platform-product-panel kx-market-chart">
+        <div className="kx-toolbar">
+          <h3>
+            <Coin symbol={asset} /> {assets[asset]} ({asset}/USD)
+          </h3>
+          <button
+            className="secondary"
+            type="button"
+            disabled={saving}
+            onClick={() => void toggle()}
+          >
+            <Bookmark size={15} aria-hidden />
+            {pins.includes(asset)
+              ? "Remove from watchlist"
+              : "Add to watchlist"}
+          </button>
+        </div>
         {error && <p role="alert">{error}</p>}
         {!market && !error && <p role="status">Loading {asset} market…</p>}
         {market && (
           <>
-            <p>
-              {market.source} · {market.status} · Last trade{" "}
-              {timestamp(market.price_at)}
-            </p>
-            <p>
+            <p className="kx-market-price kx-num">
               {market.status === "AVAILABLE" || market.status === "FIXTURE"
                 ? money(market.price)
                 : "Fresh price unavailable"}
+            </p>
+            <p className="muted">
+              {market.source} · {market.status} · Last trade{" "}
+              {timestamp(market.price_at)}
             </p>
             {metrics && (
               <dl className="platform-backtest-metrics">
@@ -232,24 +266,26 @@ function Markets() {
               </dl>
             )}
             {market.candles.length > 0 && (
-              <CandleChart
-                candles={market.candles}
-                view={view}
-                onViewChange={setView}
-                showRsi
-              />
+              <div className="kx-market-plot">
+                <CandleChart
+                  candles={market.candles}
+                  view={view}
+                  onViewChange={setView}
+                  showRsi
+                />
+              </div>
             )}
           </>
         )}
-        <MarketInsight
-          key={asset}
-          asset={asset}
-          available={
-            Boolean(metrics) &&
-            (market?.status === "AVAILABLE" || market?.status === "FIXTURE")
-          }
-        />
       </section>
+      <MarketInsight
+        key={asset}
+        asset={asset}
+        available={
+          Boolean(metrics) &&
+          (market?.status === "AVAILABLE" || market?.status === "FIXTURE")
+        }
+      />
     </div>
   );
 }

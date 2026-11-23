@@ -103,7 +103,7 @@ export function Auth({
           <h2>
             Automated crypto trading,
             <br />
-            <span className="kx-gradient-text">built by you.</span>
+            <span className="kx-accent-text">built by you.</span>
           </h2>
           <p>
             Tell the AI what you want to trade, test it on real market data, and

@@ -1,18 +1,20 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta
-      name="theme-color"
-      content="#08121c"
-      media="(prefers-color-scheme: dark)"
-    />
-    <meta
-      name="theme-color"
-      content="#eef4f8"
-      media="(prefers-color-scheme: light)"
-    />
+    <meta name="theme-color" content="#f5f8f5" />
+    <script>
+      try {
+        if (localStorage.getItem("krono-theme") === "dark") {
+          document.documentElement.dataset.theme = "dark";
+          document.querySelector('meta[name="theme-color"]').content =
+            "#060a07";
+        }
+      } catch {
+        // Light is the default when browser storage is unavailable.
+      }
+    </script>
     <meta
       name="description"
       content="Build and backtest crypto strategies, then run autonomous paper trading agents with virtual funds in Krono."
