@@ -367,6 +367,34 @@ def test_order_execution_uses_one_ledger_for_fills_reservations_and_reset(databa
         assert get_order(db, owner, filled["id"])["status"] == "FILLED"
 
 
+def test_portfolio_records_metrics_without_backfilling_legacy_snapshots(database):
+    from datetime import timedelta
+
+    from backend.models import now
+    from backend.product.execution import portfolio
+
+    owner = uuid4()
+    at = now()
+    with database() as db:
+        migrate(db)
+        account = ensure_account(db, owner)
+        db.execute(
+            """
+            INSERT INTO paper_equity_snapshots (owner_id, account_id, epoch, observed_at, equity)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (owner, account.id, account.epoch, at - timedelta(days=2), Decimal("9800")),
+        )
+        current = portfolio(db, owner, {}, clock=lambda: at)
+        legacy, recorded = current["history"]
+        assert legacy["equity"] == Decimal("9800")
+        assert recorded["at"] == at
+        assert recorded["daily_pnl"] == Decimal("200")
+        for metric in ("available_cash", "realized_pnl", "unrealized_pnl", "daily_pnl", "drawdown"):
+            assert legacy[metric] is None
+            assert recorded[metric] == current[metric]
+
+
 def test_parallel_submissions_share_cash_lock(database):
     from backend.models import now
     from backend.product.execution import OrderRequest, PaperQuote, PaperTerms, submit_order

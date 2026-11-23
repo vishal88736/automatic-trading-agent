@@ -41,7 +41,7 @@ Account-wide trade frequency limits live in `REVIEWED_TRADE_CAPS` in `backend/pr
 
 ## Tenant PostgreSQL foundation
 
-The platform schema lives in `migrations/versions/`. It applies to a dedicated PostgreSQL database and uses verified Cognito subject UUIDs for ownership. The unified product provisions the paper account once after identity verification. SQLite files remain available for historical tools. An opening credit defaults to 10,000 virtual USDT and can be specified by the server when provisioning a new account.
+The platform schema lives in `backend/migrations/versions/`. It applies to a dedicated PostgreSQL database and uses verified Cognito subject UUIDs for ownership. The unified product provisions the paper account once after identity verification. SQLite files remain available for historical tools. An opening credit defaults to 10,000 virtual USDT and can be specified by the server when provisioning a new account.
 
 Install the optional driver and run the migration as a release step. Set `KRONO_DATABASE_DSN` in the shell from your local configuration or deployment secret.
 
@@ -51,6 +51,8 @@ uv sync --frozen --extra platform
 ```
 
 Migrations run in a single PostgreSQL transaction with a transaction-scoped advisory lock and verify the applied revision checksums. A failed migration rolls back its changes. Keep applied revision files intact and take a database backup before upgrading a deployed environment. Use a migration role with DDL permissions and a separate, restricted runtime role. [PostgreSQL advisory locks](https://www.postgresql.org/docs/18/explicit-locking.html#ADVISORY-LOCKS), [Psycopg transactions](https://www.psycopg.org/psycopg3/docs/basic/transactions.html)
+
+Migration `0012_paper_snapshot_metrics` adds buying power, P&L and drawdown to paper portfolio snapshots. The Overview shows a trend once two recorded values are available for that metric. Legacy snapshots contribute their recorded equity.
 
 Set `KRONO_TEST_DATABASE_DSN` to a disposable PostgreSQL database with permission to create schemas and run:
 

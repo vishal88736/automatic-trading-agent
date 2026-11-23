@@ -12,9 +12,11 @@ import { workspaceHref } from "./navigation";
 import {
   AssetAllocation,
   DashboardLivePortfolio,
+  DashboardMetric,
   DashboardPaperPositions,
   PortfolioPerformance,
   type PaperPosition,
+  type PaperPortfolioMark,
 } from "./DashboardPanels";
 
 interface Account {
@@ -41,7 +43,7 @@ interface Portfolio {
     allocation: string | null;
   }[];
   positions?: PaperPosition[];
-  history: { at: string; equity: string }[];
+  history: PaperPortfolioMark[];
 }
 interface Order {
   id: string;
@@ -202,9 +204,23 @@ export default function PaperAccount({
             : "platform-backtest"
       }
     >
-      {dashboard && accountMetrics && (
+      {dashboard && value && (
         <dl className="dashboard-kpis" aria-label="Paper account metrics">
-          {accountMetrics}
+          {(
+            [
+              "equity",
+              "available_cash",
+              "unrealized_pnl",
+              "realized_pnl",
+            ] as const
+          ).map((metric) => (
+            <DashboardMetric
+              key={metric}
+              metric={metric}
+              value={value[metric]}
+              rows={value.history}
+            />
+          ))}
         </dl>
       )}
       <section
@@ -230,7 +246,11 @@ export default function PaperAccount({
             )}
           </div>
           {(!data || account) && (
-            <button disabled={busy} onClick={() => void act()}>
+            <button
+              className={dashboard ? "primary" : undefined}
+              disabled={busy}
+              onClick={() => void act()}
+            >
               Refresh account
             </button>
           )}
@@ -272,10 +292,28 @@ export default function PaperAccount({
                 prices.
               </p>
             )}
-            <dl className="platform-backtest-metrics">
-              {!dashboard && accountMetrics}
-              {riskMetrics}
-            </dl>
+            {dashboard ? (
+              <dl
+                className="dashboard-risk-metrics"
+                aria-label="Paper risk metrics"
+              >
+                <DashboardMetric
+                  metric="daily_pnl"
+                  value={value.daily_pnl}
+                  rows={value.history}
+                />
+                <DashboardMetric
+                  metric="drawdown"
+                  value={value.drawdown}
+                  rows={value.history}
+                />
+              </dl>
+            ) : (
+              <dl className="platform-backtest-metrics">
+                {accountMetrics}
+                {riskMetrics}
+              </dl>
+            )}
             {view === "portfolio" && value.history.length > 1 && (
               <EquityChart
                 rows={value.history}

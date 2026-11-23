@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 
 type Theme = "light" | "dark";
 
-export function ThemeToggle() {
+export function ThemeToggle({ segmented = false }: { segmented?: boolean }) {
   const [active, setActive] = useState<Theme>(() =>
     document.documentElement.dataset.theme === "dark" ? "dark" : "light",
   );
@@ -21,7 +21,9 @@ export function ThemeToggle() {
   return (
     <button
       type="button"
-      className="theme-toggle"
+      className={
+        segmented ? "theme-toggle theme-toggle-segmented" : "theme-toggle"
+      }
       aria-label={label}
       title={label}
       onClick={() => {
@@ -33,12 +35,35 @@ export function ThemeToggle() {
         }
       }}
     >
-      {active === "dark" ? (
-        <Sun size={15} aria-hidden />
+      {segmented ? (
+        <>
+          <span
+            className="theme-toggle-option"
+            data-active={active === "dark"}
+            aria-hidden
+          >
+            <Moon size={14} />
+          </span>
+          <span
+            className="theme-toggle-option"
+            data-active={active === "light"}
+            aria-hidden
+          >
+            <Sun size={14} />
+          </span>
+        </>
       ) : (
-        <Moon size={15} aria-hidden />
+        <>
+          {active === "dark" ? (
+            <Sun size={15} aria-hidden />
+          ) : (
+            <Moon size={15} aria-hidden />
+          )}
+          <span className="theme-toggle-label" aria-hidden>
+            {active === "dark" ? "Dark" : "Light"}
+          </span>
+        </>
       )}
-      <span aria-hidden>{active === "dark" ? "Dark" : "Light"}</span>
     </button>
   );
 }

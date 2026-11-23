@@ -6,7 +6,10 @@
 
 .paper-overview {
   display: grid;
-  grid-template-columns: minmax(0, 1.9fr) minmax(280px, 1fr);
+  --overview-surface: light-dark(#fcfffc, #111f17);
+  --overview-edge: light-dark(#d8e9d9, #304737);
+  --overview-glow: light-dark(rgb(112 176 69 / 15%), rgb(170 235 74 / 25%));
+  grid-template-columns: minmax(0, 2.6fr) minmax(246px, 1fr);
   grid-template-areas:
     "kpis kpis"
     "balance balance"
@@ -14,7 +17,7 @@
     "positions orders"
     "markets agents"
     "live live";
-  gap: clamp(12px, 1.3vw, 20px);
+  gap: clamp(11px, 1vw, 16px);
 }
 
 .dashboard-kpis {
@@ -26,40 +29,119 @@
 }
 
 .dashboard-kpis > div {
+  position: relative;
   min-width: 0;
-  padding: clamp(13px, 1.6vw, 21px);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: var(--panel);
-  box-shadow: var(--shadow-md);
+  min-height: 102px;
+  padding: 13px clamp(11px, 1.2vw, 19px) 8px;
+  border: 1px solid var(--overview-edge);
+  border-radius: 13px;
+  background:
+    radial-gradient(
+      ellipse 85% 50% at 50% -21%,
+      var(--overview-glow),
+      transparent 82%
+    ),
+    linear-gradient(140deg, var(--overview-surface), var(--panel));
+  box-shadow: var(--shadow-sm);
 }
 
-.dashboard-kpis dt {
-  margin-bottom: 6px;
+.dashboard-kpis > div::before {
+  position: absolute;
+  inset: -1px 15% auto;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--overview-glow),
+    transparent
+  );
+  content: "";
+  pointer-events: none;
+}
+
+.dashboard-metric {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "label trend" "value value" "line line";
+  align-items: center;
+  align-content: start;
+  gap: 4px 6px;
+}
+
+.dashboard-metric dt {
+  grid-area: label;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 700;
+  line-height: 1.3;
 }
 
-.dashboard-kpis dd {
+.dashboard-metric-value {
+  grid-area: value;
   margin: 0;
   font-family: var(--font-mono);
-  font-size: clamp(15px, 2vw, 27px);
+  font-size: clamp(16px, 2vw, 27px);
   font-weight: 650;
+  line-height: 1.18;
   letter-spacing: -0.055em;
   overflow-wrap: anywhere;
 }
 
-.dashboard-kpis dd[data-sign="1"] {
+.dashboard-metric-value[data-sign="1"] {
   color: var(--positive);
 }
 
-.dashboard-kpis dd[data-sign="-1"] {
+.dashboard-metric-value[data-sign="-1"] {
   color: var(--negative);
+}
+
+.dashboard-metric-history {
+  display: contents;
+}
+
+.dashboard-trend {
+  grid-area: trend;
+  justify-self: start;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--raised);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.dashboard-trend[data-direction="up"] {
+  border-color: var(--positive-border);
+  background: var(--positive-bg);
+  color: var(--positive);
+}
+
+.dashboard-trend[data-direction="down"] {
+  border-color: var(--negative-border);
+  background: var(--negative-bg);
+  color: var(--negative);
+}
+
+.dashboard-metric-line {
+  grid-area: line;
+  min-width: 0;
+  min-height: 29px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dashboard-metric-line .sparkline {
+  width: 100%;
+  height: 28px;
 }
 
 .dashboard-performance {
   grid-area: performance;
+}
+.kx-app .paper-overview > :is(.dashboard-performance, .dashboard-allocation) {
+  padding: clamp(13px, 1.25vw, 18px);
 }
 .dashboard-paper-positions {
   grid-area: positions;
@@ -140,16 +222,32 @@
   color: var(--accent);
 }
 
-.unified-workspace .dashboard-performance select {
-  width: auto;
-  max-width: 100%;
-  min-height: 34px;
-  padding: 5px 8px;
+.dashboard-periods {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
   border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--raised);
-  color: var(--text);
-  font-size: 12px;
+  border-radius: 9px;
+  background: var(--surface-inset);
+}
+
+.unified-workspace .dashboard-periods button {
+  min-width: 32px;
+  min-height: 27px;
+  padding: 4px 7px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.unified-workspace .dashboard-periods button[aria-pressed="true"] {
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+  color: var(--accent);
 }
 
 .dashboard-equity-reading {
@@ -158,7 +256,7 @@
   align-items: end;
   flex-wrap: wrap;
   gap: 10px 24px;
-  margin-block: 19px 4px;
+  margin-block: 8px 2px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -177,7 +275,7 @@
   overflow-wrap: anywhere;
   color: var(--text);
   font-family: var(--font-mono);
-  font-size: clamp(23px, 2.7vw, 37px);
+  font-size: clamp(22px, 2.3vw, 33px);
   font-weight: 650;
   line-height: 1.05;
   letter-spacing: -0.06em;
@@ -197,17 +295,45 @@
 }
 
 .dashboard-performance .equity-chart {
-  margin-block: 12px 3px;
+  margin-block: 8px 2px;
   padding-inline: 0;
   border: 1px solid var(--border);
   border-radius: 13px;
   background: var(--surface-inset);
 }
 
+.dashboard-performance .equity-chart svg {
+  cursor: crosshair;
+}
+
+.equity-point-tooltip {
+  position: absolute;
+  z-index: 1;
+  display: grid;
+  min-width: 145px;
+  padding: 6px 9px;
+  border: 1px solid var(--overview-edge);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: var(--shadow-md);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  transform: translate(-50%, calc(-100% - 7px));
+  pointer-events: none;
+}
+
+.equity-point-tooltip span {
+  color: var(--muted);
+  font-family: var(--font-sans);
+  font-size: 11px;
+}
+
 .dashboard-performance .chart-empty-note {
   position: static;
-  padding: 0;
+  padding: 0 12px 10px;
   border: 0;
+  background: transparent;
   font-size: 12px;
 }
 
@@ -259,51 +385,81 @@
 
 .paper-overview .platform-product-balance {
   margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .paper-overview .platform-product-balance strong {
   color: var(--accent);
   font-family: var(--font-mono);
-  font-size: 16px;
+  font-size: clamp(16px, 1.9vw, 25px);
+  line-height: 1.2;
   overflow-wrap: anywhere;
+}
+
+.kx-app .paper-overview > .dashboard-metrics {
+  border-color: var(--overview-edge);
+  background:
+    radial-gradient(
+      ellipse 18% 125% at 0% 50%,
+      var(--overview-glow),
+      transparent 85%
+    ),
+    radial-gradient(
+      ellipse 18% 125% at 100% 50%,
+      var(--overview-glow),
+      transparent 85%
+    ),
+    linear-gradient(140deg, var(--overview-surface), var(--panel));
 }
 
 .dashboard-metrics p[role="status"]:empty {
   display: none;
 }
 
-.dashboard-metrics .platform-backtest-metrics {
+.dashboard-risk-metrics {
+  display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
-  margin-top: 10px;
+  margin: 13px 0 0;
 }
 
-.dashboard-metrics .platform-backtest-metrics > div {
-  padding: 6px 8px;
-  background: var(--surface-inset);
+.dashboard-risk-metrics .dashboard-metric {
+  min-width: 0;
+  padding-inline-start: 11px;
+  border-inline-start: 1px solid var(--overview-edge);
+  grid-template-columns: minmax(0, 1fr) minmax(30px, 0.48fr);
+  grid-template-areas: "label label" "value line" "trend line";
 }
 
-.dashboard-metrics dd {
-  font-family: var(--font-mono);
-  overflow-wrap: anywhere;
+.dashboard-risk-metrics .dashboard-metric-value {
+  font-size: clamp(14px, 1.5vw, 20px);
+}
+
+.dashboard-risk-metrics .dashboard-metric-line {
+  align-self: center;
 }
 
 @media (min-width: 780px) {
   .unified-workspace .paper-overview > .dashboard-metrics {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(210px, 0.65fr);
+    grid-template-columns: minmax(230px, 1fr) minmax(260px, 0.99fr);
     align-items: center;
-    gap: 4px 22px;
-    padding-block: 12px;
+    gap: 4px 18px;
+    padding-block: 9px;
   }
   .dashboard-metrics .paper-balance-heading {
-    grid-column: 1;
+    grid-area: 1 / 1;
   }
-  .dashboard-metrics .platform-backtest-metrics {
+  .dashboard-metrics .paper-money-note {
+    grid-area: 2 / 1;
+  }
+  .dashboard-risk-metrics {
     grid-area: 1 / 2 / span 2;
     margin: 0;
   }
-  .dashboard-metrics :is(.dashboard-stop, [role="status"], [role="alert"]) {
+  .dashboard-metrics
+    > :not(.paper-balance-heading, .paper-money-note, .dashboard-risk-metrics) {
     grid-column: 1 / -1;
   }
 }
@@ -321,21 +477,55 @@
 
 .dashboard-allocation-content {
   display: grid;
-  gap: 14px;
-  margin-top: 18px;
+  gap: 11px;
+  margin-top: 13px;
 }
 
-.dashboard-allocation-bar {
-  display: flex;
-  height: 14px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--raised);
+.dashboard-allocation-ring {
+  position: relative;
+  justify-self: center;
+  display: grid;
+  place-items: center;
+  width: clamp(125px, 11vw, 168px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    var(--surface-inset) 50%,
+    transparent 71%
+  );
 }
 
-.dashboard-allocation-bar > span {
-  flex-basis: 0;
+.dashboard-allocation-ring svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 1px 7px var(--overview-glow));
+}
+
+.dashboard-allocation-track {
+  stroke: var(--raised);
+  stroke-width: 13;
+}
+
+.dashboard-allocation-slice {
+  stroke-width: 10;
+}
+
+.dashboard-allocation-total {
+  position: absolute;
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.dashboard-allocation-total strong {
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: clamp(20px, 1.8vw, 25px);
+  letter-spacing: -0.06em;
 }
 
 .dashboard-allocation-legend {
@@ -487,6 +677,16 @@
   .dashboard-kpis {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
+  }
+
+  .dashboard-kpis .dashboard-metric {
+    grid-template-areas: "label label" "value value" "trend trend" "line line";
+  }
+}
+
+@media (max-width: 410px) {
+  .dashboard-risk-metrics .dashboard-metric {
+    grid-template-areas: "label label" "value value" "trend trend" "line line";
   }
 }
 

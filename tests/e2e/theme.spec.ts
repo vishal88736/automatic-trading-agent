@@ -154,8 +154,24 @@ test("the signed-in dashboard uses recorded equity and marks, with a responsive 
     cash: "7500",
   };
   const history = [
-    { at: new Date(Date.now() - 48 * 3600000).toISOString(), equity: "10000" },
-    { at: new Date(Date.now() - 3600000).toISOString(), equity: "12500" },
+    {
+      at: new Date(Date.now() - 48 * 3600000).toISOString(),
+      equity: "10000",
+      available_cash: "9000",
+      unrealized_pnl: "0",
+      realized_pnl: "0",
+      daily_pnl: "0",
+      drawdown: "0.01",
+    },
+    {
+      at: new Date(Date.now() - 3600000).toISOString(),
+      equity: "12500",
+      available_cash: "7000",
+      unrealized_pnl: "2500",
+      realized_pnl: "0",
+      daily_pnl: "2500",
+      drawdown: "0",
+    },
   ];
   let marked = true;
   await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
@@ -211,6 +227,28 @@ test("the signed-in dashboard uses recorded equity and marks, with a responsive 
     route.fulfill({ json: { items: [], worker_online: true } }),
   );
   await stubMarkets(page);
+  const prices = [
+    ["BTC", "98100"],
+    ["ETH", "3525"],
+    ["SOL", "189"],
+  ].flatMap(([asset, price]) =>
+    [0, 1].map((step) => ({
+      asset,
+      price: String(Number(price) + step),
+      high_24h: price,
+      low_24h: price,
+      change_24h: "0.0123",
+      at: new Date(Date.now() + step * 1000).toISOString(),
+    })),
+  );
+  await page.route("**/platform/public/prices/stream", (route) =>
+    route.fulfill({
+      contentType: "text/event-stream",
+      body: prices
+        .map((price) => `event: price\ndata: ${JSON.stringify(price)}\n\n`)
+        .join(""),
+    }),
+  );
   await page.route("**/platform/paper-market/*", (route) =>
     route.fulfill({
       json: {
@@ -253,12 +291,20 @@ test("the signed-in dashboard uses recorded equity and marks, with a responsive 
   });
   await expect(equity).toBeVisible();
   const kpis = page.locator(".dashboard-kpis");
-  await expect(kpis.locator("dd")).toHaveText([
+  await expect(kpis.locator(".dashboard-metric-value")).toHaveText([
     "$12,500.00",
     "$7,000.00",
     "$2,500.00",
     "$0.00",
   ]);
+  await expect(kpis.locator(".sparkline")).toHaveCount(4);
+  await expect(kpis.locator(".dashboard-trend").first()).toHaveText("+25.00%");
+  await expect(kpis.locator(".dashboard-trend").nth(1)).toHaveAttribute(
+    "data-direction",
+    "down",
+  );
+  const ticker = page.getByRole("region", { name: "Live prices" });
+  await expect(ticker.locator(".sparkline")).toHaveCount(3);
   expect((await kpis.boundingBox())!.y).toBeLessThan(
     (await equity.boundingBox())!.y,
   );
@@ -270,20 +316,23 @@ test("the signed-in dashboard uses recorded equity and marks, with a responsive 
     name: "Inspect equity snapshot",
   });
   await expect(snapshot).toHaveAttribute("aria-valuetext", /^\$12,500\.00 at /);
+  await equity.hover({ position: { x: 24, y: 120 } });
+  await expect(page.locator(".equity-point-tooltip")).toContainText(
+    "$10,000.00",
+  );
   await snapshot.focus();
   await snapshot.press("Home");
   await expect(snapshot).toHaveAttribute("aria-valuetext", /^\$10,000\.00 at /);
-  await page
-    .getByRole("combobox", { name: "Equity period" })
-    .selectOption("day");
+  const range = page.getByRole("group", { name: "Equity period" });
+  await range.getByRole("button", { name: "Past 24 hours" }).click();
   await expect(
     page.getByRole("img", { name: "Recorded paper equity, 1 snapshot" }),
   ).toBeVisible();
 
   const allocation = page.locator(".dashboard-allocation");
-  await expect(
-    allocation.locator(".dashboard-allocation-bar > span"),
-  ).toHaveCount(2);
+  await expect(allocation.locator(".dashboard-allocation-slice")).toHaveCount(
+    2,
+  );
   await expect(allocation).toContainText("60.0%");
   await expect(allocation).toContainText("40.0%");
   await expect(allocation).toContainText("$5,000.00 · 0.05 BTC");
@@ -292,7 +341,7 @@ test("the signed-in dashboard uses recorded equity and marks, with a responsive 
   await expect(allocation).toContainText(
     "Allocation requires fresh prices for every holding.",
   );
-  await expect(allocation.locator(".dashboard-allocation-bar")).toHaveCount(0);
+  await expect(allocation.locator(".dashboard-allocation-ring")).toHaveCount(0);
   await expect(positions.getByText("Awaiting price")).toBeVisible();
 
   await page.getByRole("button", { name: "Switch to light theme" }).click();
@@ -304,6 +353,15 @@ test("the signed-in dashboard uses recorded equity and marks, with a responsive 
   await expect(
     page.getByRole("link", { name: "Krono overview" }),
   ).toBeVisible();
+  expect(
+    await ticker.evaluate(
+      (element) => element.scrollWidth - element.clientWidth,
+    ),
+  ).toBeGreaterThan(0);
+  await ticker.getByRole("link", { name: /SOL/ }).scrollIntoViewIfNeeded();
+  expect(
+    await ticker.evaluate((element) => element.scrollLeft),
+  ).toBeGreaterThan(0);
   const menu = page.getByRole("button", { name: "Open navigation" });
   await expect(sidebar).toBeHidden();
   await menu.click();

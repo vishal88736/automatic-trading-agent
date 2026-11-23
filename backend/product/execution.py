@@ -183,7 +183,10 @@ def _buy_risk(db, owner, account, asset, gross, fee, held, quotes, at, terms):
         (owner, account.epoch),
     ).fetchone()[0]
     db.execute(
-        "INSERT INTO paper_equity_snapshots VALUES (%s, %s, %s, %s, %s) ON CONFLICT DO NOTHING",
+        """
+        INSERT INTO paper_equity_snapshots (owner_id, account_id, epoch, observed_at, equity)
+        VALUES (%s, %s, %s, %s, %s) ON CONFLICT DO NOTHING
+        """,
         (owner, account.id, account.epoch, at, equity),
     )
     peak = max(peak or initial, initial)
@@ -519,14 +522,6 @@ def portfolio(db, owner: UUID, quotes: dict[str, PaperQuote], *, clock=now, max_
                 total_value += marked["mark"]
                 total_unrealized += marked["unrealized_pnl"]
         equity = account.cash + total_value if complete else None
-        if equity is not None:
-            db.execute(
-                """
-                INSERT INTO paper_equity_snapshots VALUES (%s, %s, %s, %s, %s)
-                ON CONFLICT DO NOTHING
-                """,
-                (owner, account.id, account.epoch, at, equity),
-            )
         peak, previous = db.execute(
             """
             SELECT max(equity), (
@@ -542,36 +537,62 @@ def portfolio(db, owner: UUID, quotes: dict[str, PaperQuote], *, clock=now, max_
             (owner, account.epoch),
         ).fetchone()[0]
         peak = max(peak or opening, opening)
-        history = db.execute(
-            """
-            SELECT observed_at, equity FROM paper_equity_snapshots
-            WHERE owner_id = %s AND epoch = %s ORDER BY observed_at DESC LIMIT 200
-            """,
-            (owner, account.epoch),
-        ).fetchall()
+        daily_reference = previous if previous is not None else opening
+        metrics = {
+            "available_cash": account.cash
+            - reserved
+            - agent_cash_reserved(db, owner, account.epoch),
+            "realized_pnl": sum((row["realized_pnl"] for row in held.values()), Decimal(0)),
+            "unrealized_pnl": total_unrealized if equity is not None else None,
+            "daily_pnl": equity - daily_reference if equity is not None else None,
+            "drawdown": max(Decimal(0), (peak - equity) / peak) if equity is not None else None,
+        }
+        if equity is not None:
+            db.execute(
+                """
+                INSERT INTO paper_equity_snapshots (
+                    owner_id, account_id, epoch, observed_at, equity,
+                    available_cash, realized_pnl, unrealized_pnl, daily_pnl, drawdown
+                )
+                VALUES (
+                    %(owner)s, %(account)s, %(epoch)s, %(at)s, %(equity)s,
+                    %(available_cash)s, %(realized_pnl)s, %(unrealized_pnl)s, %(daily_pnl)s, %(drawdown)s
+                )
+                ON CONFLICT DO NOTHING
+                """,
+                {
+                    "owner": owner,
+                    "account": account.id,
+                    "epoch": account.epoch,
+                    "at": at,
+                    "equity": equity,
+                    **metrics,
+                },
+            )
+        with db.cursor(row_factory=dict_row) as cursor:
+            history = cursor.execute(
+                """
+                SELECT observed_at AS at, equity, available_cash, realized_pnl,
+                    unrealized_pnl, daily_pnl, drawdown FROM paper_equity_snapshots
+                WHERE owner_id = %s AND epoch = %s ORDER BY observed_at DESC LIMIT 200
+                """,
+                (owner, account.epoch),
+            ).fetchall()
         for holding in holdings:
             holding["allocation"] = holding["mark"] / equity if equity and complete else None
         return {
             "epoch": account.epoch,
             "currency": account.currency,
             "cash": account.cash,
-            "available_cash": account.cash
-            - reserved
-            - agent_cash_reserved(db, owner, account.epoch),
+            **metrics,
             "equity": equity,
             "holdings": holdings,
             "positions": [
                 _mark_holding(row, quotes, at, max_age)
                 for row in _positions_by_actor(db, owner, account.epoch)
             ],
-            "realized_pnl": sum((row["realized_pnl"] for row in held.values()), Decimal(0)),
-            "unrealized_pnl": total_unrealized if complete else None,
-            "daily_pnl": equity - (previous if previous is not None else opening)
-            if complete
-            else None,
-            "drawdown": max(Decimal(0), (peak - equity) / peak) if complete else None,
             "emergency_stop": stopped,
-            "history": [{"at": t, "equity": value} for t, value in reversed(history)],
+            "history": history[::-1],
         }
 
 

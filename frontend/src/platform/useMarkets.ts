@@ -21,6 +21,8 @@ export interface MarketSummary {
   high24h: number | null;
   low24h: number | null;
   direction: "up" | "down" | null;
+  observedAt: number | null;
+  history: number[];
 }
 
 // One shared snapshot and SSE connection for every component on the page.
@@ -42,13 +44,27 @@ function list(): MarketSummary[] {
         high24h: null,
         low24h: null,
         direction: null,
+        observedAt: null,
+        history: [],
       },
   );
 }
 
 function apply(item: PriceQuote) {
-  const previous = state[item.asset]?.price ?? null;
+  const last = state[item.asset];
+  const previous = last?.price ?? null;
   const price = Number(item.price);
+  const observedAt = Date.parse(item.at);
+  if (
+    !Number.isFinite(price) ||
+    price <= 0 ||
+    !Number.isFinite(observedAt) ||
+    (last?.observedAt != null && observedAt < last.observedAt)
+  )
+    return;
+  const history = last?.history ?? [];
+  const previousSamples =
+    observedAt === last?.observedAt ? history.slice(0, -1) : history;
   state = {
     ...state,
     [item.asset]: {
@@ -58,9 +74,11 @@ function apply(item: PriceQuote) {
       change24h: item.change_24h === null ? null : Number(item.change_24h),
       high24h: Number(item.high_24h),
       low24h: Number(item.low_24h),
+      observedAt,
+      history: [...previousSamples.slice(-31), price],
       direction:
         previous === null || previous === price
-          ? (state[item.asset]?.direction ?? null)
+          ? (last?.direction ?? null)
           : price > previous
             ? "up"
             : "down",

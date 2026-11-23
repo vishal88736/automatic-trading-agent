@@ -83,13 +83,13 @@
 }
 
 @media (max-width: 1160px) {
-  .kx-topbar .theme-toggle span {
+  .kx-topbar .theme-toggle-label {
     display: none;
   }
 }
 
 @media (max-width: 640px) {
-  .theme-toggle span {
+  .theme-toggle-label {
     display: none;
   }
 }

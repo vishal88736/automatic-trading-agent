@@ -344,7 +344,7 @@ export function Workspace() {
               </strong>
               <small>
                 {worker
-                  ? `${worker.items.filter((a) => a.status === "RUNNING").length} running · runs while you're away`
+                  ? `${worker.items.filter((a) => a.status === "RUNNING").length} running`
                   : "Server-side execution"}
               </small>
             </div>
@@ -391,7 +391,7 @@ export function Workspace() {
           >
             <KronoMark />
           </a>
-          <MarketTicker />
+          <MarketTicker detailed />
           <div className="kx-topbar-actions">
             <div className="kx-mode" role="group" aria-label="Trading mode">
               <a
@@ -407,7 +407,7 @@ export function Workspace() {
                 Live
               </a>
             </div>
-            <ThemeToggle />
+            <ThemeToggle segmented />
           </div>
         </header>
         <main className="kx-content platform-workspace">

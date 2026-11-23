@@ -199,11 +199,106 @@ export function DashboardLivePortfolio({ enabled }: { enabled: boolean }) {
   );
 }
 
-type EquityMark = { at: string; equity: string };
+export interface PaperPortfolioMark {
+  at: string;
+  equity: string;
+  available_cash?: string | null;
+  unrealized_pnl?: string | null;
+  realized_pnl?: string | null;
+  daily_pnl?: string | null;
+  drawdown?: string | null;
+}
+
+const metricLabels = {
+  equity: "Portfolio value",
+  available_cash: "Buying power",
+  unrealized_pnl: "Unrealized P&L",
+  realized_pnl: "Realized P&L",
+  daily_pnl: "Daily P&L",
+  drawdown: "Drawdown",
+} satisfies Record<keyof Omit<PaperPortfolioMark, "at">, string>;
+
+export function DashboardMetric({
+  metric,
+  value,
+  rows,
+}: {
+  metric: keyof typeof metricLabels;
+  value: string | null;
+  rows: PaperPortfolioMark[];
+}) {
+  const recorded = rows
+    .flatMap((row) => {
+      const mark = row[metric];
+      return mark != null && Number.isFinite(Number(mark))
+        ? [Number(mark)]
+        : [];
+    })
+    .slice(-60);
+  const ready = value !== null && recorded.length > 1;
+  const change = (recorded.at(-1) ?? 0) - (recorded[0] ?? 0);
+  const drawdown = metric === "drawdown";
+  const relative =
+    (metric === "equity" || metric === "available_cash") && recorded[0] > 0;
+  const magnitude = Math.abs(change);
+  const changeText = drawdown
+    ? `${(magnitude * 100).toFixed(2)} pp`
+    : relative
+      ? percent(magnitude / recorded[0])
+      : money(magnitude);
+  const signedChange = `${change > 0 ? "+" : change < 0 ? "−" : ""}${changeText}`;
+  const tone =
+    !ready || change === 0
+      ? "flat"
+      : (drawdown ? change < 0 : change > 0)
+        ? "up"
+        : "down";
+  return (
+    <div className="dashboard-metric">
+      <dt>{metricLabels[metric]}</dt>
+      <dd
+        className="dashboard-metric-value"
+        data-sign={
+          metric.endsWith("_pnl") ? Math.sign(Number(value)) : undefined
+        }
+      >
+        {drawdown ? percent(value) : money(value)}
+      </dd>
+      <dd className="dashboard-metric-history">
+        <span
+          className="dashboard-trend"
+          data-direction={tone}
+          title={
+            ready
+              ? "Change across recorded snapshots"
+              : "Trend requires two recorded values"
+          }
+          aria-label={
+            ready ? `Recorded change ${signedChange}` : "Trend unavailable"
+          }
+        >
+          {ready ? signedChange : "—"}
+        </span>
+        <span className="dashboard-metric-line">
+          {ready && (
+            <Sparkline
+              values={recorded}
+              positive={tone === "up"}
+              neutral={tone === "flat"}
+              shaded
+            />
+          )}
+        </span>
+      </dd>
+    </div>
+  );
+}
+
 const periods = {
-  latest: "Latest marks",
-  day: "Past 24 hours",
-  week: "Past 7 days",
+  day: { short: "1D", label: "Past 24 hours", days: 1 },
+  week: { short: "7D", label: "Past 7 days", days: 7 },
+  month: { short: "1M", label: "Past 30 days", days: 30 },
+  all: { short: "All", label: "All available marks", days: null },
 } as const;
 
 const equityAxis = new Intl.NumberFormat("en-US", {
@@ -213,14 +308,13 @@ const equityAxis = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 2,
 });
 
-export function PortfolioPerformance({ rows }: { rows: EquityMark[] }) {
-  const [period, setPeriod] = useState<keyof typeof periods>("latest");
+export function PortfolioPerformance({ rows }: { rows: PaperPortfolioMark[] }) {
+  const [period, setPeriod] = useState<keyof typeof periods>("all");
   const [selectedAt, setSelectedAt] = useState<string>();
-  const cutoff = Date.now() - (period === "day" ? 1 : 7) * 86400000;
+  const days = periods[period].days;
+  const cutoff = days === null ? null : Date.now() - days * 86400000;
   const marks =
-    period === "latest"
-      ? rows.slice(-60)
-      : rows.filter((row) => Date.parse(row.at) >= cutoff);
+    cutoff === null ? rows : rows.filter((row) => Date.parse(row.at) >= cutoff);
   const match = marks.findIndex((row) => row.at === selectedAt);
   const selectedIndex = match >= 0 ? match : marks.length - 1;
   const selected = marks[selectedIndex];
@@ -234,20 +328,26 @@ export function PortfolioPerformance({ rows }: { rows: EquityMark[] }) {
         <h3>
           <ChartNoAxesColumn size={17} aria-hidden /> Portfolio performance
         </h3>
-        <select
+        <div
+          className="dashboard-periods"
+          role="group"
           aria-label="Equity period"
-          value={period}
-          onChange={(event) => {
-            setPeriod(event.target.value as keyof typeof periods);
-            setSelectedAt(undefined);
-          }}
         >
-          {Object.entries(periods).map(([value, title]) => (
-            <option key={value} value={value}>
-              {title}
-            </option>
+          {(Object.keys(periods) as (keyof typeof periods)[]).map((key) => (
+            <button
+              type="button"
+              key={key}
+              aria-label={periods[key].label}
+              aria-pressed={period === key}
+              onClick={() => {
+                setPeriod(key);
+                setSelectedAt(undefined);
+              }}
+            >
+              {periods[key].short}
+            </button>
           ))}
-        </select>
+        </div>
       </div>
       {selected ? (
         <>
@@ -273,9 +373,11 @@ export function PortfolioPerformance({ rows }: { rows: EquityMark[] }) {
             baseline={first}
             padding={Math.max(1, Math.abs(first) * 0.005)}
             format={equityAxis.format}
+            formatPoint={money}
             label="Recorded paper equity"
             area
             selectedIndex={selectedIndex}
+            onInspect={(index) => setSelectedAt(marks[index].at)}
           />
           {marks.length > 1 && (
             <input
@@ -344,6 +446,12 @@ export function AssetAllocation({
           })),
         ].filter((slice) => slice.share > 0)
       : [];
+  const totalShare = slices.reduce((sum, slice) => sum + slice.share, 0);
+  const largest = slices.reduce<(typeof slices)[number] | undefined>(
+    (lead, slice) => (!lead || slice.share > lead.share ? slice : lead),
+    undefined,
+  );
+  let offset = 0;
   return (
     <section className="platform-product-panel dashboard-allocation">
       <div className="dashboard-panel-heading">
@@ -352,12 +460,42 @@ export function AssetAllocation({
         </h3>
         <a href={workspaceHref("portfolio")}>Portfolio</a>
       </div>
-      {slices.length ? (
+      {largest ? (
         <div className="dashboard-allocation-content">
-          <div className="dashboard-allocation-bar" aria-hidden="true">
-            {slices.map(({ name, share, color }) => (
-              <span key={name} style={{ flexGrow: share, background: color }} />
-            ))}
+          <div className="dashboard-allocation-ring" aria-hidden="true">
+            <svg viewBox="0 0 140 140" fill="none">
+              <circle
+                className="dashboard-allocation-track"
+                cx="70"
+                cy="70"
+                r="58"
+              />
+              <g transform="rotate(-90 70 70)">
+                {slices.map(({ name, share, color }) => {
+                  const length = (100 * share) / totalShare;
+                  const start = offset;
+                  offset += length;
+                  const gap = slices.length > 1 ? Math.min(2, length / 3) : 0;
+                  return (
+                    <circle
+                      key={name}
+                      className="dashboard-allocation-slice"
+                      cx="70"
+                      cy="70"
+                      r="58"
+                      pathLength="100"
+                      stroke={color}
+                      strokeDasharray={`${length - gap} ${100 - length + gap}`}
+                      strokeDashoffset={-start}
+                    />
+                  );
+                })}
+              </g>
+            </svg>
+            <div className="dashboard-allocation-total">
+              <strong>{percent(largest.share, 1)}</strong>
+              <span>{largest.name}</span>
+            </div>
           </div>
           <dl className="dashboard-allocation-legend">
             {slices.map(({ name, share, value, color, quantity }) => (

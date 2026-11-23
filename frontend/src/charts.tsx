@@ -1,4 +1,11 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent,
+} from "react";
 import type { Amount, Candle, ChartIndicators } from "./types";
 
 // The SVG coordinate system follows its container. Axis labels therefore stay
@@ -31,31 +38,77 @@ function chartEma(candles: Candle[], period = 12): (number | null)[] {
 export function Sparkline({
   values,
   positive = true,
+  neutral = false,
+  shaded = false,
 }: {
   values: Amount[];
   positive?: boolean;
+  neutral?: boolean;
+  shaded?: boolean;
 }) {
+  const fill = useId();
   if (values.length < 2) return <span className="muted">—</span>;
   const numbers = values.map(Number),
     low = Math.min(...numbers),
-    span = Math.max(...numbers) - low || 1;
+    span = Math.max(...numbers) - low;
+  const color = neutral
+    ? "var(--subtle)"
+    : positive
+      ? "var(--positive)"
+      : "var(--negative)";
   const points = numbers
     .map(
       (n, i) =>
-        `${(i * 95) / (numbers.length - 1)},${26 - ((n - low) * 22) / span}`,
+        `${1 + (i * 94) / (numbers.length - 1)},${span ? 24 - ((n - low) * 20) / span : 15}`,
     )
     .join(" ");
   return (
-    <svg viewBox="0 0 96 30" className="sparkline" aria-hidden="true">
+    <svg
+      viewBox="0 0 96 30"
+      preserveAspectRatio={shaded ? "none" : undefined}
+      className="sparkline"
+      aria-hidden="true"
+    >
+      {shaded && (
+        <>
+          <defs>
+            <linearGradient id={fill} x2="0" y2="1">
+              <stop stopColor={color} stopOpacity=".32" />
+              <stop offset="100%" stopColor={color} stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <polygon points={`1,30 ${points} 95,30`} fill={`url(#${fill})`} />
+        </>
+      )}
       <polyline
         points={points}
         fill="none"
-        stroke={positive ? "var(--positive)" : "var(--negative)"}
-        strokeWidth="1.6"
+        stroke={color}
+        strokeWidth="1.35"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        vectorEffect="non-scaling-stroke"
       />
     </svg>
   );
 }
+
+const chartDate = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  timeZone: "UTC",
+});
+const chartClock = new Intl.DateTimeFormat("en-GB", {
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZone: "UTC",
+});
+const chartSeconds = new Intl.DateTimeFormat("en-GB", {
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  timeZone: "UTC",
+});
 
 export function EquityChart({
   rows,
@@ -66,6 +119,7 @@ export function EquityChart({
   formatPoint = (value: number) => `$${value.toFixed(4)} simulated equity`,
   area = false,
   selectedIndex,
+  onInspect,
 }: {
   rows: { at: string; equity: Amount }[];
   baseline?: number;
@@ -75,41 +129,99 @@ export function EquityChart({
   formatPoint?: (value: number) => string;
   area?: boolean;
   selectedIndex?: number;
+  onInspect?: (index: number) => void;
 }) {
   const { ref, width } = useChartWidth();
   const fill = useId();
+  const [pointed, setPointed] = useState(false);
   const left = 12,
-    right = width - 72,
+    right = width - (area ? 63 : 72),
     plotWidth = Math.max(1, right - left);
   const plotTop = area ? 22 : 50;
-  const plotBottom = area ? 170 : 225;
+  const plotBottom = area ? 186 : 225;
   const gridTop = area ? plotTop : 48;
-  const height = area ? 207 : 270;
+  const height = area ? 218 : 270;
   const values = rows.map((r) => Number(r.equity));
   const minimum = Math.min(...values, baseline) - padding,
     maximum = Math.max(...values, baseline) + padding,
-    range = maximum - minimum;
+    range = maximum - minimum || 1;
+  const times = rows.map((row) => Date.parse(row.at));
+  const duration = (times.at(-1) ?? 0) - (times[0] ?? 0);
+  const timeScaled = area && duration > 0 && times.every(Number.isFinite);
   const coordinates = values.map((equity, index) => ({
-    x: left + (index * plotWidth) / Math.max(1, rows.length - 1),
+    x:
+      left +
+      plotWidth *
+        (timeScaled
+          ? (times[index] - times[0]) / duration
+          : index / Math.max(1, rows.length - 1)),
     y: plotBottom - ((equity - minimum) * (plotBottom - plotTop)) / range,
   }));
   const points = coordinates.map(({ x, y }) => `${x},${y}`).join(" ");
+  const selected =
+    selectedIndex !== undefined ? coordinates[selectedIndex] : undefined;
+  const selectedRow =
+    selectedIndex !== undefined ? rows[selectedIndex] : undefined;
+  const selectedTime = selectedIndex !== undefined ? times[selectedIndex] : NaN;
+  const timeFormat =
+    duration >= 86_400_000
+      ? chartDate
+      : duration >= 240_000
+        ? chartClock
+        : chartSeconds;
+  const visibleTicks = width < 380 ? 2 : width < 620 ? 3 : 5;
+  const timeTickCount =
+    duration >= 86_400_000
+      ? Math.min(visibleTicks, Math.floor(duration / 86_400_000) + 1)
+      : visibleTicks;
+  const verticalGridCount = width < 400 ? 13 : 25;
+  const timeTicks = timeScaled
+    ? Array.from({ length: timeTickCount }, (_, i) => {
+        const step = i / (timeTickCount - 1);
+        return { x: left + step * plotWidth, time: times[0] + step * duration };
+      })
+    : [];
+
+  function inspect(event: PointerEvent<SVGSVGElement>) {
+    if (!onInspect || rows.length < 2) return;
+    const box = event.currentTarget.getBoundingClientRect();
+    const x = ((event.clientX - box.left) * width) / box.width;
+    const y = ((event.clientY - box.top) * height) / box.height;
+    if (x < left || x > right || y < plotTop || y > plotBottom) {
+      setPointed(false);
+      return;
+    }
+    let nearest = 0;
+    for (let index = 1; index < coordinates.length; index++) {
+      if (
+        Math.abs(coordinates[index].x - x) <
+        Math.abs(coordinates[nearest].x - x)
+      )
+        nearest = index;
+    }
+    setPointed(true);
+    onInspect(nearest);
+  }
+
   return (
     <div className="equity-chart" ref={ref}>
       <svg
         viewBox={`0 0 ${width} ${height}`}
         role="img"
         aria-label={`${label}, ${rows.length} ${rows.length === 1 ? "snapshot" : "snapshots"}`}
+        onPointerMove={onInspect ? inspect : undefined}
+        onPointerLeave={onInspect ? () => setPointed(false) : undefined}
+        onPointerDown={onInspect ? inspect : undefined}
       >
         {area && rows.length > 1 && (
           <>
             <defs>
               <linearGradient id={fill} x2="0" y2="1">
-                <stop stopColor="var(--chart-line)" stopOpacity="0.47" />
+                <stop stopColor="var(--positive)" stopOpacity="0.64" />
                 <stop
                   offset="100%"
-                  stopColor="var(--chart-line)"
-                  stopOpacity="0.03"
+                  stopColor="var(--positive)"
+                  stopOpacity="0.04"
                 />
               </linearGradient>
             </defs>
@@ -119,6 +231,20 @@ export function EquityChart({
             />
           </>
         )}
+        {area &&
+          Array.from({ length: verticalGridCount }, (_, i) => {
+            const x = left + (i * plotWidth) / (verticalGridCount - 1);
+            return (
+              <line
+                key={i}
+                x1={x}
+                x2={x}
+                y1={plotTop}
+                y2={plotBottom}
+                stroke="var(--grid-line)"
+              />
+            );
+          })}
         {[0, 1, 2, 3].map((i) => {
           const y = gridTop + (i * (plotBottom - gridTop)) / 3;
           return (
@@ -129,7 +255,7 @@ export function EquityChart({
                 y1={y}
                 y2={y}
                 stroke="var(--border)"
-                strokeDasharray="3 5"
+                strokeDasharray={area ? undefined : "3 5"}
               />
               <text x={right + 10} y={y + 5} fill="var(--muted)" fontSize="12">
                 {format(maximum - (i * range) / 3)}
@@ -137,6 +263,17 @@ export function EquityChart({
             </g>
           );
         })}
+        {area && selected && (
+          <line
+            x1={selected.x}
+            x2={selected.x}
+            y1={plotTop}
+            y2={plotBottom}
+            stroke="var(--chart-line)"
+            strokeOpacity=".42"
+            strokeDasharray="3 4"
+          />
+        )}
         {rows.length > 0 && (
           <polyline
             points={points}
@@ -164,20 +301,60 @@ export function EquityChart({
               </circle>
             ),
         )}
-        <text x={left} y={height - 11} fill="var(--muted)" fontSize="12">
-          {width < 480 ? "First mark" : "First recorded mark"}
-        </text>
-        <text
-          x={right}
-          y={height - 11}
-          fill="var(--muted)"
-          fontSize="12"
-          textAnchor="end"
-        >
-          Latest mark
-        </text>
+        {timeTicks.length ? (
+          timeTicks.map(({ x, time }, i) => (
+            <text
+              key={i}
+              x={x}
+              y={height - 11}
+              fill="var(--muted)"
+              fontSize="11"
+              textAnchor={
+                i === 0
+                  ? "start"
+                  : i === timeTicks.length - 1
+                    ? "end"
+                    : "middle"
+              }
+            >
+              {timeFormat.format(time)}
+            </text>
+          ))
+        ) : (
+          <>
+            <text x={left} y={height - 11} fill="var(--muted)" fontSize="12">
+              {width < 480 ? "First mark" : "First recorded mark"}
+            </text>
+            <text
+              x={right}
+              y={height - 11}
+              fill="var(--muted)"
+              fontSize="12"
+              textAnchor="end"
+            >
+              Latest mark
+            </text>
+          </>
+        )}
       </svg>
-      {rows.length < 3 && (
+      {pointed && selected && selectedRow && (
+        <div
+          className="equity-point-tooltip"
+          style={{
+            left: `clamp(79px, ${selected.x}px, calc(100% - 79px))`,
+            top: `${Math.max(62, selected.y)}px`,
+          }}
+          aria-hidden="true"
+        >
+          <strong>{formatPoint(Number(selectedRow.equity))}</strong>
+          <span>
+            {Number.isFinite(selectedTime)
+              ? `${chartDate.format(selectedTime)} · ${chartSeconds.format(selectedTime)} UTC`
+              : selectedRow.at}
+          </span>
+        </div>
+      )}
+      {rows.length < (area ? 2 : 3) && (
         <div className="chart-empty-note">
           The equity curve grows from recorded marks and simulated fills.
         </div>
