@@ -7,7 +7,7 @@ import {
   ShieldCheck,
   Trophy,
 } from "lucide-react";
-import { KronoMark } from "../brand";
+import { KronoBrand } from "../brand";
 import { ThemeToggle } from "../ThemeToggle";
 import { platform } from "./client";
 import { MarketTicker } from "./MarketTicker";
@@ -96,8 +96,7 @@ export function Auth({
     <div className="kx-auth">
       <aside className="kx-auth-story">
         <a className="kx-brand" href="#/">
-          <KronoMark />
-          <span>Krono</span>
+          <KronoBrand />
         </a>
         <div>
           <h2>
@@ -128,6 +127,9 @@ export function Auth({
       </aside>
       <div className="kx-auth-panel">
         <div className="kx-auth-top">
+          <a className="kx-brand kx-auth-home" href="#/">
+            <KronoBrand />
+          </a>
           <a className="kx-back" href="#/">
             <ArrowLeft size={15} /> Home
           </a>

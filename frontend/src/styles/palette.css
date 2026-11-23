@@ -24,6 +24,8 @@
   --contrast-bg: light-dark(#0d1710, #19261d);
   --contrast-fg: #fff;
   --gradient-brand: linear-gradient(135deg, var(--lime), #22c55e);
+  --wordmark-ink: light-dark(#0d1710, #e1edd8);
+  --wordmark-signal: light-dark(#398118, var(--lime));
   --brand-glow: rgb(181 242 72 / 50%);
   --spotlight: light-dark(rgb(181 242 72 / 24%), rgb(34 197 94 / 19%));
   --spotlight-soft: light-dark(rgb(22 163 74 / 8%), rgb(181 242 72 / 7%));

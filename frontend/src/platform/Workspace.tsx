@@ -17,7 +17,7 @@ import {
   WandSparkles,
   X,
 } from "lucide-react";
-import { KronoMark } from "../brand";
+import { KronoBrand, KronoMark } from "../brand";
 import { Landing } from "./Landing";
 import { ThemeToggle } from "../ThemeToggle";
 import { Auth } from "./Auth";
@@ -290,9 +290,12 @@ export function Workspace() {
         }}
       >
         <div className="kx-sidebar-head">
-          <a className="kx-brand" href={workspaceHref("dashboard")}>
-            <KronoMark />
-            <span>Krono</span>
+          <a
+            className="kx-brand"
+            href={workspaceHref("dashboard")}
+            onClick={closeNavigation}
+          >
+            <KronoBrand />
           </a>
           <button
             className="kx-icon-button kx-only-mobile"
@@ -381,6 +384,13 @@ export function Workspace() {
           >
             <Menu size={18} />
           </button>
+          <a
+            className="kx-topbar-home kx-only-mobile"
+            href={workspaceHref("dashboard")}
+            aria-label="Krono overview"
+          >
+            <KronoMark />
+          </a>
           <MarketTicker />
           <div className="kx-topbar-actions">
             <div className="kx-mode" role="group" aria-label="Trading mode">
