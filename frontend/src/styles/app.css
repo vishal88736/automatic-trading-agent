@@ -2330,7 +2330,8 @@ body {
 }
 .kx-market-filters {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
   gap: 16px 24px;
 }
 .unified-workspace .kx-market-filter :is(h3, label) {
@@ -2352,6 +2353,32 @@ body {
   border-color: var(--accent-border);
   background: var(--accent-bg);
   color: var(--accent);
+}
+.kx-market-picker {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-inset);
+}
+.kx-market-picker summary {
+  padding: 9px 12px;
+  cursor: pointer;
+}
+.kx-market-picker summary span {
+  margin-inline-start: 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.kx-market-picker-content {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+}
+.kx-market-results {
+  max-height: 240px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 3px;
 }
 .kx-market-search {
   position: relative;
@@ -2390,11 +2417,64 @@ body {
 }
 .kx-market-insight {
   display: grid;
-  justify-items: start;
-  gap: 10px;
+  gap: 14px;
+}
+.kx-insight-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
 }
 .kx-market-insight h3 svg {
   color: var(--accent);
+}
+.kx-market-insight :is(h4, p, ul) {
+  margin: 0;
+}
+.kx-insight-summary {
+  padding: 14px 16px;
+  border-inline-start: 3px solid var(--accent);
+  border-radius: 8px;
+  background: var(--accent-bg);
+  font-weight: 650;
+}
+.kx-insight-findings {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.kx-insight-findings > div {
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-inset);
+}
+.kx-insight-findings ul,
+.kx-market-insight details ul {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  padding-inline-start: 20px;
+  overflow-wrap: anywhere;
+}
+.kx-market-insight summary {
+  cursor: pointer;
+}
+.kx-insight-limits,
+.kx-insight-meta {
+  color: var(--muted);
+  font-size: 13px;
+}
+.kx-insight-meta {
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+@media (max-width: 760px) {
+  .kx-insight-findings {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 @media (max-width: 760px) {
   .kx-paper-desk,

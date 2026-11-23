@@ -53,7 +53,6 @@ const moduleIcons = {
   dashboard: LayoutDashboard,
   paper: FlaskConical,
   live: Plug,
-  portfolio: Wallet,
   agents: Bot,
   builder: WandSparkles,
   strategies: SlidersHorizontal,
@@ -421,6 +420,19 @@ export function Workspace() {
             </div>
             {page === "dashboard" && (
               <div className="kx-actions">
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => {
+                    const section = document.getElementById(
+                      "live-overview-section",
+                    );
+                    section?.focus({ preventScroll: true });
+                    section?.scrollIntoView({ block: "start" });
+                  }}
+                >
+                  <Wallet size={15} aria-hidden /> Live dashboard
+                </button>
                 <a className="button primary" href={workspaceHref("builder")}>
                   <WandSparkles size={15} aria-hidden /> Build an agent
                 </a>
@@ -497,9 +509,6 @@ export function Workspace() {
                 <BacktestingLab key={reportId ?? "new"} reportId={reportId} />
               )}
               {page === "paper" && <PaperAccount key="paper" />}
-              {page === "portfolio" && (
-                <PaperAccount key="portfolio" view="portfolio" />
-              )}
               {page === "settings" && (
                 <PaperAccount key="settings" view="settings" />
               )}
@@ -508,11 +517,13 @@ export function Workspace() {
             </Suspense>
           )}
           {page === "dashboard" && (
-            <Suspense
-              fallback={<p role="status">Loading live trading dashboard…</p>}
-            >
-              <LiveOverview key={auth.session.userId} />
-            </Suspense>
+            <div id="live-overview-section" tabIndex={-1}>
+              <Suspense
+                fallback={<p role="status">Loading live trading dashboard…</p>}
+              >
+                <LiveOverview key={auth.session.userId} />
+              </Suspense>
+            </div>
           )}
         </main>
       </div>

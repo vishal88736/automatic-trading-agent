@@ -5,7 +5,6 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
-import { EquityChart } from "../charts";
 import { money, percent, timestamp } from "../ui";
 import { useSpotAssets } from "./market-assets";
 import { platform } from "./client";
@@ -81,7 +80,7 @@ export default function PaperAccount({
   dashboardAgents,
   dashboardMarkets,
 }: {
-  view?: "dashboard" | "portfolio" | "trade" | "settings";
+  view?: "dashboard" | "trade" | "settings";
   dashboardAgents?: ReactNode;
   dashboardMarkets?: ReactNode;
 }) {
@@ -211,6 +210,96 @@ export default function PaperAccount({
           <a href={workspaceHref("settings")}>Review controls</a>
         </p>
       )}
+      <section
+        className={
+          dashboard
+            ? "platform-product-panel paper-overview-balance dashboard-metrics"
+            : "platform-product-panel paper-overview-balance"
+        }
+        aria-labelledby="paper-balance"
+      >
+        <div className="paper-balance-heading">
+          <div>
+            <h3 id="paper-balance">Virtual balance</h3>
+            {account && (
+              <p className="platform-product-balance">
+                <strong>
+                  {dashboard
+                    ? money(value?.cash ?? account.cash)
+                    : account.cash}
+                </strong>{" "}
+                virtual {account.currency}
+              </p>
+            )}
+          </div>
+          {(!data || account) && (
+            <button
+              className={dashboard ? "secondary" : undefined}
+              disabled={busy}
+              onClick={() => void act()}
+            >
+              Refresh account
+            </button>
+          )}
+          {data && !account && (
+            <button
+              disabled={busy}
+              onClick={() =>
+                void act(async () => {
+                  await platform("/paper-account", "POST");
+                })
+              }
+            >
+              Open virtual account
+            </button>
+          )}
+        </div>
+        {!dashboard && (
+          <p className="paper-money-note">
+            Simulated funds. USD market prices are modeled at 1 virtual USDT per
+            USD.
+          </p>
+        )}
+        {error && (
+          <p role="alert" className="platform-error">
+            {error}
+          </p>
+        )}
+        <p role="status">{busy ? "Updating paper account…" : message}</p>
+        {value && view !== "settings" && (
+          <>
+            {value.equity === null && (
+              <p>
+                Portfolio value is unavailable until all held assets have fresh
+                prices.
+              </p>
+            )}
+            {!dashboard && (
+              <dl className="platform-backtest-metrics">
+                {accountMetrics}
+                {riskMetrics}
+              </dl>
+            )}
+            {!dashboard && (
+              <>
+                <h4>Holdings</h4>
+                {value.holdings.length ? (
+                  <ul>
+                    {value.holdings.map((item) => (
+                      <li key={item.asset}>
+                        {item.asset} · {item.quantity} · {money(item.mark)}{" "}
+                        marked value · {percent(item.allocation)} allocation
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>No open positions.</p>
+                )}
+              </>
+            )}
+          </>
+        )}
+      </section>
       {dashboard && value && <PortfolioPerformance rows={value.history} />}
       {dashboard && value && account && (
         <AssetAllocation
@@ -240,102 +329,6 @@ export default function PaperAccount({
           ))}
         </dl>
       )}
-      <section
-        className={
-          dashboard
-            ? "platform-product-panel paper-overview-balance dashboard-metrics"
-            : "platform-product-panel paper-overview-balance"
-        }
-        aria-labelledby="paper-balance"
-      >
-        <div className="paper-balance-heading">
-          <div>
-            <h3 id="paper-balance">Virtual balance</h3>
-            {account && (
-              <p className="platform-product-balance">
-                <strong>
-                  {dashboard
-                    ? money(value?.cash ?? account.cash)
-                    : account.cash}
-                </strong>{" "}
-                virtual {account.currency}
-              </p>
-            )}
-          </div>
-          {(!data || account) && (
-            <button
-              className={dashboard ? "primary" : undefined}
-              disabled={busy}
-              onClick={() => void act()}
-            >
-              Refresh account
-            </button>
-          )}
-          {data && !account && (
-            <button
-              disabled={busy}
-              onClick={() =>
-                void act(async () => {
-                  await platform("/paper-account", "POST");
-                })
-              }
-            >
-              Open virtual account
-            </button>
-          )}
-        </div>
-        <p className="paper-money-note">
-          {dashboard
-            ? "USD market prices are modeled at 1 virtual USDT per USD."
-            : "Simulated funds. USD market prices are modeled at 1 virtual USDT per USD."}
-        </p>
-        {error && (
-          <p role="alert" className="platform-error">
-            {error}
-          </p>
-        )}
-        <p role="status">{busy ? "Updating paper account…" : message}</p>
-        {value && view !== "settings" && (
-          <>
-            {value.equity === null && (
-              <p>
-                Portfolio value is unavailable until all held assets have fresh
-                prices.
-              </p>
-            )}
-            {!dashboard && (
-              <dl className="platform-backtest-metrics">
-                {accountMetrics}
-                {riskMetrics}
-              </dl>
-            )}
-            {view === "portfolio" && value.history.length > 1 && (
-              <EquityChart
-                rows={value.history}
-                baseline={Number(value.history[0].equity)}
-                label="Paper portfolio equity"
-              />
-            )}
-            {!dashboard && (
-              <>
-                <h4>Holdings</h4>
-                {value.holdings.length ? (
-                  <ul>
-                    {value.holdings.map((item) => (
-                      <li key={item.asset}>
-                        {item.asset} · {item.quantity} · {money(item.mark)}{" "}
-                        marked value · {percent(item.allocation)} allocation
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p>No open positions.</p>
-                )}
-              </>
-            )}
-          </>
-        )}
-      </section>
       {dashboard && (
         <DashboardPaperPositions positions={value?.positions} loading={busy} />
       )}
@@ -405,9 +398,14 @@ export default function PaperAccount({
         </form>
       )}
       {account && value && includeOrders && (
-        <section className="platform-product-panel paper-overview-orders">
+        <section
+          className="platform-product-panel paper-overview-orders"
+          aria-labelledby="paper-orders-heading"
+        >
           <div className="dashboard-panel-heading">
-            <h3>{dashboard ? "Recent paper orders" : "Order history"}</h3>
+            <h3 id="paper-orders-heading">
+              {dashboard ? "Recent paper orders" : "Order history"}
+            </h3>
             {dashboard && <a href={workspaceHref("paper")}>Paper trading</a>}
           </div>
           {data.orders.length ? (

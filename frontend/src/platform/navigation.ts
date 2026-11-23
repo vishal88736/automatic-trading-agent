@@ -2,7 +2,6 @@ export const modules = [
   ["dashboard", "Overview"],
   ["paper", "Paper Trading"],
   ["live", "Live Trading"],
-  ["portfolio", "Portfolio"],
   ["agents", "My Agents"],
   ["builder", "AI Strategy Builder"],
   ["strategies", "Strategies"],
@@ -16,7 +15,7 @@ export const modules = [
 export type Module = (typeof modules)[number][0];
 
 export const moduleGroups: { label: string; items: Module[] }[] = [
-  { label: "Trade", items: ["dashboard", "paper", "live", "portfolio"] },
+  { label: "Trade", items: ["dashboard", "paper", "live"] },
   {
     label: "Agents",
     items: ["agents", "builder", "strategies", "backtests"],
@@ -29,7 +28,6 @@ export const moduleSubtitles: Partial<Record<Module, string>> = {
   dashboard: "Paper performance and linked exchange balances.",
   paper: "Place simulated orders against live market prices.",
   live: "Link Binance, Bybit or OKX, trade by hand or let a proven agent trade for you. Start on a free testnet.",
-  portfolio: "Holdings, allocation and performance of your paper account.",
   agents: "Autonomous agents keep running on the server after you close Krono.",
   builder: "Describe a strategy in plain English. Krono turns it into rules.",
   strategies: "Copy strategies ranked by their recorded paper returns.",
@@ -57,8 +55,9 @@ const historicalRoutes: Record<string, Module> = {
   "platform/markets": "markets",
   "platform/news": "news",
   overview: "dashboard",
-  positions: "portfolio",
-  wallet: "portfolio",
+  portfolio: "dashboard",
+  positions: "dashboard",
+  wallet: "dashboard",
   desk: "paper",
   executions: "paper",
   observatory: "agents",

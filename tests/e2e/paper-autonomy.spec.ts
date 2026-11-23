@@ -129,9 +129,9 @@ test("paper agent continues without a browser and survives API and worker restar
     await expect(
       page.getByRole("heading", { name: "Virtual balance" }),
     ).toBeVisible();
-    await nav.getByRole("link", { name: "Portfolio", exact: true }).click();
+    await nav.getByRole("link", { name: "Overview", exact: true }).click();
     await expect(
-      page.getByRole("heading", { name: "Order history" }),
+      page.getByRole("heading", { name: "Recent paper orders" }),
     ).toBeVisible();
     await page.goto("/#/markets");
     await page
@@ -242,9 +242,11 @@ test("paper agent continues without a browser and survives API and worker restar
     );
     await expect(reopened.page.getByText(/Replay approved/)).toBeVisible();
     await reopened.page
-      .getByRole("link", { name: "Portfolio", exact: true })
+      .getByRole("link", { name: "Overview", exact: true })
       .click();
-    const orders = reopened.page.getByRole("table");
+    const orders = reopened.page
+      .getByRole("region", { name: "Recent paper orders" })
+      .getByRole("table");
     await expect(
       orders.getByRole("cell", { name: "Agent", exact: true }).first(),
     ).toBeVisible();

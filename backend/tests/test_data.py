@@ -252,3 +252,24 @@ def test_text_content_strips_escaped_markup():
     raw = '&lt;span property="schema:name"&gt;Comb &amp;amp; mice&lt;/span&gt; <b>now</b>'
     assert text_content(raw) == "Comb &amp; mice now"
     assert text_content("Hair regrowth in mice&lt;/span") == "Hair regrowth in mice"
+
+
+async def test_market_keeps_valid_altcoin_candles_without_a_ticker():
+    from backend.models import now
+
+    start = now().replace(minute=0, second=0, microsecond=0) - timedelta(hours=1)
+
+    def handle(request):
+        if request.url.path == "/products/ADA-USD/candles":
+            return httpx.Response(200, json=[[int(start.timestamp()), 0.4, 0.7, 0.5, 0.6, 20]])
+        return httpx.Response(503)
+
+    store = Store(":memory:")
+    providers = Providers(store, market_provider="coinbase", transport=httpx.MockTransport(handle))
+    try:
+        market = await providers.market("ADA", product="ADA-USD")
+        assert market.status == "STALE" and market.price is None
+        assert market.candles and market.candles[-1].timestamp == start
+    finally:
+        await providers.close()
+        store.close()

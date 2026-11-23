@@ -51,14 +51,19 @@ test("Fund, version, backtest, and isolate a tenant strategy", async ({
   await expect(
     page.getByRole("heading", { name: "Bitcoin (BTC/USD)" }),
   ).toBeVisible();
+  await expect(page.getByLabel("Asset name or symbol")).toBeHidden();
+  const browseMarkets = page.getByText("Browse markets", { exact: true });
+  await browseMarkets.click();
   await page.getByLabel("Asset name or symbol").fill("Ethereum");
   await page.getByRole("button", { name: "ETH", exact: true }).click();
   await page.getByRole("button", { name: "Add to watchlist" }).click();
   await expect(
     page.getByRole("button", { name: "Ethereum", exact: true }),
   ).toBeVisible();
+  await browseMarkets.click();
   await page.getByLabel("Asset name or symbol").fill("ADA");
   await page.getByRole("button", { name: "ADA", exact: true }).click();
+  await expect(page.getByLabel("Asset name or symbol")).toBeHidden();
   await expect(
     page.getByRole("heading", { name: "ADA (ADA/USD)" }),
   ).toBeVisible();
@@ -66,6 +71,7 @@ test("Fund, version, backtest, and isolate a tenant strategy", async ({
   await expect(
     page.getByRole("button", { name: "Remove from watchlist" }),
   ).toBeVisible();
+  await browseMarkets.click();
   await page.getByLabel("Asset name or symbol").fill("BTC");
   await page.getByRole("button", { name: "BTC", exact: true }).click();
   await page.getByRole("button", { name: "Generate insight for BTC" }).click();
@@ -75,6 +81,17 @@ test("Fund, version, backtest, and isolate a tenant strategy", async ({
   await expect(
     page.getByRole("heading", { name: "News analysis" }),
   ).toBeVisible();
+  await expect(page.getByText("BTC chart and news at a glance.")).toBeVisible();
+  await expect(
+    page
+      .getByRole("listitem")
+      .filter({
+        hasText: "Momentum and volatility indicators were available.",
+      }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Portfolio", exact: true }),
+  ).toHaveCount(0);
   await page.getByText(/Headlines used/).click();
   await expect(
     page.getByRole("link", { name: /Fixture research: Bitcoin adoption/ }),

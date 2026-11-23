@@ -38,7 +38,6 @@ export function DashboardPaperPositions({
         <h2 id="dashboard-paper-portfolio">
           <FlaskConical size={17} aria-hidden /> Paper trading portfolio
         </h2>
-        <a href={workspaceHref("portfolio")}>View portfolio</a>
       </div>
       {!positions ? (
         <p className="dashboard-empty">
@@ -358,7 +357,6 @@ export function AssetAllocation({
         <h3>
           <PieChart size={17} aria-hidden /> Asset allocation
         </h3>
-        <a href={workspaceHref("portfolio")}>Portfolio</a>
       </div>
       {largest ? (
         <div className="dashboard-allocation-content">

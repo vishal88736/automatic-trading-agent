@@ -371,29 +371,32 @@ function insight(raw: string) {
     const assetNews =
       data.headlines?.filter((item) => item.scope === "asset") ?? [];
     const broader = data.headlines?.find((item) => item.scope !== "asset");
-    const assetNote = assetNews.length
-      ? `Recent ${data.asset} coverage includes ${assetNews
+    const news = assetNews.length
+      ? assetNews
           .slice(0, 2)
-          .map((item) => `“${item.title}”`)
-          .join(" and ")}.`
-      : data.news_status === "unavailable"
-        ? `News coverage for ${data.asset} was unavailable.`
-        : `No matching ${data.asset} headlines were found in the past 48 hours.`;
-    const context = broader
-      ? ` Broader crypto coverage includes “${broader.title}”.`
-      : "";
+          .map((item) => `Reported: ${item.title}`.slice(0, 260))
+      : [
+          data.news_status === "unavailable"
+            ? `News coverage for ${data.asset} was unavailable.`
+            : `No matching ${data.asset} headlines were found in the past 48 hours.`,
+        ];
+    if (broader) news.push(`Broader market: ${broader.title}`.slice(0, 260));
     return {
-      observations: (
-        parts.join(" ") || `No indicators were available for ${data.asset}.`
-      ).slice(0, 1000),
-      news_analysis: `${assetNote}${context}`.slice(0, 1000),
+      summary: closes.length
+        ? `Hourly chart and recent news for ${data.asset}.`
+        : `Recent news for ${data.asset}. Hourly candles were unavailable.`,
+      observations: parts.length
+        ? parts
+        : [`No chart observations were available for ${data.asset}.`],
+      news_analysis: news,
       uncertainty:
         "The hourly chart and headlines cannot establish what drove price changes or what will happen next.",
     };
   } catch {
     return {
-      observations: "Market evidence could not be read.",
-      news_analysis: "News evidence could not be read.",
+      summary: "Market evidence could not be read.",
+      observations: ["Chart evidence unavailable."],
+      news_analysis: ["News evidence unavailable."],
       uncertainty: "No interpretation is possible without indicators.",
     };
   }

@@ -64,9 +64,11 @@ const llm: LLMProvider = {
           content: [
             {
               text: JSON.stringify({
-                observations:
-                  "The fixture combines momentum and volatility indicators.",
-                news_analysis: "Headlines provide context for the chart.",
+                summary: "BTC chart and news at a glance.",
+                observations: [
+                  "Momentum and volatility indicators were available.",
+                ],
+                news_analysis: ["Headlines provide context for the chart."],
                 uncertainty: "This snapshot cannot establish future returns.",
               }),
             },

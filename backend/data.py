@@ -450,13 +450,17 @@ class Providers:
                 < self.refresh.ticker_seconds
             ):
                 return self._cached_market(cached)
+            bars = None
             try:
                 if cooling_down:
                     raise ValueError("Market provider retry cooldown")
                 bars, ticker = await asyncio.gather(
                     self._candles(symbol, refresh, product),
                     self.request(f"{self.settings.market_base_url}/products/{product}/ticker"),
+                    return_exceptions=True,
                 )
+                if not isinstance(bars, list):
+                    raise ValueError("Market candles unavailable")
                 if not isinstance(ticker, dict):
                     raise ValueError("Malformed market response")
                 price_time = parse_time(ticker.get("time"))
@@ -483,6 +487,19 @@ class Providers:
                 if not cooling_down:
                     self.errors["market"] = self.errors.get("market", 0) + 1
                     self.retry_after[key] = time.monotonic() + self.refresh.failure_retry_seconds
+                if isinstance(bars, list) and bars and (not cached or refresh):
+                    chart = Market(
+                        asset=ASSETS.get(symbol)
+                        or Token(asset_id=symbol, symbol=symbol, name=symbol),
+                        candles=bars,
+                        source="coinbase_exchange",
+                        retrieved_at=now(),
+                        as_of=bars[-1].closed_at,
+                        status="STALE",
+                        limitation="Closed hourly candles are available. A current ticker is unavailable.",
+                    )
+                    self.store.put("cache", key, chart)
+                    return chart
                 if cached:
                     return self._cached_market(cached, failed=True)
                 return Market(

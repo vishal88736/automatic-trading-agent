@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Bookmark, Search, Sparkles } from "lucide-react";
 import { CandleChart, type ChartViewport } from "../charts";
 import type { Candle } from "../types";
@@ -17,9 +17,10 @@ interface Market {
   candles: Candle[];
 }
 interface Insight {
-  observations: string;
+  summary?: string;
+  observations: string | string[];
   uncertainty: string;
-  news_analysis?: string;
+  news_analysis?: string | string[];
   newsStatus?: string;
   headlines?: {
     title: string;
@@ -31,7 +32,7 @@ interface Insight {
 
   source: string;
   status: string;
-  asOf: string;
+  asOf: string | null;
   model: string;
 }
 
@@ -61,30 +62,61 @@ function MarketInsight({
 
   return (
     <section className="platform-product-panel kx-market-insight">
-      <h3>
-        <Sparkles size={17} aria-hidden /> AI market insight
-      </h3>
-      <button
-        type="button"
-        disabled={!available || busy}
-        onClick={() => void analyze()}
-      >
-        Generate insight for {asset}
-      </button>
+      <div className="kx-insight-header">
+        <h3>
+          <Sparkles size={17} aria-hidden /> AI market insight
+        </h3>
+        <button
+          type="button"
+          disabled={!available || busy}
+          onClick={() => void analyze()}
+        >
+          Generate insight for {asset}
+        </button>
+      </div>
+      {!available && (
+        <p className="muted">
+          Choose a supported market to generate an insight.
+        </p>
+      )}
       {busy && <p role="status">Analyzing the chart and recent news…</p>}
       {error && <p role="alert">{error}</p>}
       {result && (
         <>
-          <h4>Chart analysis</h4>
-          <p>{result.observations}</p>
-          <h4>News analysis</h4>
-          <p>
-            {result.news_analysis ??
-              "The current backend returned chart analysis only."}
-          </p>
-          {result.newsStatus === "unavailable" && (
-            <p className="muted">Coin-specific news was unavailable.</p>
+          {result.summary && (
+            <p className="kx-insight-summary">{result.summary}</p>
           )}
+          <div className="kx-insight-findings">
+            <div>
+              <h4>Chart analysis</h4>
+              {result.status === "STALE" && (
+                <p className="muted">
+                  Based on recorded candles. Current chart data is limited.
+                </p>
+              )}
+              {result.status === "NEWS_ONLY" && (
+                <p className="muted">Hourly candles unavailable.</p>
+              )}
+              <ul>
+                {[result.observations].flat().map((line, index) => (
+                  <li key={index}>{line}</li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h4>News analysis</h4>
+              <ul>
+                {[
+                  result.news_analysis ??
+                    "The current backend returned chart analysis only.",
+                ]
+                  .flat()
+                  .map((line, index) => (
+                    <li key={index}>{line}</li>
+                  ))}
+              </ul>
+            </div>
+          </div>
           {!!result.headlines?.length && (
             <details>
               <summary>Headlines used ({result.headlines.length})</summary>
@@ -103,12 +135,16 @@ function MarketInsight({
               </ul>
             </details>
           )}
-          <p className="muted">{result.uncertainty}</p>
-          <p>
+          <div className="kx-insight-limits">
+            <h4>Limitations</h4>
+            <p>{result.uncertainty}</p>
+          </div>
+          <p className="kx-insight-meta muted">
             {result.model === "krono-rules"
               ? "Rules-based summary"
               : result.model}{" "}
-            · {result.source} · {result.status} · {timestamp(result.asOf)}
+            · {result.source}
+            {result.asOf ? ` · ${timestamp(result.asOf)}` : ""}
           </p>
         </>
       )}
@@ -126,7 +162,8 @@ function Markets() {
       : "BTC";
   });
   const [search, setSearch] = useState("");
-  const [limit, setLimit] = useState(18);
+  const marketPicker = useRef<HTMLDetailsElement>(null);
+  const marketToggle = useRef<HTMLElement>(null);
   const { assets: spotAssets, error: catalogError } = useSpotAssets();
   const [pins, setPins] = useState<Asset[]>([]);
   const [market, setMarket] = useState<Market>();
@@ -205,47 +242,51 @@ function Markets() {
     <div className="kx-stack">
       <section className="platform-product-panel kx-market-filters">
         <div className="kx-market-filter">
-          <label htmlFor="paper-market-search">Asset name or symbol</label>
-          <div className="kx-market-search">
-            <Search size={16} aria-hidden />
-            <input
-              type="search"
-              id="paper-market-search"
-              value={search}
-              onChange={(event) => {
-                setSearch(event.target.value);
-                setLimit(18);
-              }}
-            />
-          </div>
-        </div>
-        <div className="kx-market-filter">
-          <h3>Markets</h3>
-          <div
-            className="platform-product-actions"
-            role="group"
-            aria-label="Market"
-          >
-            {visible.slice(0, limit).map((symbol) => (
-              <button
-                type="button"
-                key={symbol}
-                aria-pressed={asset === symbol}
-                onClick={() => setAsset(symbol)}
+          <h3>Market</h3>
+          <details ref={marketPicker} className="kx-market-picker">
+            <summary ref={marketToggle}>
+              <strong>{asset}/USD</strong>
+              <span>Browse markets</span>
+            </summary>
+            <div className="kx-market-picker-content">
+              <label htmlFor="paper-market-search">Asset name or symbol</label>
+              <div className="kx-market-search">
+                <Search size={16} aria-hidden />
+                <input
+                  type="search"
+                  id="paper-market-search"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                />
+              </div>
+              <div
+                className="platform-product-actions kx-market-results"
+                role="group"
+                aria-label="Markets"
               >
-                {symbol}
-              </button>
-            ))}
-          </div>
-          {visible.length > limit && (
-            <button type="button" onClick={() => setLimit(limit + 18)}>
-              Show more markets
-            </button>
-          )}
+                {visible.map((symbol) => (
+                  <button
+                    type="button"
+                    key={symbol}
+                    aria-pressed={asset === symbol}
+                    onClick={() => {
+                      setAsset(symbol);
+                      setSearch("");
+                      if (marketPicker.current)
+                        marketPicker.current.open = false;
+                      marketToggle.current?.focus();
+                    }}
+                  >
+                    {symbol}
+                  </button>
+                ))}
+              </div>
+              {!visible.length && (
+                <p className="muted">No matching paper markets.</p>
+              )}
+            </div>
+          </details>
           {catalogError && <p role="alert">{catalogError}</p>}
-          {!visible.length && (
-            <p className="muted">No matching paper markets.</p>
-          )}
         </div>
         <div className="kx-market-filter">
           <h3>Watchlist</h3>
@@ -333,10 +374,7 @@ function Markets() {
       <MarketInsight
         key={asset}
         asset={asset}
-        available={
-          Boolean(metrics) &&
-          (market?.status === "AVAILABLE" || market?.status === "FIXTURE")
-        }
+        available={spotAssets.includes(asset) || market != null}
       />
     </div>
   );

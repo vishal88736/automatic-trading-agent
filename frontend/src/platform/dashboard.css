@@ -7,22 +7,22 @@
 .paper-overview:has(> .dashboard-stop) {
   grid-template-areas:
     "stop stop"
+    "balance balance"
     "performance allocation"
     "kpis kpis"
-    "balance balance"
     "positions orders"
     "markets agents";
 }
 
 .paper-overview {
   display: grid;
-  --overview-surface: light-dark(#fcfffc, #111f17);
+  --overview-surface: light-dark(#eef7ef, #14281d);
   --overview-edge: light-dark(#d8e9d9, #304737);
   grid-template-columns: minmax(0, 2.6fr) minmax(246px, 1fr);
   grid-template-areas:
+    "balance balance"
     "performance allocation"
     "kpis kpis"
-    "balance balance"
     "positions orders"
     "markets agents";
   gap: clamp(10px, 0.8vw, 13px);
@@ -128,9 +128,9 @@
   grid-area: performance;
   border-color: var(--overview-edge);
   background: linear-gradient(
-    155deg,
+    160deg,
     var(--overview-surface),
-    var(--panel) 72%
+    var(--panel) 60%
   );
 }
 .kx-app .paper-overview > :is(.dashboard-performance, .dashboard-allocation) {
@@ -169,24 +169,27 @@
 }
 
 .dashboard-metrics .paper-balance-heading {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 2px 8px;
+  align-items: center;
+  gap: 8px 12px;
 }
 
 .dashboard-metrics .paper-balance-heading > div {
-  display: contents;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.dashboard-metrics .paper-balance-heading h3 {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
 }
 
 .dashboard-metrics .paper-balance-heading button {
-  grid-area: 1 / 2;
-  min-height: 29px;
-  padding: 5px 10px;
+  min-height: 32px;
+  padding: 5px 11px;
   font-size: 12px;
-}
-
-.dashboard-metrics .paper-balance-heading .platform-product-balance {
-  grid-area: 2 / 1 / auto / -1;
 }
 
 .unified-workspace .dashboard-panel-heading :is(h2, h3) {
@@ -398,7 +401,8 @@
 }
 
 .kx-app .paper-overview > .dashboard-metrics {
-  padding-block: 12px;
+  padding-block: 8px;
+  border-color: var(--overview-edge);
 }
 
 .dashboard-metrics p[role="status"]:empty {
@@ -605,12 +609,12 @@
 
 @media (max-width: 1020px) {
   .paper-overview:has(> .dashboard-stop) {
-    grid-template-areas: "stop" "performance" "allocation" "kpis" "balance" "positions" "orders" "markets" "agents";
+    grid-template-areas: "stop" "balance" "performance" "allocation" "kpis" "positions" "orders" "markets" "agents";
   }
 
   .paper-overview {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "performance" "allocation" "kpis" "balance" "positions" "orders" "markets" "agents";
+    grid-template-areas: "balance" "performance" "allocation" "kpis" "positions" "orders" "markets" "agents";
   }
 }
 
@@ -638,8 +642,11 @@
   }
 }
 
-.overview-section + .overview-section {
+#live-overview-section {
   margin-top: 28px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+  scroll-margin-block-start: 65px;
 }
 
 .overview-section-header {
