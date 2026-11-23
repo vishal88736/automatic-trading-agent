@@ -2115,8 +2115,8 @@ body {
 .kx-market-filter .platform-product-actions:empty {
   display: none;
 }
-.kx-market-filter button {
-  border-radius: 999px !important;
+.unified-workspace .kx-market-filter button {
+  border-radius: 999px;
 }
 .kx-market-filter button[aria-pressed="true"] {
   border-color: var(--accent-border);

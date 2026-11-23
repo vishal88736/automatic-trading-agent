@@ -219,7 +219,10 @@ function Markets() {
       <section className="platform-product-panel kx-market-chart">
         <div className="kx-toolbar">
           <h3>
-            <Coin symbol={asset} /> {assets[asset]} ({asset}/USD)
+            <span aria-hidden>
+              <Coin symbol={asset} />
+            </span>{" "}
+            {assets[asset]} ({asset}/USD)
           </h3>
           <button
             className="secondary"

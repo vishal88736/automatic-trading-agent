@@ -67,7 +67,7 @@
 .dashboard-live-portfolio {
   grid-area: live;
 }
-.paper-overview-balance {
+.paper-overview > .paper-overview-balance {
   grid-area: balance;
 }
 .dashboard-allocation {
@@ -76,7 +76,7 @@
 .dashboard-markets {
   grid-area: markets;
 }
-.paper-overview-orders {
+.paper-overview > .paper-overview-orders {
   grid-area: orders;
 }
 .dashboard-agents {

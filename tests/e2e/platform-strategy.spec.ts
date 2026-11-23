@@ -20,6 +20,13 @@ test("Fund, version, backtest, and isolate a tenant strategy", async ({
   await expect(page.locator(".platform-product-balance")).toHaveText(
     "10000 virtual USDT",
   );
+  const balance = page.getByRole("region", { name: "Virtual balance" });
+  const ticket = page.locator(".kx-paper-ticket");
+  await expect(ticket).toBeVisible();
+  const balanceBox = (await balance.boundingBox())!;
+  const ticketBox = (await ticket.boundingBox())!;
+  expect(ticketBox.x).toBeGreaterThan(balanceBox.x);
+  expect(ticketBox.y).toBeCloseTo(balanceBox.y, 0);
 
   await page.getByLabel("Quantity", { exact: true }).fill("0.001");
   await page.getByRole("button", { name: "Submit paper order" }).click();
