@@ -116,13 +116,32 @@ test("Fund, version, backtest, and isolate a tenant strategy", async ({
   const chat = page.getByRole("region", { name: "Strategy chat" });
   await chat
     .getByLabel("Trading prompt")
-    .fill("BTC RSI below 30 for entry and above 65 for exit.");
+    .fill("Buy BTC when RSI is below 30 and sell when RSI is above 65.");
   await chat.getByRole("button", { name: "Send prompt" }).click();
   const preview = chat.getByRole("region", {
     name: "Validated strategy draft",
   });
   await expect(
-    preview.getByRole("heading", { name: "Fixture RSI draft" }),
+    chat.getByText(
+      "What percentage of available cash should the agent use per entry?",
+    ),
+  ).toBeVisible();
+  await expect(preview).toHaveCount(0);
+  await expect(
+    chat.getByRole("button", { name: "Run as paper agent" }),
+  ).toHaveCount(0);
+  await chat.getByLabel("Trading prompt").fill("5%");
+  await chat.getByRole("button", { name: "Send prompt" }).click();
+  await expect(
+    chat.getByText(
+      "What percentage below the entry price should trigger the stop loss?",
+    ),
+  ).toBeVisible();
+  await expect(preview).toHaveCount(0);
+  await chat.getByLabel("Trading prompt").fill("4%");
+  await chat.getByRole("button", { name: "Send prompt" }).click();
+  await expect(
+    preview.getByRole("heading", { name: "BTC strategy" }),
   ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Saved strategies" }),
@@ -133,7 +152,7 @@ test("Fund, version, backtest, and isolate a tenant strategy", async ({
   await expect(
     page.getByRole("button", { name: "Structured JSON" }),
   ).toHaveCount(0);
-  await chat.getByLabel("Trading prompt").fill("Use 3%");
+  await chat.getByLabel("Trading prompt").fill("Use 3% per trade");
   await chat.getByRole("button", { name: "Send prompt" }).click();
   await expect(preview).toContainText("3.00% of cash");
   await chat
@@ -146,11 +165,9 @@ test("Fund, version, backtest, and isolate a tenant strategy", async ({
   await page.getByRole("link", { name: "Settings", exact: true }).click();
   await page.getByRole("link", { name: "My strategies", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "Fixture RSI draft · BTC · v1" }),
+    page.getByRole("button", { name: "BTC strategy · BTC · v1" }),
   ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Fixture RSI draft · BTC · v1" })
-    .click();
+  await page.getByRole("button", { name: "BTC strategy · BTC · v1" }).click();
   await expect(page.getByLabel("Strategy JSON")).toHaveValue(
     /"cash_fraction": "0.03"/,
   );

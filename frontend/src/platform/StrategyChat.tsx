@@ -10,17 +10,41 @@ import type {
   StrategyRevision,
 } from "./strategy-types";
 
+type QuestionField =
+  | "asset"
+  | "entry"
+  | "exit"
+  | "cash_fraction"
+  | "stop_loss"
+  | "take_profit"
+  | "trailing_stop"
+  | "strategy";
+
+interface Question {
+  field: QuestionField;
+  question: string;
+  options: string[];
+}
+
+interface Turn {
+  text: string;
+  answer_to?: QuestionField;
+}
+
 interface Message {
   id: string;
   role: "user" | "assistant";
   text: string;
   model?: string;
+  question?: Question;
 }
 
 interface DraftReply {
+  status: "READY" | "NEEDS_CLARIFICATION" | "UNSUPPORTED";
   document: StrategyDocument | null;
   notes: string;
-  model: string;
+  questions: Question[];
+  model?: string;
 }
 
 interface Proposal {
@@ -29,12 +53,8 @@ interface Proposal {
   agentId?: string;
 }
 
-const suggestions = [
-  "Buy ETH when RSI drops below 30 and sell above 70. Use 5% per trade with a 3% stop loss.",
-  "MACD crossover on BTC with a 6% take profit and 2% trailing stop.",
-  "Aggressive SOL breakout strategy.",
-  "Conservative BTC trend following with a 2% stop loss.",
-];
+const example =
+  "Buy ETH when RSI is below 30 and sell when RSI is above 70. Use 5% of available cash per entry and a 3% stop loss.";
 
 const comparisons: Record<string, string> = {
   lt: "below",
@@ -59,23 +79,32 @@ function describeRules(group: RuleGroup) {
 
 export function StrategyChat({
   disabled = false,
+  initialDocument,
   onEdit,
   onSave,
   onStarted,
 }: {
   disabled?: boolean;
+  initialDocument?: StrategyDocument;
   onEdit?: (document: StrategyDocument, saved?: StrategyRevision) => void;
   onSave: (document: StrategyDocument) => Promise<StrategyRevision>;
   onStarted?: (strategy: StrategyRevision) => void;
 }) {
   const [prompt, setPrompt] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
+  const [pendingTurn, setPendingTurn] = useState<Message>();
+  const [question, setQuestion] = useState<{ id: string; value: Question }>();
+  const history = useRef<Turn[]>([]);
+  const inFlight = useRef(false);
+  const composer = useRef<HTMLTextAreaElement>(null);
   const [proposal, setProposal] = useState<Proposal>();
   const [showSettings, setShowSettings] = useState(false);
   const [pending, setPending] = useState("");
   const [error, setError] = useState("");
   const conversation = useRef<HTMLDivElement>(null);
-  const previousDraft = useRef<StrategyDocument | null>(null);
+  const previousDraft = useRef<StrategyDocument | null>(
+    initialDocument ?? null,
+  );
   const retry = useRef<{ input: string; key: string; epoch?: number } | null>(
     null,
   );
@@ -86,12 +115,9 @@ export function StrategyChat({
       conversation.current.scrollTop = conversation.current.scrollHeight;
   }, [messages, pending]);
 
-  function addMessage(role: Message["role"], text: string, model?: string) {
-    const message = { id: crypto.randomUUID(), role, text, model };
-    setMessages((items) => [...items.slice(-15), message]);
-  }
-
   async function run(label: string, action: () => Promise<void>) {
+    if (disabled || inFlight.current) return;
+    inFlight.current = true;
     setError("");
     setPending(label);
     try {
@@ -99,6 +125,7 @@ export function StrategyChat({
     } catch (err) {
       setError((err as Error).message);
     } finally {
+      inFlight.current = false;
       setPending("");
     }
   }
@@ -106,40 +133,78 @@ export function StrategyChat({
   function send(event?: FormEvent<HTMLFormElement>, text?: string) {
     event?.preventDefault();
     const objective = (text ?? prompt).trim();
-    if (busy || !objective) return;
+    if (busy || inFlight.current || !objective) return;
+    const turn = { text: objective, answer_to: question?.value.field };
+    const user: Message = {
+      id: crypto.randomUUID(),
+      role: "user",
+      text: objective,
+    };
     setShowSettings(false);
     setProposal(undefined);
-    addMessage("user", objective);
-    void run("Interpreting prompt…", async () => {
-      const { document, notes, model } = await platform<DraftReply>(
-        "/strategy-authoring/generate",
-        "POST",
-        {
-          objective,
-          current_document: previousDraft.current
-            ? JSON.stringify(previousDraft.current)
-            : undefined,
-        },
-      );
-      addMessage(
-        "assistant",
-        notes ||
-          (document
-            ? "Your strategy draft is ready to review."
-            : "Add an asset and entry and exit rules to continue."),
-        model,
-      );
-      setPrompt("");
-      if (document) {
-        previousDraft.current = document;
-        setProposal({ document });
+    // A failed request leaves the reply in the composer for a retry.
+    setPrompt(objective);
+    void run("Reading your instructions…", async () => {
+      setPendingTurn(user);
+      try {
+        const reply = await platform<DraftReply>(
+          "/strategy-authoring/generate",
+          "POST",
+          {
+            objective,
+            answer_to: turn.answer_to,
+            history: history.current.slice(-16),
+            current_document: previousDraft.current
+              ? JSON.stringify(previousDraft.current)
+              : undefined,
+          },
+        );
+        const ready = reply.status === "READY" && reply.document;
+        const followUp =
+          reply.status === "NEEDS_CLARIFICATION"
+            ? reply.questions[0]
+            : undefined;
+        const assistant: Message = {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          text: followUp ? "" : reply.notes,
+          question: followUp,
+          model: reply.model,
+        };
+        setMessages((items) => [...items.slice(-30), user, assistant]);
+        setQuestion(
+          followUp ? { id: assistant.id, value: followUp } : undefined,
+        );
+        setPrompt("");
+        if (ready) {
+          previousDraft.current = ready;
+          history.current = [];
+          setProposal({ document: ready });
+        } else {
+          history.current = [...history.current.slice(-16), turn];
+        }
+      } finally {
+        setPendingTurn(undefined);
       }
     });
   }
 
+  function reset() {
+    previousDraft.current = initialDocument ?? null;
+    history.current = [];
+    retry.current = null;
+    setQuestion(undefined);
+    setMessages([]);
+    setProposal(undefined);
+    setShowSettings(false);
+    setPrompt("");
+    setError("");
+    composer.current?.focus();
+  }
+
   function start(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy || !proposal || proposal.agentId) return;
+    if (busy || inFlight.current || !proposal || proposal.agentId) return;
     const { document, saved } = proposal;
     const settings = paperAgentSettings(new FormData(event.currentTarget));
     const source = saved
@@ -191,58 +256,106 @@ export function StrategyChat({
   const definition = proposal?.document.definition;
   return (
     <section className="strategy-chat kx-chat" aria-label="Strategy chat">
+      {messages.length > 0 && (
+        <div className="strategy-chat-toolbar">
+          <button
+            type="button"
+            className="secondary"
+            disabled={busy}
+            onClick={reset}
+          >
+            New conversation
+          </button>
+        </div>
+      )}
       <div
         ref={conversation}
         className="strategy-chat-messages kx-chat-log"
         role="log"
         aria-label="Conversation"
       >
-        {messages.length === 0 && (
+        {messages.length === 0 && !pendingTurn && (
           <div className="kx-chat-welcome">
             <span className="kx-chat-orb">
               <Sparkles size={22} aria-hidden />
             </span>
-            <h3>What should your agent trade?</h3>
+            <h3>
+              {initialDocument
+                ? "How should this strategy change?"
+                : "What should your agent trade?"}
+            </h3>
             <p>
-              Describe the market, when to buy, when to sell and how much to
-              risk. You can refine the draft in follow-up messages.
+              {initialDocument
+                ? `Editing from ${initialDocument.name}. Describe the rules you want to change.`
+                : "Describe what to trade, when to enter and exit, how much cash to use, and your stop loss. The builder asks about missing details before you can run the strategy on hourly paper markets."}
             </p>
-            <div className="kx-chips">
-              {suggestions.map((text) => (
-                <button
-                  key={text}
-                  type="button"
-                  disabled={busy}
-                  onClick={() => send(undefined, text)}
-                >
-                  {text}
-                </button>
-              ))}
-            </div>
+            {!initialDocument && (
+              <button
+                type="button"
+                className="secondary"
+                disabled={busy}
+                onClick={() => {
+                  setPrompt(example);
+                  composer.current?.focus();
+                }}
+              >
+                Fill in an example prompt
+              </button>
+            )}
           </div>
         )}
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className="strategy-chat-message kx-bubble"
-            data-role={message.role}
-          >
-            <span className="kx-bubble-avatar" aria-hidden>
-              {message.role === "user" ? (
-                <UserRound size={15} />
-              ) : (
-                <Bot size={15} />
-              )}
-            </span>
-            <div>
-              <strong className="visually-hidden">
-                {message.role === "user" ? "You" : "Strategy assistant"}
-              </strong>
-              <p>{message.text}</p>
-              {message.model && <small>{message.model}</small>}
+        {(pendingTurn ? [...messages, pendingTurn] : messages).map(
+          (message) => (
+            <div
+              key={message.id}
+              className="strategy-chat-message kx-bubble"
+              data-role={message.role}
+            >
+              <span className="kx-bubble-avatar" aria-hidden>
+                {message.role === "user" ? (
+                  <UserRound size={15} />
+                ) : (
+                  <Bot size={15} />
+                )}
+              </span>
+              <div>
+                <strong className="visually-hidden">
+                  {message.role === "user" ? "You" : "Strategy assistant"}
+                </strong>
+                {message.text && <p>{message.text}</p>}
+                {message.question && (
+                  <div className="strategy-chat-question">
+                    <p id={`strategy-question-${message.id}`}>
+                      {message.question.question}
+                    </p>
+                    {question?.id === message.id &&
+                      message.question.options.length > 0 && (
+                        <div className="platform-product-actions">
+                          {message.question.options.map((option) => (
+                            <button
+                              key={option}
+                              type="button"
+                              disabled={busy}
+                              onClick={() => send(undefined, option)}
+                            >
+                              {option}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                  </div>
+                )}
+                {message.model && (
+                  <small>
+                    {message.model === "krono-rules"
+                      ? "Rules-based interpreter"
+                      : message.model}
+                  </small>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          ),
+        )}
         {pending && (
           <div className="kx-bubble" data-role="assistant" role="status">
             <span className="kx-bubble-avatar" aria-hidden>
@@ -366,19 +479,29 @@ export function StrategyChat({
           Trading prompt
         </label>
         <textarea
+          ref={composer}
           id="strategy-prompt"
+          aria-describedby={
+            question ? `strategy-question-${question.id}` : undefined
+          }
           rows={2}
           maxLength={2000}
           value={prompt}
           placeholder={
-            proposal
-              ? "Refine it: “use 3% per trade”, “switch to SOL”, “add a 5% take profit”…"
-              : "Describe your strategy…"
+            question
+              ? "Answer the follow-up question…"
+              : proposal
+                ? "Describe a change to these rules…"
+                : "Describe your strategy…"
           }
           disabled={busy}
           onChange={(event) => setPrompt(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === "Enter" && !event.shiftKey) {
+            if (
+              event.key === "Enter" &&
+              !event.shiftKey &&
+              !event.nativeEvent.isComposing
+            ) {
               event.preventDefault();
               send();
             }

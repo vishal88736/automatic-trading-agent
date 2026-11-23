@@ -211,6 +211,7 @@ export default function SavedStrategies({
           draft={draft}
           disabled={busy}
           chatKey={chatKey}
+          savedStrategy={active}
           onChange={setDraft}
           onEditDraft={(document, saved) => {
             select(saved ?? null);

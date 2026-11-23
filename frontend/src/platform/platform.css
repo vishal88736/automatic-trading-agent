@@ -430,3 +430,29 @@
 .strategy-rankings-message {
   padding: 16px 20px;
 }
+
+.strategy-chat-toolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+.kx-bubble .strategy-chat-question p {
+  font-weight: 650;
+}
+.strategy-chat-question .platform-product-actions {
+  margin-top: 10px;
+}
+.strategy-chat-question button {
+  padding-inline: 12px;
+}
+.paper-agent-advanced {
+  grid-column: 1 / -1;
+  padding-top: 8px;
+  min-width: 0;
+}
+.paper-agent-advanced summary {
+  color: var(--accent);
+  cursor: pointer;
+}
+.paper-agent-advanced .platform-backtest-fields {
+  margin-top: 10px;
+}

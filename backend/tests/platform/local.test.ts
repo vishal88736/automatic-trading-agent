@@ -8,10 +8,10 @@ import {
   SERVICE_SUBJECT,
   type ProductForward,
 } from "../../gateway/product/client.js";
-import {
-  draftStrategy,
-  RulesProvider,
-} from "../../gateway/integrations/llm/rules.provider.js";
+import { RulesProvider } from "../../gateway/integrations/llm/rules.provider.js";
+import { registerStrategyAuthoring } from "../../gateway/product/strategy-authoring.js";
+import { interpretStrategy } from "../../gateway/product/strategy-intent.js";
+import type { LLMProvider } from "../../gateway/integrations/llm/llm.interface.js";
 import { config } from "./helpers.js";
 
 test("local mode starts without AWS settings but still requires the product API", () => {
@@ -115,73 +115,191 @@ test("local sign-in issues signed sessions, enforces CSRF and rejects forged coo
   assert.equal(duplicate.statusCode, 409);
 });
 
-test("the rules drafter turns plain English into a valid strategy and revises it", () => {
-  const first = draftStrategy(
-    "Buy ETH when RSI drops below 28 and sell when RSI is above 68, use 5% per trade, 3% stop loss, take profit 6%",
+const eligible = [
+  "BTC",
+  "ETH",
+  "SOL",
+  "ADA",
+  "AVAX",
+  "PEPE",
+  "DOGE",
+  "SHIB",
+  "BONK",
+];
+const complete =
+  "Buy Bitcoin/USDT when RSI is at or below 30 or MACD crosses above its signal line and sell when RSI crosses above 65. Use 5% of cash with a 4% stop loss.";
+
+test("only explicit trading rules, logic, and percentages survive interpretation and revisions", () => {
+  const first = interpretStrategy([{ text: complete }], undefined, eligible);
+  assert.equal(first.status, "READY");
+  if (first.status !== "READY") return;
+  const definition = first.document.definition;
+  assert.equal(definition.asset, "BTC");
+  assert.deepEqual(definition.entry, {
+    combine: "any",
+    conditions: [
+      { indicator: "rsi", operator: "lte", threshold: "30" },
+      {
+        indicator: "macd",
+        operator: "crosses_above",
+        threshold: "macd_signal",
+      },
+    ],
+  });
+  assert.equal(definition.exit.conditions[0].operator, "crosses_above");
+  assert.equal(definition.take_profit, undefined);
+
+  const revised = interpretStrategy(
+    [{ text: "Switch to Avalanche and use 3% per trade." }],
+    first.document,
+    eligible,
   );
-  assert.ok(first.strategy);
-  const d = first.strategy.definition;
-  assert.equal(d.asset, "ETH");
-  assert.deepEqual(d.entry.conditions, [
-    { indicator: "rsi", operator: "lt", threshold: "28" },
-  ]);
-  assert.deepEqual(d.exit.conditions, [
-    { indicator: "rsi", operator: "gt", threshold: "68" },
-  ]);
-  assert.equal(d.cash_fraction, "0.05");
-  assert.equal(d.stop_loss, "0.03");
-  assert.equal(d.take_profit, "0.06");
-
-  const revised = draftStrategy(
-    "switch to SOL and use 3% per trade",
-    first.strategy,
-  );
-  assert.equal(revised.strategy?.definition.asset, "SOL");
-  assert.equal(revised.strategy?.definition.cash_fraction, "0.03");
-  assert.equal(revised.strategy?.definition.stop_loss, "0.03");
-  assert.deepEqual(revised.strategy?.definition.entry, d.entry);
-  assert.equal(revised.strategy?.name, "SOL RSI mean reversion");
-
-  assert.equal(draftStrategy("what's the weather").strategy, null);
-
-  const ada = draftStrategy("Buy ada when RSI drops below 30", undefined, [
-    "BTC",
-    "ADA",
-  ]);
-  assert.equal(ada.strategy?.definition.asset, "ADA");
+  assert.equal(revised.status, "READY");
+  if (revised.status !== "READY") return;
+  assert.deepEqual(revised.document.definition, {
+    ...definition,
+    asset: "AVAX",
+    cash_fraction: "0.03",
+  });
   assert.equal(
-    draftStrategy("Buy UNKNOWN when RSI drops below 30", undefined, [
-      "BTC",
-      "ADA",
-    ]).strategy,
-    null,
+    interpretStrategy([{ text: "Use 3%" }], first.document, eligible).status,
+    "NEEDS_CLARIFICATION",
   );
-
-  // The exit level is found even when a number sits between "RSI" and "above".
-  const plain = draftStrategy(
-    "Buy ETH when RSI drops below 30 and sell when it goes above 65",
+  assert.equal(
+    interpretStrategy(
+      [{ text: complete.replace("5%", "-5%") }],
+      undefined,
+      eligible,
+    ).status,
+    "NEEDS_CLARIFICATION",
   );
-  assert.deepEqual(plain.strategy?.definition.exit.conditions, [
-    { indicator: "rsi", operator: "gt", threshold: "65" },
-  ]);
+  assert.equal(
+    interpretStrategy(
+      [{ text: complete + " Skip weekends." }],
+      undefined,
+      eligible,
+    ).status,
+    "UNSUPPORTED",
+  );
+  for (const text of [
+    "Trade AAPL",
+    "Trade EUR/USD",
+    "Short BTC",
+    "Trade btc-perp on 5m",
+    "Buy ADA when ADX is above 30",
+  ]) {
+    assert.equal(
+      interpretStrategy([{ text }], undefined, eligible).status,
+      "UNSUPPORTED",
+      text,
+    );
+  }
+  const hourly = interpretStrategy(
+    [{ text: complete + " Use 15m candles." }, { text: "Use 1h instead." }],
+    undefined,
+    eligible,
+  );
+  assert.equal(hourly.status, "READY");
 });
 
-test("the rules provider answers the strategy draft schema with explanatory notes", async () => {
-  const response = await new RulesProvider().converse({
-    context: { userId: "u", sessionId: "s", requestId: "r" },
-    system: "",
-    messages: [{ role: "user", content: [{ text: "MACD crossover on BTC" }] }],
-    outputSchema: { name: "paper_strategy_draft", schema: {} },
+async function strategyApp(
+  llm: LLMProvider,
+  onValidate: (document: unknown) => void,
+) {
+  const app = Fastify();
+  app.addHook("preHandler", async (req) => {
+    req.principal = {
+      userId: "00000000-0000-4000-8000-000000000001",
+      username: "fixture",
+    };
   });
-  const block = response.message.content[0];
-  assert.ok(block && "text" in block);
-  const output = JSON.parse(block.text) as {
-    strategy_json: string;
-    notes: string;
+  const forward: ProductForward = async (_subject, method, path, body) => {
+    if (method === "GET" && path === "/platform/strategy-authoring")
+      return Response.json({ assets: eligible, schema: {} });
+    assert.equal(path, "/platform/strategy-authoring/validate");
+    assert.equal(method, "POST");
+    onValidate(body);
+    return Response.json({ document: body });
   };
-  assert.match(output.notes, /MACD crossover/);
-  assert.equal(
-    JSON.parse(output.strategy_json).definition.entry.conditions[0].operator,
-    "crosses_above",
+  registerStrategyAuthoring(app, forward, llm);
+  await app.ready();
+  return app;
+}
+
+test("strategy authoring waits for user answers and carries them across turns", async (t) => {
+  let validations = 0;
+  const app = await strategyApp(new RulesProvider(), () => {
+    validations++;
+  });
+  t.after(() => app.close());
+  const history: Array<{ text: string; answer_to?: string }> = [];
+  async function ask(objective: string, answer_to?: string) {
+    const response = await app.inject({
+      method: "POST",
+      url: "/platform/strategy-authoring/generate",
+      payload: { objective, history, answer_to },
+    });
+    assert.equal(response.statusCode, 200, response.body);
+    history.push({ text: objective, answer_to });
+    return response.json();
+  }
+
+  const category = await ask("Trade meme coins.");
+  assert.equal(category.status, "NEEDS_CLARIFICATION");
+  assert.equal(category.document, null);
+  assert.deepEqual(category.questions[0].options, [
+    "DOGE",
+    "SHIB",
+    "PEPE",
+    "BONK",
+  ]);
+  for (const [text, field, next] of [
+    ["Pepe", "asset", "entry"],
+    ["RSI below 30", "entry", "exit"],
+    ["RSI above 65", "exit", "cash_fraction"],
+    ["5%", "cash_fraction", "stop_loss"],
+  ]) {
+    const response = await ask(text, field);
+    assert.equal(response.status, "NEEDS_CLARIFICATION");
+    assert.equal(response.document, null);
+    assert.equal(response.questions[0].field, next);
+  }
+  assert.equal(validations, 0);
+  const ready = await ask("2.5%", "stop_loss");
+  assert.equal(ready.status, "READY");
+  assert.equal(ready.document.definition.asset, "PEPE");
+  assert.equal(ready.document.definition.cash_fraction, "0.05");
+  assert.equal(ready.document.definition.stop_loss, "0.025");
+  assert.equal(validations, 1);
+});
+
+test("a fabricated model draft cannot replace user risk settings", async (t) => {
+  const rules = new RulesProvider();
+  const llm: LLMProvider = {
+    async converse(request) {
+      const real = await rules.converse(request);
+      const [content] = real.message.content;
+      assert.ok("text" in content);
+      const candidate = JSON.parse(content.text);
+      const draft = JSON.parse(candidate.strategy_json);
+      draft.definition.stop_loss = "0.09";
+      content.text = JSON.stringify({
+        ...candidate,
+        strategy_json: JSON.stringify(draft),
+      });
+      return real;
+    },
+  };
+  const app = await strategyApp(llm, () =>
+    assert.fail("Unverified strategy reached validation"),
   );
+  t.after(() => app.close());
+  const response = await app.inject({
+    method: "POST",
+    url: "/platform/strategy-authoring/generate",
+    payload: { objective: complete },
+  });
+  assert.equal(response.statusCode, 200, response.body);
+  assert.equal(response.json().document, null);
+  assert.deepEqual(response.json().missing_fields, ["stop_loss"]);
 });

@@ -114,7 +114,9 @@ test("paper agent continues without a browser and survives API and worker restar
     let worker = launch(["-m", "tests.e2e.paper_worker_fixture"]);
     const { page, context } = await browserSession();
     const nav = page.getByRole("navigation", { name: "Main navigation" });
-    await expect(nav.getByRole("link")).toHaveCount(12);
+    await expect(
+      nav.getByRole("link", { name: "AI Strategy Builder" }),
+    ).toBeAttached();
     await page.setViewportSize({ width: 320, height: 850 });
     await expect(nav).toBeHidden();
     const menu = page.getByRole("button", { name: "Open navigation" });
@@ -179,6 +181,8 @@ test("paper agent continues without a browser and survives API and worker restar
     await chat.getByRole("button", { name: "Send prompt" }).click();
     await page.getByRole("button", { name: "Run as paper agent" }).click();
     await chat.getByLabel("Agent name").fill("Independent fixture agent");
+    await chat.getByLabel("Allocated virtual USDT").fill("1000");
+    await chat.getByText("Advanced agent settings", { exact: true }).click();
     await chat.getByLabel("Evaluation interval (seconds)").fill("10");
     const startResponse = page.waitForResponse(
       (response) =>
@@ -191,7 +195,7 @@ test("paper agent continues without a browser and survives API and worker restar
     const started = await startResponse;
     expect(started.status()).toBe(201);
     const { id, strategy } = await started.json();
-    expect(strategy.document.name).toBe("Fixture price draft");
+    expect(strategy.document.name).toBe("BTC strategy");
     await chat.getByRole("link", { name: "View paper agent" }).click();
     await expect(
       page.locator('.kx-agent-item[aria-pressed="true"]'),

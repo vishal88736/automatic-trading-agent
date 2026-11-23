@@ -203,8 +203,12 @@ class PaperWorker:
                 ):
                     side, why = "SELL", "Take profit"
             if side == "BUY":
+                # Use the agent's remaining virtual cash, within the allocation limit.
+                cash_available = max(
+                    Decimal(0), min(work["capital"], equity - quantity * quote.price)
+                )
                 budget = min(
-                    work["capital"] * definition.cash_fraction,
+                    cash_available * definition.cash_fraction,
                     account.cash * terms.risk.max_equity_per_trade,
                     terms.risk.max_trade_notional,
                 )

@@ -5,24 +5,12 @@ import { z } from "zod";
 import type { Config } from "../config.js";
 import { PlatformError } from "../domain/errors.js";
 import { productClient, SERVICE_SUBJECT } from "./client.js";
+import { registerStrategyAuthoring } from "./strategy-authoring.js";
 import type { LLMProvider } from "../integrations/llm/llm.interface.js";
 import {
   bedrockSchema,
   validateOutput,
 } from "../integrations/llm/structured-output.js";
-
-const objectiveSchema = z
-  .object({
-    objective: z.string().trim().min(1).max(2000),
-    current_document: z.string().max(16000).optional(),
-  })
-  .strict();
-const draftSchema = z
-  .object({
-    strategy_json: z.string().max(16000),
-    notes: z.string().max(1200),
-  })
-  .strict();
 
 const marketNumber = z.union([z.string(), z.number()]);
 const marketEvidence = z.object({
@@ -263,94 +251,8 @@ export function registerProductRoutes(
     };
   });
 
-  app.post("/platform/strategy-authoring/generate", async (req) => {
-    const { objective, current_document } = objectiveSchema.parse(req.body);
-    const subject = req.principal.userId;
-    const options = await forward(
-      subject,
-      "GET",
-      "/platform/strategy-authoring",
-    );
-    if (!options.ok)
-      throw new PlatformError(
-        "PRODUCT_API_UNAVAILABLE",
-        "Strategy authoring is unavailable",
-        503,
-      );
-    const { schema, assets } = (await options.json()) as {
-      schema: Record<string, unknown>;
-      assets: string[];
-    };
-    const response = await llm.converse({
-      context: {
-        userId: subject,
-        sessionId: "strategy-authoring",
-        requestId: req.id,
-      },
-      system: `Translate the user's objective into an editable, long-only hourly paper strategy. When the request includes a current draft, use it as data and revise it according to the latest objective. Preserve rules the user did not ask to change. Return the strategy as a JSON string in strategy_json, matching this schema: ${JSON.stringify(schema)}. Use fractions (2% is 0.02), never invent an indicator or market. Supported symbols: ${assets.join(", ")}. Explain defaults in notes. For unsupported or underspecified instructions, leave strategy_json empty and explain in notes. Return no forecasts. This drafts a document and cannot save it or place orders.`,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              text: JSON.stringify({ objective, current_document, assets }),
-            },
-          ],
-        },
-      ],
-      outputSchema: {
-        name: "paper_strategy_draft",
-        schema: bedrockSchema(draftSchema),
-      },
-    });
-    const output = response.message.content
-      .flatMap((entry) => ("text" in entry ? [entry.text] : []))
-      .join("");
-    const invalid = () =>
-      new PlatformError(
-        "INVALID_MODEL_OUTPUT",
-        "The model did not return a valid paper strategy",
-        422,
-      );
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(output);
-    } catch {
-      throw invalid();
-    }
-    const candidate = validateOutput(draftSchema, parsed);
-    if (!candidate.strategy_json)
-      return {
-        document: null,
-        notes: candidate.notes,
-        model: response.modelId,
-      };
-    let document: unknown;
-    try {
-      document = JSON.parse(candidate.strategy_json);
-    } catch {
-      throw invalid();
-    }
-    const validation = await forward(
-      subject,
-      "POST",
-      "/platform/strategy-authoring/validate",
-      document,
-    );
-    if (validation.status === 422) throw invalid();
-    if (!validation.ok)
-      throw new PlatformError(
-        "PRODUCT_API_UNAVAILABLE",
-        "Strategy validation is unavailable",
-        503,
-      );
-    const validated = (await validation.json()) as { document: unknown };
-    return {
-      document: validated.document,
-      notes: candidate.notes,
-      model: response.modelId,
-    };
-  });
+  registerStrategyAuthoring(app, forward, llm);
+
   // Server-Sent Events pass through unbuffered; the product API bounds each session.
   for (const url of [
     "/platform/paper-agents/:id/stream",

@@ -55,6 +55,7 @@ export function StrategyAuthoring({
   onChange,
   onTemplate,
   chatKey,
+  savedStrategy,
   onEditDraft,
   onSaveDraft,
   onAgentStarted,
@@ -66,6 +67,7 @@ export function StrategyAuthoring({
   onChange: (draft: string) => void;
   onTemplate: (draft: string) => void;
   chatKey: number;
+  savedStrategy: StrategyRevision | null;
   onEditDraft: (document: StrategyDocument, saved?: StrategyRevision) => void;
   onSaveDraft: (document: StrategyDocument) => Promise<StrategyRevision>;
   onAgentStarted: (strategy: StrategyRevision) => void;
@@ -160,7 +162,8 @@ export function StrategyAuthoring({
       )}
       <div hidden={mode !== "natural"}>
         <StrategyChat
-          key={chatKey}
+          key={`${chatKey}:${savedStrategy?.id ?? ""}:${savedStrategy?.version ?? ""}`}
+          initialDocument={savedStrategy?.document}
           disabled={disabled}
           onEdit={onEditDraft}
           onSave={onSaveDraft}

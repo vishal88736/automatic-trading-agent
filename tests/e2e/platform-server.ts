@@ -6,6 +6,7 @@ import {
   FixtureRuntime,
 } from "../../backend/tests/platform/helpers.js";
 import { PlatformError } from "../../backend/gateway/domain/errors.js";
+import { RulesProvider } from "../../backend/gateway/integrations/llm/rules.provider.js";
 import type { LLMProvider } from "../../backend/gateway/integrations/llm/llm.interface.js";
 if (process.env.TERMINAL_TEST_RUN !== "1")
   throw Error("This server is restricted to browser fixture validation");
@@ -42,6 +43,7 @@ const auth = {
     return users[user];
   },
 };
+const rules = new RulesProvider();
 const llm: LLMProvider = {
   converse: async (request) => {
     if (request.outputSchema?.name === "paper_market_insight") {
@@ -81,51 +83,7 @@ const llm: LLMProvider = {
       };
     }
     if (request.outputSchema?.name === "paper_strategy_draft") {
-      const input = request.messages[0]?.content[0];
-      const prompt = input && "text" in input ? input.text : "";
-      const tradeEveryBar = prompt.includes("BTC price is above 1 USD");
-      const strategy = {
-        name: tradeEveryBar ? "Fixture price draft" : "Fixture RSI draft",
-        definition: {
-          asset: "BTC",
-          entry: {
-            conditions: [
-              tradeEveryBar
-                ? { indicator: "price", operator: "gt", threshold: "1" }
-                : { indicator: "rsi", operator: "lt", threshold: "30" },
-            ],
-          },
-          exit: {
-            conditions: [
-              tradeEveryBar
-                ? { indicator: "price", operator: "gt", threshold: "1" }
-                : { indicator: "rsi", operator: "gt", threshold: "65" },
-            ],
-          },
-          cash_fraction:
-            prompt.includes("current_document") && prompt.includes("Use 3%")
-              ? "0.03"
-              : "0.02",
-          stop_loss: "0.04",
-        },
-      };
-      return {
-        message: {
-          role: "assistant",
-          content: [
-            {
-              text: JSON.stringify({
-                strategy_json: JSON.stringify(strategy),
-                notes: "Fixture draft for review",
-              }),
-            },
-          ],
-        },
-        modelId: "FIXTURE",
-        usage: { inputTokens: 0, outputTokens: 0 },
-        durationMs: 0,
-        stopReason: "end_turn",
-      };
+      return rules.converse(request);
     }
     throw new Error("Unexpected model request in the product browser fixture");
   },
