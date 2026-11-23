@@ -15,6 +15,7 @@ from backend.strategies import evaluate, indicators
 
 D = Decimal
 RULE_WARMUP_HOURS = 81
+HOURS_PER_YEAR = 365 * 24
 
 
 def backtest(
@@ -52,6 +53,8 @@ def _replay(
         warmup + 1,
         sample_start + int((len(market.candles) - sample_start) * (1 - request.holdout_fraction)),
     )
+    annualization = D(HOURS_PER_YEAR).sqrt()
+    target_return = (1 + request.mar_annual_pct / 100) ** (D(1) / HOURS_PER_YEAR) - 1
 
     def segment(start, end):
         cash, units, basis, fees = request.initial_equity, D(0), D(0), D(0)
@@ -153,20 +156,20 @@ def _replay(
                 and (rules is not None or current.open > entry_stop)
                 and (last_entry_index is None or (index - last_entry_index) * 3600 >= cooldown)
             ):
-                amount = (
-                    spot_entry_budget(cash, opening_equity, rules, risk)
-                    if rules
-                    else min(
-                        cash,
-                        risk.max_trade_notional,
-                        opening_equity * risk.max_equity_per_trade,
-                        opening_equity * risk.max_asset_exposure,
-                        opening_equity * risk.max_aggregate_exposure,
-                    )
+                strategy_budget = (
+                    spot_entry_budget(min(cash, request.initial_equity), rules) if rules else cash
+                )
+                amount = min(
+                    strategy_budget,
+                    risk.max_trade_notional,
+                    opening_equity * risk.max_equity_per_trade,
+                    opening_equity * risk.max_asset_exposure,
+                    opening_equity * risk.max_aggregate_exposure,
                 )
                 if amount >= 1:
                     requested_amount = cash * rules.cash_fraction if rules else cash
-                    capped_entries += amount < requested_amount
+                    if amount < requested_amount:
+                        capped_entries += 1
                     price = current.open * (1 + slip)
                     gross = amount / (1 + fee_rate) if rules else amount * (1 - fee_rate)
                     fee = amount - gross
@@ -251,19 +254,15 @@ def _replay(
         ).total_seconds() / 86400
         benchmark = market.candles[end - 1].close / market.candles[start].open - 1
         mean_return = sum(hourly_returns) / len(hourly_returns)
-        return_variance = sum((value - mean_return) ** 2 for value in hourly_returns) / len(
-            hourly_returns
-        )
-        target_return = (
-            (1 + request.mar_annual_pct / 100) ** (D(1) / 8760) - 1
-            if rules and request.mar_annual_pct
+        return_variance = (
+            sum((value - mean_return) ** 2 for value in hourly_returns) / (len(hourly_returns) - 1)
+            if len(hourly_returns) > 1
             else D(0)
         )
         downside_variance = sum(
             min(value - target_return, D(0)) ** 2 for value in hourly_returns
         ) / len(hourly_returns)
-        annualized_mean = mean_return * D(8760).sqrt()
-        metric_notes = {}
+        metric_notes: dict[str, str] = {}
         if not closed:
             metric_notes["win_rate"] = "No closed trades in this window."
         if not losses:
@@ -301,11 +300,11 @@ def _replay(
             else None,
             "exposure": str(D(exposed_hours) / (end - start)),
             "fees": str(fees),
-            "sharpe_ratio": str(annualized_mean / return_variance.sqrt())
+            "sharpe_ratio": str(mean_return * annualization / return_variance.sqrt())
             if rules and return_variance
             else None,
             "sortino_ratio": str(
-                (mean_return - target_return) * D(8760).sqrt() / downside_variance.sqrt()
+                (mean_return - target_return) * annualization / downside_variance.sqrt()
             )
             if rules and downside_variance
             else None,
@@ -335,6 +334,9 @@ def _replay(
             "sortino_mar_annual_pct": str(request.mar_annual_pct),
             "network_fee": "0; no blockchain",
             "liquidity": "assumed sufficient; no DEX route",
+            "sizing": "The strategy's cash fraction and optional position cap apply within the replay portfolio's cash and risk limits."
+            if rules
+            else "The replay portfolio's cash and risk limits apply.",
             "execution": "Signal from prior closed bar; fill at next open. Standing stops fill at stop or worse opening gap with slippage.",
             "protections": "Fixed loss, optional trailing and take-profit triggers use hourly OHLC. An ambiguous bar uses the adverse stop unless the target was reached at the open."
             if rules

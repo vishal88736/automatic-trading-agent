@@ -28,7 +28,11 @@ export interface LLMRequest {
   system: string;
   messages: ModelMessage[];
   tools?: ToolDefinition[];
-  outputSchema?: { name: string; schema: Record<string, unknown> };
+  outputSchema?: {
+    name: string;
+    schema: Record<string, unknown>;
+    strict?: boolean;
+  };
 }
 export interface LLMResponse {
   message: ModelMessage;

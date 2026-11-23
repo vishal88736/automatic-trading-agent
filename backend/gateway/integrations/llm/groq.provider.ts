@@ -9,6 +9,10 @@ import type {
 import { TokenUsageService } from "./token-usage.service.js";
 
 type Fetch = typeof fetch;
+const strictOutputModels = new Set([
+  "openai/gpt-oss-20b",
+  "openai/gpt-oss-120b",
+]);
 type OpenAIMessage =
   | { role: "system" | "user"; content: string }
   | {
@@ -91,7 +95,7 @@ export class GroqProvider implements LLMProvider {
       } catch (e) {
         if (
           !(e instanceof PlatformError) ||
-          e.code !== "MODEL_THROTTLED" ||
+          !["MODEL_THROTTLED", "INVALID_MODEL_OUTPUT"].includes(e.code) ||
           attempt + 1 >= this.config.BEDROCK_MAX_ATTEMPTS
         )
           throw e;
@@ -124,6 +128,10 @@ export class GroqProvider implements LLMProvider {
         bytes + 2048 + this.config.BEDROCK_MAX_OUTPUT_TOKENS,
       ),
       started = Date.now();
+    const strict =
+      request.outputSchema?.strict &&
+      new URL(this.config.GROQ_BASE_URL).hostname === "api.groq.com" &&
+      strictOutputModels.has(this.config.GROQ_MODEL);
     let recorded = false;
     try {
       const response = await this.fetcher(
@@ -160,6 +168,7 @@ export class GroqProvider implements LLMProvider {
                     json_schema: {
                       name: request.outputSchema.name,
                       schema: request.outputSchema.schema,
+                      ...(strict ? { strict: true } : {}),
                     },
                   },
                 }
@@ -173,12 +182,24 @@ export class GroqProvider implements LLMProvider {
           "Groq is rate limited or busy",
           503,
         );
-      if (!response.ok)
+      if (!response.ok) {
+        if (strict && response.status === 400) {
+          const body = (await response.json().catch(() => null)) as {
+            error?: { code?: string };
+          } | null;
+          if (body?.error?.code === "json_validate_failed")
+            throw new PlatformError(
+              "INVALID_MODEL_OUTPUT",
+              "Groq could not generate a valid strategy draft. Try the prompt again.",
+              422,
+            );
+        }
         throw new PlatformError(
           "MODEL_UNAVAILABLE",
           `Groq request failed (${response.status}); verify the key and model`,
           503,
         );
+      }
       const body = (await response.json()) as {
         choices?: Array<{
           finish_reason?: string;

@@ -68,10 +68,26 @@ def test_indicator_operand_is_evaluated_at_the_same_bar():
         rule_signal(strategy, fixture_market("ETH"), holding=False)
 
 
+def test_ema_crossover_compares_both_operands_on_each_closed_bar():
+    market = fixture_market("BTC", count=82)
+    candles = []
+    for index, bar in enumerate(market.candles):
+        price = Decimal(100 - index) if index < 80 else Decimal(250)
+        candles.append(
+            bar.model_copy(update=dict.fromkeys(("open", "high", "low", "close"), price))
+        )
+    strategy = definition(entry={"conditions": [rule("ema_fast", "crosses_above", "ema_slow")]})
+    crossing = market.model_copy(update={"candles": candles[:-1], "as_of": candles[-2].closed_at})
+    next_bar = market.model_copy(update={"candles": candles[1:]})
+    assert rule_signal(strategy, crossing, holding=False) == "BUY"
+    assert rule_signal(strategy, next_bar, holding=False) == "HOLD"
+
+
 @pytest.mark.parametrize(
     "invalid",
     [
         {"timeframe": "5m"},
+        {"side": "SHORT"},
         {"cash_fraction": "1.01"},
         {"stop_loss": "-0.01"},
         {"entry": {"conditions": []}},

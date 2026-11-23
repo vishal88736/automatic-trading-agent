@@ -1,9 +1,15 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { CandleChart, EquityChart, type ChartViewport } from "../charts";
 import type { Candle } from "../types";
-import { money, percent, timestamp } from "../ui";
+import { money, number, percent, timestamp } from "../ui";
 import { platform } from "./client";
 import { workspaceHref } from "./navigation";
+
+const quotePrice = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 12,
+});
 
 interface SavedStrategy {
   id: string;
@@ -173,11 +179,11 @@ function ReportView({ report }: { report: Report }) {
           </div>
         ))}
       </dl>
-      {segment.capped_entries != null && (
+      {segment.capped_entries != null && segment.capped_entries > 0 && (
         <p className="muted">
           {segment.capped_entries}{" "}
           {segment.capped_entries === 1 ? "entry was" : "entries were"} reduced
-          by sizing or risk caps in this window. See requested and filled
+          by sizing or risk caps in this window. See requested and effective
           budgets in the fill history.
         </p>
       )}
@@ -205,9 +211,9 @@ function ReportView({ report }: { report: Report }) {
           {open ? (
             <>
               <p className="muted">
-                {open.quantity} {report.result.symbol} remained open at{" "}
-                {money(open.mark_price)} per coin. Its value is included in
-                equity.
+                {number(open.quantity, 12)} {report.result.symbol} remained open
+                at {quotePrice.format(Number(open.mark_price))} per coin.
+                Closing equity includes its marked value.
               </p>
               <dl className="platform-backtest-metrics">
                 <div>
@@ -231,9 +237,9 @@ function ReportView({ report }: { report: Report }) {
                 <details>
                   <summary>Estimated cash if closed at the end</summary>
                   <p>
-                    {money(estimate.estimated_final_cash)} after estimated
-                    selling fees and slippage. The estimate does not count as a
-                    fill or a closed trade.
+                    {money(estimate.estimated_final_cash)} estimated cash ·{" "}
+                    {money(estimate.estimated_net_pnl)} estimated position
+                    P&amp;L after selling fees and slippage.
                   </p>
                 </details>
               )}
@@ -292,7 +298,7 @@ function ReportView({ report }: { report: Report }) {
                 <tr key={index}>
                   <td>{timestamp(trade.at)}</td>
                   <td>{trade.side}</td>
-                  <td>{money(trade.price)}</td>
+                  <td>{quotePrice.format(Number(trade.price))}</td>
                   <td>{trade.quantity}</td>
                   <td>{money(trade.fee)}</td>
                   <td>{money(trade.pnl)}</td>
@@ -319,6 +325,12 @@ function ReportView({ report }: { report: Report }) {
             ? `${report.dataset.evaluation_candle_count} replay candles + ${report.dataset.warmup_hours} warm-up candles`
             : `${report.dataset.candle_count} candles`}
         </p>
+        {report.dataset.product_id && report.dataset.quote_currency && (
+          <p>
+            {report.dataset.product_id} · {report.dataset.quote_currency} quote
+            currency
+          </p>
+        )}
         <p>
           SHA-256 <code>{report.dataset.sha256}</code>
         </p>

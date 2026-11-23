@@ -285,3 +285,45 @@ test("Groq provider maps tool calls to the platform format and accounts tokens",
     /requires GROQ_API_KEY/,
   );
 });
+
+test("Groq retries a failed strict draft within the configured attempt limit", async () => {
+  const { GroqProvider } =
+    await import("../../gateway/integrations/llm/groq.provider.js");
+  const usage = new TokenUsageService(new MemoryTenantStore(), config);
+  const request: LLMRequest = {
+    context: {
+      userId: alice.userId,
+      sessionId: randomUUID(),
+      requestId: randomUUID(),
+    },
+    system: "Draft a strategy.",
+    messages: [{ role: "user", content: [{ text: "Fixture prompt" }] }],
+    outputSchema: {
+      name: "paper_strategy_draft",
+      schema: { type: "object", additionalProperties: false },
+      strict: true,
+    },
+  };
+  let calls = 0;
+  const provider = new GroqProvider(
+    { ...config, GROQ_API_KEY: "gsk_test" },
+    usage,
+    async (_url, init) => {
+      const body = JSON.parse(String(init?.body));
+      assert.equal(body.response_format.json_schema.strict, true);
+      calls++;
+      if (calls === 1)
+        return Response.json(
+          { error: { code: "json_validate_failed" } },
+          { status: 400 },
+        );
+      return Response.json({
+        choices: [{ finish_reason: "stop", message: { content: "{}" } }],
+        usage: { prompt_tokens: 15, completion_tokens: 2 },
+      });
+    },
+  );
+  const result = await provider.converse(request);
+  assert.equal(calls, 2);
+  assert.deepEqual(result.message.content, [{ text: "{}" }]);
+});

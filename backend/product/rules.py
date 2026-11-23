@@ -7,7 +7,7 @@ from typing import Annotated, Literal, get_args
 
 from pydantic import Field, StringConstraints
 
-from backend.models import Market, Model, RiskConfig
+from backend.models import Market, Model
 from backend.product.spot_markets import FEATURED, Asset
 from backend.strategies import indicators
 
@@ -63,21 +63,10 @@ class StrategyDraft(Model):
     definition: StrategyDefinition
 
 
-def spot_entry_budget(
-    cash: Decimal, equity: Decimal, strategy: StrategyDefinition, risk: RiskConfig
-) -> Decimal:
-    """Limit an entry for one flat spot strategy, including its modeled buy fee."""
-    return max(
-        Decimal(0),
-        min(
-            cash * strategy.cash_fraction,
-            strategy.max_position_usdt if strategy.max_position_usdt is not None else cash,
-            risk.max_trade_notional,
-            equity * risk.max_equity_per_trade,
-            equity * risk.max_asset_exposure,
-            equity * risk.max_aggregate_exposure,
-        ),
-    )
+def spot_entry_budget(cash: Decimal, strategy: StrategyDefinition) -> Decimal:
+    """Calculate the strategy's requested spot budget, including the buy fee."""
+    requested = cash * strategy.cash_fraction
+    return min(requested, strategy.max_position_usdt or requested)
 
 
 def _threshold(condition: Condition, values: dict) -> Decimal:

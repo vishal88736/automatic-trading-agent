@@ -359,7 +359,9 @@ function readCondition(text: string, asset?: string): Condition | undefined {
   if (!left) return;
   const operator =
     operators[
-      rawOperator.toLowerCase().replace(/[\s_]+/g, " ") as keyof typeof operators
+      rawOperator
+        .toLowerCase()
+        .replace(/[\s_]+/g, " ") as keyof typeof operators
     ];
   const right = rawRight.trim();
   const reference =
@@ -410,10 +412,12 @@ function readGroup(
 const percent =
   "(?<![+\\d.-])(-?(?:\\d+(?:\\.\\d+)?|\\.\\d+))\\s*(?:%|percent\\b)";
 const budgetNumber = "-?(?:\\d{1,3}(?:,\\d{3})+|\\d+)(?:\\.\\d+)?";
-const positionCap = "(?:max(?:imum)? position(?: size)?|position cap)";
+const positionCap =
+  "(?:max(?:imum)? (?:position(?: size)?|entry budget)|position cap)";
 const positionCapLabel = new RegExp(`\\b${positionCap}\\b`, "i");
+const currencyAmount = `(?:\\$${budgetNumber}(?![\\w,]|\\.\\d)|${budgetNumber}\\s*(?:USDT|USD)\\b)`;
 const positionCapAmount = new RegExp(
-  `\\b${positionCap}\\s*(?:[:=]|at|of|to|is)?\\s*(?:\\$(${budgetNumber})(?![\\w,]|\\.\\d)|(${budgetNumber})\\s*(?:USDT|USD)\\b)`,
+  `\\b${positionCap}\\s*(?:[:=]|at|of|to|is)?\\s*(${currencyAmount})(?:(?:\\s+(?:or|and|to)\\s+|\\s*[-–]\\s*)(${currencyAmount}))?`,
   "gi",
 );
 const removePositionCap = new RegExp(
@@ -423,7 +427,7 @@ const removePositionCap = new RegExp(
 const riskRules = {
   cash_fraction: [
     `${percent}\\s*(?:per (?:trade|entry)|of (?:available |my |the )?(?:cash|capital|balance))`,
-    `(?:position size|entry size|allocation)\\s*(?:[:=]|at|is|of|to)?\\s*${percent}`,
+    `(?:(?<!max )(?<!maximum )position size|entry size|allocation)\\s*(?:[:=]|at|is|of|to)?\\s*${percent}`,
     `(?:allocate|size (?:each|the) trade at)\\s*${percent}`,
   ],
   stop_loss: [
@@ -443,7 +447,7 @@ const riskRules = {
 function endOfRule(value: string) {
   return value
     .split(
-      /;|[.!?](?=\s|$)|[, ]+(?:(?:with|using|and)\s+)?(?=(?:use\s+|risk\s+|allocate\s+|max(?:imum)? position|position cap|position size|entry size|allocation|stop[ -]loss|take[ -]profit|trailing[ -]stop|\d+(?:\.\d+)?\s*(?:%|percent)))/i,
+      /;|[.!?](?=\s|$)|[, ]+(?:(?:with|using|and)\s+)?(?=(?:use\s+|risk\s+|allocate\s+|max(?:imum)? (?:position|entry budget)|position cap|position size|entry size|allocation|stop[ -]loss|take[ -]profit|trailing[ -]stop|\d+(?:\.\d+)?\s*(?:%|percent)))/i,
     )[0]
     .replace(
       /\s+(?:on|using)\s+(?:the\s+)?(?:1\s*h(?:our)?|hourly)(?:\s+candles?)?\s*$/i,
@@ -646,15 +650,25 @@ export function interpretStrategy(
 
     if (positionCapLabel.test(text) || turn.answer_to === "max_position_usdt") {
       const values = new Set(
-        [...text.matchAll(positionCapAmount)].map((match) =>
-          new Decimal((match[1] ?? match[2]).replaceAll(",", "")).toFixed(),
+        [...text.matchAll(positionCapAmount)].flatMap(
+          ([, amount, alternative]) =>
+            [amount, alternative]
+              .filter(Boolean)
+              .map((value) =>
+                new Decimal(
+                  value.replace(/\$|,|\s*(?:USDT|USD)$/gi, ""),
+                ).toFixed(),
+              ),
         ),
       );
       const answer =
         turn.answer_to === "max_position_usdt"
-          ? text.match(new RegExp(`^\\$?(${budgetNumber})\\s*(?:USDT|USD)?[.!]?$`, "i"))
+          ? text.match(
+              new RegExp(`^\\$?(${budgetNumber})\\s*(?:USDT|USD)?[.!]?$`, "i"),
+            )
           : null;
-      if (answer) values.add(new Decimal(answer[1].replaceAll(",", "")).toFixed());
+      if (answer)
+        values.add(new Decimal(answer[1].replaceAll(",", "")).toFixed());
       const [amount] = values;
       const remove =
         removePositionCap.test(text) ||

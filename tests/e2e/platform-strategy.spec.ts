@@ -152,9 +152,13 @@ test("Fund, version, backtest, and isolate a tenant strategy", async ({
   await expect(
     page.getByRole("button", { name: "Structured JSON" }),
   ).toHaveCount(0);
-  await chat.getByLabel("Trading prompt").fill("Use 3% per trade");
+  await chat
+    .getByLabel("Trading prompt")
+    .fill("Use 3% per trade with a position cap of 40 USD.");
   await chat.getByRole("button", { name: "Send prompt" }).click();
   await expect(preview).toContainText("3.00% of cash");
+  await expect(preview.getByText("Maximum entry budget")).toBeVisible();
+  await expect(preview.getByText("$40.00")).toBeVisible();
   await chat
     .getByRole("button", { name: "Save strategy", exact: true })
     .click();
@@ -170,6 +174,9 @@ test("Fund, version, backtest, and isolate a tenant strategy", async ({
   await page.getByRole("button", { name: "BTC strategy · BTC · v1" }).click();
   await expect(page.getByLabel("Strategy JSON")).toHaveValue(
     /"cash_fraction": "0.03"/,
+  );
+  await expect(page.getByLabel("Strategy JSON")).toHaveValue(
+    /"max_position_usdt": "40"/,
   );
 
   await page
@@ -192,7 +199,14 @@ test("Fund, version, backtest, and isolate a tenant strategy", async ({
   await expect(page.getByText("Saved version 1.")).toBeVisible();
 
   const versionOne = JSON.parse(await editor.inputValue());
-  await editor.fill(JSON.stringify({ ...versionOne, name: "Reviewed RSI" }));
+  const revised = { ...versionOne, name: "Reviewed RSI" };
+  revised.definition.entry.conditions[0].threshold = "100";
+  revised.definition.exit.conditions = [
+    { indicator: "price", operator: "lt", threshold: "1" },
+  ];
+  revised.definition.stop_loss = "0.9";
+  revised.definition.max_position_usdt = "20";
+  await editor.fill(JSON.stringify(revised));
   await save.click();
   await expect(page.getByText("Saved version 2.")).toBeVisible();
   await page.getByRole("button", { name: "Version history" }).click();
@@ -231,12 +245,23 @@ test("Fund, version, backtest, and isolate a tenant strategy", async ({
     page.getByRole("heading", { name: "Replay report" }),
   ).toBeVisible();
   await expect(page.getByText("Total return", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "End-of-window position" }),
+  ).toBeVisible();
+  await expect(page.getByText("Unrealized P&L", { exact: true })).toBeVisible();
+  await page.getByText("Estimated cash if closed at the end").click();
+  await expect(page.getByText(/estimated position P&L/)).toBeVisible();
+  await page.getByText("Metric notes", { exact: true }).click();
+  await expect(page.getByText(/No closed trades in this window/)).toBeVisible();
   await page.getByRole("button", { name: "In-sample" }).click();
   await expect(
     page.getByRole("img", { name: /Backtest equity/ }),
   ).toBeVisible();
   await page.getByText("Assumptions and dataset", { exact: true }).click();
   await expect(page.getByText("SHA-256", { exact: false })).toBeVisible();
+  await expect(
+    page.getByText("168 replay candles + 81 warm-up candles", { exact: false }),
+  ).toBeVisible();
   const report = page.url();
   await page.reload();
   await expect(

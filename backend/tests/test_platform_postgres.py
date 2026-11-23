@@ -264,6 +264,9 @@ def test_authenticated_product_http_checks_identity_payload_and_ownership(
         result = backtest.json()
         assert result["strategy_id"] == first.json()["id"] and result["strategy_version"] == 1
         assert result["dataset"]["candle_count"] == len(market.candles)
+        assert result["dataset"]["evaluation_candle_count"] == len(market.candles) - 81
+        assert result["dataset"]["evaluation_start_utc"] == study["start"]
+        assert result["dataset"]["evaluation_end_utc"] == study["end"]
         assert result["result"]["fixture"] is True
         report_path = "/platform/backtests/" + result["id"]
         assert call("GET", report_path).json() == result
@@ -459,6 +462,7 @@ def test_durable_agent_lease_recovers_and_shared_execution_stops_atomically(
     raw["definition"]["exit"]["conditions"] = [
         {"indicator": "price", "operator": "gt", "threshold": "1"}
     ]
+    raw["definition"]["max_position_usdt"] = "15"
     draft = StrategyDraft.model_validate(raw)
     market = fixture_market("BTC")
     study = HistoricalBacktestRequest(
@@ -510,6 +514,7 @@ def test_durable_agent_lease_recovers_and_shared_execution_stops_atomically(
         assert holding["agent_name"] == "Durable paper test"
         assert holding["quantity"] == held["BTC"]["quantity"]
         assert holding["mark"] == holding["quantity"] * Decimal("50000")
+        assert Decimal("14.99") < held["BTC"]["basis"] <= Decimal("15")
         assert portfolio(db, other, quotes({"BTC"}))["positions"] == []
         [stale] = portfolio(db, owner, {})["positions"]
         assert stale["mark"] is None and stale["unrealized_pnl"] is None

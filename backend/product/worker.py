@@ -208,18 +208,14 @@ class PaperWorker:
                     Decimal(0), min(work["capital"], equity - quantity * quote.price)
                 )
                 budget = min(
-                    spot_entry_budget(cash_available, equity, definition, terms.risk),
+                    spot_entry_budget(cash_available, definition),
                     account.cash * terms.risk.max_equity_per_trade,
                     terms.risk.max_trade_notional,
                 )
                 costs = (1 + Decimal(terms.fee_bps) / 10000) * (
                     1 + Decimal(terms.slippage_bps) / 10000
                 )
-                quantity = (
-                    (budget / (quote.price * costs)).quantize(PX, rounding=ROUND_DOWN)
-                    if budget >= 1
-                    else Decimal(0)
-                )
+                quantity = (budget / (quote.price * costs)).quantize(PX, rounding=ROUND_DOWN)
             detail = {
                 "decision": side,
                 "reason": why,

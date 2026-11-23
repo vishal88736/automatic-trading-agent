@@ -202,6 +202,55 @@ test("only explicit trading rules, logic, and percentages survive interpretation
   assert.equal(hourly.status, "READY");
 });
 
+test("authoring preserves an EMA crossover and asks before applying an ambiguous position cap", () => {
+  const text =
+    "Buy BTC when EMA 12 crosses_above EMA 26 and sell when EMA 12 crosses below EMA 26. Use 5% of cash with a 4% stop loss. Use a position cap of $1,250.50.";
+  const first = interpretStrategy([{ text }], undefined, eligible);
+  assert.equal(first.status, "READY");
+  if (first.status !== "READY") return;
+  assert.deepEqual(first.document.definition.entry.conditions, [
+    {
+      indicator: "ema_fast",
+      operator: "crosses_above",
+      threshold: "ema_slow",
+    },
+  ]);
+  assert.equal(first.document.definition.max_position_usdt, "1250.5");
+  const question = interpretStrategy(
+    [{ text: "Adjust the position cap." }],
+    first.document,
+    eligible,
+  );
+  assert.equal(question.status, "NEEDS_CLARIFICATION");
+  if (question.status !== "NEEDS_CLARIFICATION") return;
+  assert.equal(question.questions[0].field, "max_position_usdt");
+  const answer = interpretStrategy(
+    [{ text: "250 USDT", answer_to: "max_position_usdt" }],
+    first.document,
+    [...eligible, "USDT"],
+  );
+  assert.equal(answer.status, "READY");
+  if (answer.status !== "READY") return;
+  assert.deepEqual(answer.document.definition, {
+    ...first.document.definition,
+    max_position_usdt: "250",
+  });
+  const cleared = interpretStrategy(
+    [{ text: "Remove the position cap." }],
+    answer.document,
+    eligible,
+  );
+  assert.equal(cleared.status, "READY");
+  if (cleared.status !== "READY") return;
+  assert.equal(cleared.document.definition.max_position_usdt, null);
+  const conflicting = interpretStrategy(
+    [{ text: "Set the position cap to $50 or $100." }],
+    first.document,
+    eligible,
+  );
+  assert.equal(conflicting.status, "NEEDS_CLARIFICATION");
+});
+
 async function strategyApp(
   llm: LLMProvider,
   onValidate: (document: unknown) => void,
@@ -228,9 +277,20 @@ async function strategyApp(
 
 test("strategy authoring waits for user answers and carries them across turns", async (t) => {
   let validations = 0;
-  const app = await strategyApp(new RulesProvider(), () => {
-    validations++;
-  });
+  let modelCalls = 0;
+  const rules = new RulesProvider();
+  const app = await strategyApp(
+    {
+      converse(request) {
+        modelCalls++;
+        assert.equal(request.outputSchema?.strict, true);
+        return rules.converse(request);
+      },
+    },
+    () => {
+      validations++;
+    },
+  );
   t.after(() => app.close());
   const history: Array<{ text: string; answer_to?: string }> = [];
   async function ask(objective: string, answer_to?: string) {
@@ -265,12 +325,14 @@ test("strategy authoring waits for user answers and carries them across turns", 
     assert.equal(response.questions[0].field, next);
   }
   assert.equal(validations, 0);
+  assert.equal(modelCalls, 0);
   const ready = await ask("2.5%", "stop_loss");
   assert.equal(ready.status, "READY");
   assert.equal(ready.document.definition.asset, "PEPE");
   assert.equal(ready.document.definition.cash_fraction, "0.05");
   assert.equal(ready.document.definition.stop_loss, "0.025");
   assert.equal(validations, 1);
+  assert.equal(modelCalls, 1);
 });
 
 test("a fabricated model draft cannot replace user risk settings", async (t) => {
@@ -281,12 +343,9 @@ test("a fabricated model draft cannot replace user risk settings", async (t) => 
       const [content] = real.message.content;
       assert.ok("text" in content);
       const candidate = JSON.parse(content.text);
-      const draft = JSON.parse(candidate.strategy_json);
-      draft.stop_loss = "0.09";
-      content.text = JSON.stringify({
-        ...candidate,
-        strategy_json: JSON.stringify(draft),
-      });
+      candidate.definition.stop_loss = "0.09";
+      candidate.definition.max_position_usdt = "20";
+      content.text = JSON.stringify(candidate);
       return real;
     },
   };
@@ -301,5 +360,8 @@ test("a fabricated model draft cannot replace user risk settings", async (t) => 
   });
   assert.equal(response.statusCode, 200, response.body);
   assert.equal(response.json().document, null);
-  assert.deepEqual(response.json().missing_fields, ["stop_loss"]);
+  assert.deepEqual(response.json().missing_fields, [
+    "stop_loss",
+    "max_position_usdt",
+  ]);
 });

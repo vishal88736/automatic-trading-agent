@@ -35,7 +35,18 @@ def save_replay(
         raise ValueError("Dataset does not match the requested replay window")
     result = backtest_rules(market, request, strategy.document.definition, request.risk)
     market_data = market.model_dump(mode="json")
-    dataset_key = {key: market_data[key] for key in ("asset", "timeframe", "source", "candles")}
+    dataset_key = {
+        key: market_data[key]
+        for key in (
+            "asset",
+            "timeframe",
+            "source",
+            "venue",
+            "product_id",
+            "quote_currency",
+            "candles",
+        )
+    }
     checksum = hashlib.sha256(
         json.dumps(dataset_key, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()

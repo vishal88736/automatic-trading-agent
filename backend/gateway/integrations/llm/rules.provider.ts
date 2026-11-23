@@ -42,12 +42,20 @@ export class RulesProvider implements LLMProvider {
       data.current_document,
       data.assets,
     );
+    const draft =
+      decision.status === "READY" ? decision.document.definition : null;
     return reply(request, {
       status: decision.status,
-      strategy_json:
-        decision.status === "READY"
-          ? JSON.stringify(decision.document.definition)
-          : "",
+      definition: draft && {
+        ...draft,
+        schema_version: 1,
+        timeframe: "1h",
+        entry: { combine: "all", ...draft.entry },
+        exit: { combine: "all", ...draft.exit },
+        take_profit: draft.take_profit ?? null,
+        trailing_stop: draft.trailing_stop ?? null,
+        max_position_usdt: draft.max_position_usdt ?? null,
+      },
       notes: decision.status === "UNSUPPORTED" ? decision.notes : "",
       missing_fields:
         decision.status === "NEEDS_CLARIFICATION"
