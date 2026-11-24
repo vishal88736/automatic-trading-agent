@@ -1,5 +1,8 @@
-from typing import Optional
 import datetime
+import sys
+from pathlib import Path
+from typing import Optional
+
 import typer
 from rich.console import Console
 from rich.panel import Panel
@@ -18,6 +21,9 @@ from rich import box
 from rich.align import Align
 from rich.rule import Rule
 from dotenv import load_dotenv
+
+if __name__ == "__main__" and not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 load_dotenv(".env.local")
 load_dotenv()

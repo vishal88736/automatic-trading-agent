@@ -1,0 +1,43 @@
+{
+  "run_id": "2026-07-11_20261124_135410_aa148e6f5a",
+  "symbol": "AAPL",
+  "trade_date": "2026-07-11",
+  "file_path": "eval_results/AAPL/TradingAgentsStrategy_logs/runs/2026-07-11_20261124_135410_aa148e6f5a.json",
+  "started_at": "2026-11-24T08:24:10.575460+00:00",
+  "ended_at": "2026-11-24T08:24:11.137845+00:00",
+  "status": "aborted",
+  "config": {},
+  "metadata": {},
+  "events": [
+    {
+      "timestamp": "2026-11-24T08:24:10.575657+00:00",
+      "type": "llm_call",
+      "payload": {
+        "usage": {
+          "total_tokens": 555
+        }
+      }
+    }
+  ],
+  "snapshots": {},
+  "summary": {
+    "prompt_events": 0,
+    "tool_events": 0,
+    "llm_call_events": 1,
+    "agent_output_events": 0,
+    "node_events": 0,
+    "tool_retry_events": 0,
+    "error_events": 1,
+    "total_prompt_chars": 0,
+    "total_tool_time_seconds": 0.0,
+    "total_tool_output_chars": 0,
+    "suspect_tool_events": 0,
+    "total_llm_time_seconds": 0.0,
+    "total_llm_input_chars": 0,
+    "total_llm_output_chars": 0,
+    "total_llm_input_tokens": 0,
+    "total_llm_output_tokens": 0,
+    "total_llm_tokens": 555,
+    "error_message": "Run terminated before finish_run was called (process exit/termination)."
+  }
+}

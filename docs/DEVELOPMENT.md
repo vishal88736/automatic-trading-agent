@@ -39,7 +39,7 @@ The browser runner opens the same frontend used in production. It uses loopback 
 
 The `paper` section of [runtime.json](../config/runtime.json) configures modeled costs and operational limits within the reviewed bounds. Its `providers` section defines spot endpoints, the reference assets and the featured ticker list. Set `KRONO_CONFIG_PATH` to select a different configuration. The market search uses the venue's full eligible spot catalog.
 
-`make setup` installs the optional legacy graph and CLI dependencies. Install them separately with `uv sync --frozen --extra platform --extra legacy`, then run `.venv/bin/python -m cli.main --help`. Put personal provider keys in `.env.local` or the shell. The inherited graph accepts `TRADINGAGENTS_DEEP_MODEL` and `TRADINGAGENTS_QUICK_MODEL` to select deployment-supported models. Broker account reads require an explicit opt-in.
+`make setup` installs the optional legacy graph and CLI dependencies. Install them separately with `uv sync --frozen --extra platform --extra legacy`. From the repository root, run `.venv/bin/python -m cli.main --help` or `.venv/bin/python cli/main.py --help`. Put personal provider keys in `.env.local` or the shell. The inherited graph accepts `TRADINGAGENTS_DEEP_MODEL` and `TRADINGAGENTS_QUICK_MODEL` to select deployment-supported models. Broker account reads require an explicit opt-in.
 
 ## Tenant PostgreSQL foundation
 
