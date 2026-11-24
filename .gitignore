@@ -25,6 +25,7 @@ dist/
 build/
 
 # Local runtime data
+/eval_results/
 *.log
 logs/
 *.db

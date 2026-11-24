@@ -29,13 +29,17 @@ Strategy chat uses `KRONO_LLM_PROVIDER`. With no setting, it uses `groq` when `G
 ## Local checks
 
 ```bash
+.venv/bin/ruff check backend scripts tests/e2e
+.venv/bin/ruff format --check backend scripts tests/e2e
+.venv/bin/python -m pytest -q
+npm run check:platform
 npm run build
 npm run test:platform
 npm run test:e2e
-.venv/bin/python -m pytest -q
+.venv/bin/python -m scripts.public_audit
 ```
 
-The browser runner opens the same frontend used in production. It uses loopback ports 5180 and 8793 and supports overrides through `KRONO_E2E_UI_PORT` and `KRONO_E2E_GATEWAY_PORT`. Set `KRONO_E2E_BUILD=1` after a build to test the production bundle. PostgreSQL integration tests require a disposable `KRONO_TEST_DATABASE_DSN`.
+The browser runner opens the same frontend used in production. It uses loopback ports 5180 and 8793 and supports overrides through `KRONO_E2E_UI_PORT` and `KRONO_E2E_GATEWAY_PORT`. Set `KRONO_E2E_BUILD=1` after a build to test the production bundle. PostgreSQL integration tests create and drop isolated schemas in the disposable database configured by `KRONO_TEST_DATABASE_DSN`.
 
 The `paper` section of [runtime.json](../config/runtime.json) configures modeled costs and operational limits within the reviewed bounds. Its `providers` section defines spot endpoints, the reference assets and the featured ticker list. Set `KRONO_CONFIG_PATH` to select a different configuration. The market search uses the venue's full eligible spot catalog.
 

@@ -17,6 +17,7 @@ kavach-main
 .python
 node_modules
 artifacts
+eval_results
 test-results
 tests
 backend/tests

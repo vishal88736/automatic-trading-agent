@@ -21,7 +21,7 @@
 | ⏱️ **Agents that keep running** | Agents run in a server-side worker with leases and checkpoints, so they keep trading after you close the browser and resume safely after a restart.                                                                                 |
 | 🧪 **Paper trading**            | Every account gets 10,000 virtual USDT, filled against live Coinbase prices with simulated fees and slippage. Trade by hand or with agents.                                                                                         |
 | 🔌 **Live trading**             | Link Binance, Bybit or OKX with a trade-only API key; each has a free testnet. Trade by hand, or promote a proven paper agent so its trades are mirrored to your account at a budget you choose.                                    |
-| 🏆 **Leaderboard**              | Every running agent on the platform, ranked by return on its allocation, with live-trading badges.                                                                                                                                  |
+| 🏆 **Ranked strategies**        | Browse strategies with positive recorded paper returns and copy an entry into your workspace.                                                                                                                                       |
 | 📰 **Live news and sentiment**  | Real-time headlines from 300+ sources through [cryptocurrency.cv](https://github.com/nirholas/cryptocurrency.cv), plus the Fear & Greed index and per-coin sentiment.                                                               |
 | 📈 **Live markets**             | Streaming Binance prices in the ticker, candlestick charts with RSI, ATR, MACD and a market-regime read.                                                                                                                            |
 | 👛 **Wallet view**              | Connect MetaMask or any EIP-1193 wallet to see balances next to your exchange accounts. View-only: Krono never asks you to sign anything.                                                                                           |
@@ -53,32 +53,22 @@ Each agent shows its allocation, P&L, last decision and heartbeat. Once it passe
 <table>
   <tr>
     <td width="50%">
-      <strong>Leaderboard</strong><br>
-      <img alt="Leaderboard of running agents" src="docs/screenshots/leaderboard.png">
-    </td>
-    <td width="50%">
       <strong>Live trading</strong><br>
       <img alt="Linking a Binance, Bybit or OKX account" src="docs/screenshots/live-trading.png">
     </td>
-  </tr>
-  <tr>
     <td width="50%">
       <strong>Crypto news</strong><br>
       <img alt="Live crypto news with Fear and Greed index" src="docs/screenshots/news.png">
     </td>
+  </tr>
+  <tr>
     <td width="50%">
       <strong>Markets & AI insights</strong><br>
       <img alt="BTC candlestick chart with indicators" src="docs/screenshots/markets.png">
     </td>
-  </tr>
-  <tr>
     <td width="50%">
       <strong>Paper trading</strong><br>
       <img alt="Paper trading order ticket and balances" src="docs/screenshots/paper-trading.png">
-    </td>
-    <td width="50%">
-      <strong>Light theme</strong><br>
-      <img alt="Overview in the light theme" src="docs/screenshots/overview-light.png">
     </td>
   </tr>
 </table>
@@ -107,7 +97,7 @@ Open **http://127.0.0.1:5173**, create an account, and you're trading on paper.
 
 1. Open **AI Strategy Builder** and type a strategy, for example _"Buy ETH when RSI drops below 30 and sell when it goes above 65, risk 5% per trade"_.
 2. Click **Run as paper agent**, then **Start paper agent**. The worker backtests it and applies risk checks before it starts.
-3. Close the browser. The agent keeps trading; open **My Agents** or the **Leaderboard** later to see how it did.
+3. Close the browser. The agent keeps trading. Open **My Agents** later to see how it did.
 
 ### Optional configuration
 
@@ -135,7 +125,7 @@ flowchart LR
 ```
 
 - **Gateway** (`backend/gateway/`): sign-in, sessions, CSRF, rate limits and the strategy chat. It forwards every product request to the API with a signed, short-lived HMAC header.
-- **Product API** (`backend/product/`): strategies, backtests, the paper ledger, leaderboard, live connections and orders. It fans out one upstream news stream and one price stream to every browser over Server-Sent Events.
+- **Product API** (`backend/product/`): strategies, rankings, backtests, the paper ledger, live connections and orders. It fans out one upstream news stream and one price stream to every browser over Server-Sent Events.
 - **Agents worker** (`backend/product/worker.py`): evaluates each running agent on every closed candle, records fills in the paper ledger and mirrors promoted agents' fills to their exchange. Leases and checkpoints keep each agent on exactly one worker and make restarts safe.
 
 See [architecture](docs/ARCHITECTURE.md) for the full design.
@@ -174,16 +164,16 @@ The PostgreSQL integration tests run when `KRONO_TEST_DATABASE_DSN` points to a 
 
 | Folder                | Contents                                                                     |
 | --------------------- | ---------------------------------------------------------------------------- |
-| `frontend/`           | React app: landing page, workspace, leaderboard, strategy chat, live trading |
+| `frontend/`           | React app: landing page, workspace, rankings, strategy chat, live trading    |
 | `backend/product/`    | FastAPI service, strategies, backtests, paper ledger, live trading, worker   |
 | `backend/gateway/`    | Fastify gateway: sign-in, CSRF, rate limits, strategy drafting, signed proxy |
 | `backend/migrations/` | PostgreSQL schema migrations                                                 |
 | `tradingagents/`      | Indicator, regime and sizing components reused by the backend                |
 | `tests/e2e/`          | Browser tests                                                                |
 | `deploy/`, `infra/`   | Containers and AWS infrastructure                                            |
-| `docs/`               | Architecture, development, live trading and verification                     |
+| `docs/`               | Architecture, development, live trading and AWS setup                         |
 
-More in [development](docs/DEVELOPMENT.md), [verification](docs/VERIFICATION.md), [AWS setup](docs/AWS_SETUP.md) and [security](SECURITY.md).
+More in [development](docs/DEVELOPMENT.md), [AWS setup](docs/AWS_SETUP.md) and [security](SECURITY.md).
 
 ## Credits and license
 
