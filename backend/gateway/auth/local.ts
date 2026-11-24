@@ -11,6 +11,11 @@ import type { Principal } from "../domain/schemas.js";
 import { PlatformError } from "../domain/errors.js";
 import { SERVICE_SUBJECT, type ProductForward } from "../product/client.js";
 import type { Authenticator } from "./cognito.js";
+import {
+  googleKeys,
+  verifyGoogleIdToken,
+  type GoogleKeySource,
+} from "./google.js";
 
 const SESSION_SECONDS = 7 * 86400;
 const uuid =
@@ -31,6 +36,7 @@ export class LocalAuth implements Authenticator {
   constructor(
     private config: Config,
     private forward: ProductForward,
+    private googleKeySource: GoogleKeySource = googleKeys(),
   ) {
     const material =
       config.KRONO_SESSION_SECRET ?? config.KRONO_PRODUCT_API_KEY;
@@ -164,6 +170,67 @@ export class LocalAuth implements Authenticator {
         throw new PlatformError(
           "AUTHENTICATION",
           "Sign-in failed. Check your email and password.",
+          401,
+        );
+      return this.issue(reply, data.user.id);
+    });
+    // Which sign-in methods this deployment offers; the UI shows Google only when set.
+    app.get("/platform/auth/providers", async () => ({
+      google: this.config.KRONO_GOOGLE_CLIENT_ID
+        ? { clientId: this.config.KRONO_GOOGLE_CLIENT_ID }
+        : null,
+    }));
+    app.post("/platform/auth/google", async (req, reply) => {
+      const clientId = this.config.KRONO_GOOGLE_CLIENT_ID;
+      if (!clientId)
+        throw new PlatformError(
+          "UNSUPPORTED",
+          "Google sign-in is not configured for this deployment.",
+          501,
+        );
+      const { credential } = z
+        .object({ credential: z.string().min(20).max(8192) })
+        .strict()
+        .parse(req.body);
+      let identity;
+      try {
+        identity = await verifyGoogleIdToken(
+          credential,
+          clientId,
+          this.googleKeySource,
+        );
+      } catch {
+        throw new PlatformError(
+          "GOOGLE_UNAVAILABLE",
+          "Google sign-in is unavailable. Try again shortly.",
+          503,
+        );
+      }
+      if (!identity)
+        throw new PlatformError(
+          "AUTHENTICATION",
+          "Google sign-in failed. Try again.",
+          401,
+        );
+      const { status, data } = await this.call(
+        "/platform/internal/google-sessions",
+        "POST",
+        {
+          subject: identity.subject,
+          email: identity.email,
+          display_name: identity.displayName,
+        },
+      );
+      if (status === 409)
+        throw new PlatformError(
+          "ACCOUNT_EXISTS",
+          "This email is linked to a different Google account.",
+          409,
+        );
+      if (status !== 200 || !data.user)
+        throw new PlatformError(
+          "AUTHENTICATION",
+          "Google sign-in failed. Try again.",
           401,
         );
       return this.issue(reply, data.user.id);

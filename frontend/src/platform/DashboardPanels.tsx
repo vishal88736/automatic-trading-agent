@@ -70,7 +70,12 @@ export function DashboardPaperPositions({
             <tbody>
               {positions.map((position) => (
                 <tr key={`${position.asset}:${position.agent_id ?? "manual"}`}>
-                  <th scope="row">{position.asset}</th>
+                  <th scope="row">
+                    <span className="dashboard-position-asset">
+                      <Coin symbol={position.asset} />
+                      {position.asset}
+                    </span>
+                  </th>
                   <td>
                     {position.agent_id ? (
                       <a
@@ -91,7 +96,16 @@ export function DashboardPaperPositions({
                       ? "Awaiting price"
                       : money(position.mark)}
                   </td>
-                  <td>{money(position.unrealized_pnl)}</td>
+                  <td
+                    className="dashboard-position-pnl"
+                    data-sign={
+                      position.unrealized_pnl == null
+                        ? undefined
+                        : Math.sign(Number(position.unrealized_pnl))
+                    }
+                  >
+                    {money(position.unrealized_pnl)}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -479,6 +493,11 @@ export function DashboardMarkets() {
             quote?.status === "AVAILABLE" || quote?.status === "FIXTURE";
           const close =
             quote?.candles.slice(-24).map((candle) => candle.close) ?? [];
+          const open = Number(close[0]);
+          const dayChange =
+            current && close.length > 1 && open > 0
+              ? (Number(close.at(-1)) - open) / open
+              : null;
           return (
             <li key={asset} className="dashboard-market-row">
               <a href={workspaceHref("markets", `?asset=${asset}`)}>
@@ -488,14 +507,19 @@ export function DashboardMarkets() {
                   <small title={quote?.source}>
                     {!quotes
                       ? "Loading"
-                      : quote
-                        ? quote.status === "FIXTURE"
+                      : !quote
+                        ? "Unavailable"
+                        : quote.status === "FIXTURE"
                           ? "Fixture"
-                          : quote.status.toLowerCase()
-                        : "Unavailable"}
+                          : dayChange !== null
+                            ? "24h change"
+                            : quote.status.toLowerCase()}
                   </small>
                 </span>
-                <strong>{current ? money(quote.price) : "—"}</strong>
+                <span className="dashboard-market-price">
+                  <strong>{current ? money(quote.price) : "—"}</strong>
+                  {dayChange !== null && <Delta value={dayChange} />}
+                </span>
                 {current && (
                   <Sparkline
                     values={close}

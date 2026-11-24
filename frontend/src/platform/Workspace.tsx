@@ -1,7 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import {
   Activity,
-  ArrowRight,
   Bot,
   ChartNoAxesColumn,
   FlaskConical,
@@ -114,9 +113,6 @@ function DashboardAgents() {
         <h3>
           <Bot size={17} aria-hidden /> Agent activity
         </h3>
-        <a href={workspaceHref("agents")} aria-label="Manage agents">
-          <ArrowRight size={16} aria-hidden />
-        </a>
       </div>
       {!summary && <p role="status">Checking worker status…</p>}
       {summary && (
@@ -125,7 +121,7 @@ function DashboardAgents() {
             {summary.worker_online ? "Worker online" : "Worker offline"}
           </p>
           <dl className="dashboard-agent-counts">
-            <div>
+            <div data-tone="running">
               <dt>Running</dt>
               <dd>{running}</dd>
             </div>
@@ -133,10 +129,19 @@ function DashboardAgents() {
               <dt>Paused</dt>
               <dd>{paused}</dd>
             </div>
+            <div>
+              <dt>Total</dt>
+              <dd>{summary.items.length}</dd>
+            </div>
           </dl>
-          <a className="kx-link" href={workspaceHref("strategies")}>
-            <Trophy size={14} aria-hidden /> See strategy rankings
-          </a>
+          <div className="dashboard-agents-actions">
+            <a className="kx-link" href={workspaceHref("agents")}>
+              <Bot size={14} aria-hidden /> Manage agents
+            </a>
+            <a className="kx-link" href={workspaceHref("strategies")}>
+              <Trophy size={14} aria-hidden /> Strategy rankings
+            </a>
+          </div>
         </>
       )}
     </section>
@@ -486,41 +491,46 @@ export function Workspace() {
               }
               key={auth.session.userId}
             >
-              {page === "dashboard" && !liveOverview && (
-                <section
-                  className="overview-section"
-                  aria-labelledby="overview-paper"
-                >
-                  <div className="overview-section-header">
-                    <h2 id="overview-paper">Paper trading overview</h2>
-                  </div>
-                  <PaperAccount
-                    view="dashboard"
-                    dashboardAgents={<DashboardAgents />}
-                    dashboardMarkets={<DashboardMarkets />}
+              <div
+                className="kx-stage"
+                key={`${page}:${liveOverview ? "live" : "paper"}`}
+              >
+                {page === "dashboard" && !liveOverview && (
+                  <section
+                    className="overview-section"
+                    aria-labelledby="overview-paper"
+                  >
+                    <div className="overview-section-header">
+                      <h2 id="overview-paper">Paper trading overview</h2>
+                    </div>
+                    <PaperAccount
+                      view="dashboard"
+                      dashboardAgents={<DashboardAgents />}
+                      dashboardMarkets={<DashboardMarkets />}
+                    />
+                  </section>
+                )}
+                {liveOverview && <LiveOverview />}
+                {page === "agents" && <PaperAgents key={route.href} />}
+                {page === "live" && <LiveTrading />}
+                {page === "strategies" && <StrategyRankings />}
+                {page === "saved-strategies" && (
+                  <SavedStrategies
+                    key={route.href}
+                    strategyId={route.strategyId}
                   />
-                </section>
-              )}
-              {liveOverview && <LiveOverview />}
-              {page === "agents" && <PaperAgents key={route.href} />}
-              {page === "live" && <LiveTrading />}
-              {page === "strategies" && <StrategyRankings />}
-              {page === "saved-strategies" && (
-                <SavedStrategies
-                  key={route.href}
-                  strategyId={route.strategyId}
-                />
-              )}
-              {page === "builder" && <StrategyBuilder />}
-              {page === "backtests" && (
-                <BacktestingLab key={reportId ?? "new"} reportId={reportId} />
-              )}
-              {page === "paper" && <PaperAccount key="paper" />}
-              {page === "settings" && (
-                <PaperAccount key="settings" view="settings" />
-              )}
-              {page === "markets" && <MarketResearch key={route.href} />}
-              {page === "news" && <LiveNews />}
+                )}
+                {page === "builder" && <StrategyBuilder />}
+                {page === "backtests" && (
+                  <BacktestingLab key={reportId ?? "new"} reportId={reportId} />
+                )}
+                {page === "paper" && <PaperAccount key="paper" />}
+                {page === "settings" && (
+                  <PaperAccount key="settings" view="settings" />
+                )}
+                {page === "markets" && <MarketResearch key={route.href} />}
+                {page === "news" && <LiveNews />}
+              </div>
             </Suspense>
           )}
         </main>

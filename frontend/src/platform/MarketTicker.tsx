@@ -60,7 +60,7 @@ export function MarketTicker({ detailed = false }: { detailed?: boolean }) {
                 {history.length > 1 && (
                   <span
                     className="kx-ticker-history"
-                    title="Recent observed prices"
+                    title="Hourly prices over the past 24 hours"
                   >
                     <Sparkline
                       values={history}

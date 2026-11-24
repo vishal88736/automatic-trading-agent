@@ -25,6 +25,10 @@ export interface MarketSummary {
   history: number[];
 }
 
+// Hourly closes for the past day, per asset, from the price snapshot. Sparklines draw
+// these and end at the live price, so they show the same 24h move as the change label.
+let dayCloses: Record<string, number[]> = {};
+
 // One shared snapshot and SSE connection for every component on the page.
 let state: Record<string, MarketSummary> = {};
 let featured: readonly string[] = marketAssets;
@@ -62,9 +66,13 @@ function apply(item: PriceQuote) {
     (last?.observedAt != null && observedAt < last.observedAt)
   )
     return;
+  const closes = dayCloses[item.asset];
   const history = last?.history ?? [];
   const previousSamples =
     observedAt === last?.observedAt ? history.slice(0, -1) : history;
+  const series = closes?.length
+    ? [...closes.slice(1), price]
+    : [...previousSamples.slice(-31), price];
   state = {
     ...state,
     [item.asset]: {
@@ -75,7 +83,7 @@ function apply(item: PriceQuote) {
       high24h: finiteQuoteNumber(item.high_24h),
       low24h: finiteQuoteNumber(item.low_24h),
       observedAt,
-      history: [...previousSamples.slice(-31), price],
+      history: series,
       direction:
         previous === null || previous === price
           ? (last?.direction ?? null)
@@ -97,11 +105,21 @@ function publish() {
 
 function connect() {
   if (!listeners.size || source) return;
-  void platform<{ assets?: string[]; prices: Record<string, PriceQuote> }>(
-    "/public/prices",
-  )
-    .then(({ assets, prices }) => {
+  void platform<{
+    assets?: string[];
+    prices: Record<string, PriceQuote>;
+    history?: Record<string, string[]>;
+  }>("/public/prices")
+    .then(({ assets, prices, history }) => {
       if (assets?.length) featured = assets;
+      dayCloses = Object.fromEntries(
+        Object.entries(history ?? {}).map(([asset, closes]) => [
+          asset,
+          closes
+            .map(Number)
+            .filter((close) => Number.isFinite(close) && close > 0),
+        ]),
+      );
       Object.values(prices).forEach(apply);
       publish();
     })

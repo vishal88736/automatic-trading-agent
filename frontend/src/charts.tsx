@@ -35,6 +35,49 @@ function chartEma(candles: Candle[], period = 12): (number | null)[] {
   });
 }
 
+// Wilder's RSI, used when a chart has candles but no server-computed indicator series.
+function chartRsi(candles: Candle[], period = 14): (number | null)[] {
+  const result: (number | null)[] = candles.map(() => null);
+  let gain = 0,
+    loss = 0;
+  for (let index = 1; index < candles.length; index++) {
+    const move =
+      Number(candles[index].close) - Number(candles[index - 1].close);
+    const up = Math.max(move, 0),
+      down = Math.max(-move, 0);
+    if (index <= period) {
+      gain += up / period;
+      loss += down / period;
+    } else {
+      gain = (gain * (period - 1) + up) / period;
+      loss = (loss * (period - 1) + down) / period;
+    }
+    if (index >= period)
+      result[index] = loss === 0 ? 100 : 100 - 100 / (1 + gain / loss);
+  }
+  return result;
+}
+
+// Round axis values to 1, 2, 2.5 or 5 times a power of ten so labels read cleanly.
+function niceTicks(min: number, max: number, target = 4) {
+  const raw = (max - min) / target;
+  if (!(raw > 0) || !Number.isFinite(raw))
+    return { step: 0, ticks: [] as number[] };
+  const power = 10 ** Math.floor(Math.log10(raw));
+  const step =
+    [1, 2, 2.5, 5, 10]
+      .map((factor) => factor * power)
+      .find((value) => value >= raw) ?? 10 * power;
+  const ticks: number[] = [];
+  for (
+    let value = Math.ceil(min / step) * step;
+    value <= max + step * 1e-9;
+    value += step
+  )
+    ticks.push(Number(value.toPrecision(12)));
+  return { step, ticks };
+}
+
 export function Sparkline({
   values,
   positive = true,
@@ -278,6 +321,8 @@ export function EquityChart({
         )}
         {rows.length > 0 && (
           <polyline
+            className="equity-line"
+            pathLength={1}
             points={points}
             fill="none"
             stroke="var(--chart-line)"
@@ -430,6 +475,10 @@ export function CandleChart({
     () => chartEma(candles).slice(start, end),
     [candles, start, end],
   );
+  const localRsi = useMemo(
+    () => (series ? [] : chartRsi(candles).slice(start, end)),
+    [candles, series, start, end],
+  );
   const pointsByTime = useMemo(
     () =>
       new Map(
@@ -542,6 +591,16 @@ export function CandleChart({
   const measured = rows.map((bar) =>
     pointsByTime.get(Date.parse(bar.timestamp)),
   );
+  const rsiValues = series ? measured.map((point) => point?.rsi14) : localRsi;
+  const activeRsi = series ? activePoint?.rsi14 : localRsi[activeIndex];
+  const priceTicks = niceTicks(min, max);
+  const tickFormat = (value: number) =>
+    value.toLocaleString("en-US", {
+      maximumFractionDigits: Math.max(
+        0,
+        Math.min(8, -Math.floor(Math.log10(priceTicks.step || 1)) + 1),
+      ),
+    });
   const rsiTop = 320,
     macdTop = 320 + (showRsi ? 110 : 0);
   const rsiY = (value: number) => rsiTop + 94 - value * 0.65;
@@ -654,23 +713,23 @@ export function CandleChart({
           if (!drag.current) setHover(null);
         }}
       >
-        {[0, 1, 2, 3, 4].map((index) => (
-          <g key={index}>
+        {priceTicks.ticks.map((tick) => (
+          <g key={tick}>
             <line
               x1={left}
               x2={right}
-              y1={28 + index * 49.5}
-              y2={28 + index * 49.5}
+              y1={priceY(tick)}
+              y2={priceY(tick)}
               stroke="var(--border)"
               strokeDasharray="3 5"
             />
             <text
               x={right + 10}
-              y={32 + index * 49.5}
+              y={priceY(tick) + 4}
               fill="var(--muted)"
               fontSize="12"
             >
-              {format(max - (index * (max - min)) / 4)}
+              {tickFormat(tick)}
             </text>
           </g>
         ))}
@@ -838,9 +897,7 @@ export function CandleChart({
             />
             <text x={left} y={rsiTop + 22} fill="var(--muted)" fontSize="12">
               RSI 14 ·{" "}
-              {activePoint?.rsi14 == null
-                ? "unavailable"
-                : activePoint.rsi14.toFixed(2)}
+              {activeRsi == null ? "unavailable" : activeRsi.toFixed(2)}
             </text>
             {[30, 70].map((value) => (
               <g key={value}>
@@ -863,10 +920,7 @@ export function CandleChart({
               </g>
             ))}
             <polyline
-              points={line(
-                measured.map((point) => point?.rsi14),
-                rsiY,
-              )}
+              points={line(rsiValues, rsiY)}
               fill="none"
               stroke="var(--accent)"
               strokeWidth="1.5"

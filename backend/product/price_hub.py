@@ -30,7 +30,10 @@ STREAM_URL = (
     + "/".join(f"{symbol.lower()}@miniTicker" for symbol in ASSETS.values())
 )
 REST_URL = _providers.spot_endpoints.ticker_rest
+KLINES_URL = REST_URL.rsplit("/ticker/", 1)[0] + "/klines"
 STALE_SECONDS = 90
+HISTORY_HOURS = 24
+HISTORY_REFRESH_SECONDS = 300
 
 
 def _decimal(value) -> Decimal:
@@ -78,6 +81,9 @@ class PriceHub:
         self.poll_seconds = poll_seconds
         self.stream_enabled = stream
         self.prices: dict[str, dict] = {}
+        # Hourly closes for the last day, so price sparklines show the real 24h trend.
+        self.history: dict[str, list[Decimal]] = {}
+        self._history_due = 0.0
         self.subscribers: set[asyncio.Queue] = set()
         self.connected = False
         self._tasks: list[asyncio.Task] = []
@@ -104,6 +110,7 @@ class PriceHub:
             "live": self.connected,
             "assets": list(ASSETS),
             "prices": fresh,
+            "history": {asset: closes for asset, closes in self.history.items() if closes},
         }
 
     def price(self, asset: str) -> Decimal | None:
@@ -159,8 +166,27 @@ class PriceHub:
                     )
                 )
 
+    async def refresh_history(self):
+        history = {}
+        for asset, symbol in ASSETS.items():
+            response = await self.client.get(
+                KLINES_URL, params={"symbol": symbol, "interval": "1h", "limit": HISTORY_HOURS}
+            )
+            response.raise_for_status()
+            closes = [_decimal(row[4]) for row in response.json()]
+            if closes and all(close > 0 for close in closes):
+                history[asset] = closes
+        self.history.update(history)
+
     async def _poll_loop(self):
         while True:
+            if time.monotonic() >= self._history_due:
+                try:
+                    await self.refresh_history()
+                    self._history_due = time.monotonic() + HISTORY_REFRESH_SECONDS
+                except (httpx.HTTPError, ValueError, KeyError, TypeError, IndexError) as exc:
+                    log.warning("Price history refresh failed: %s", type(exc).__name__)
+                    self._history_due = time.monotonic() + 60
             if not self.connected or not self.prices:
                 try:
                     await self.refresh()

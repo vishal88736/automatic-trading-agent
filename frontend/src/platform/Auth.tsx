@@ -14,6 +14,125 @@ import { MarketTicker } from "./MarketTicker";
 
 type Mode = "login" | "register" | "verify" | "forgot" | "reset";
 
+interface GoogleAccounts {
+  id: {
+    initialize(options: {
+      client_id: string;
+      callback: (response: { credential?: string }) => void;
+      ux_mode?: "popup";
+      context?: "signin" | "signup";
+    }): void;
+    renderButton(
+      parent: HTMLElement,
+      options: Record<string, string | number>,
+    ): void;
+  };
+}
+
+declare global {
+  interface Window {
+    google?: { accounts: GoogleAccounts };
+  }
+}
+
+let googleScript: Promise<GoogleAccounts> | undefined;
+function loadGoogle() {
+  googleScript ??= new Promise<GoogleAccounts>((resolve, reject) => {
+    if (window.google?.accounts) return resolve(window.google.accounts);
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.onload = () =>
+      window.google?.accounts
+        ? resolve(window.google.accounts)
+        : reject(Error("Google sign-in did not load."));
+    script.onerror = () => {
+      googleScript = undefined;
+      reject(Error("Google sign-in could not load. Check your connection."));
+    };
+    document.head.append(script);
+  });
+  return googleScript;
+}
+
+/** "Continue with Google", shown only when the deployment configures a client ID. */
+function GoogleSignIn({
+  signup,
+  done,
+  onError,
+}: {
+  signup: boolean;
+  done: () => void;
+  onError: (message: string) => void;
+}) {
+  const [clientId, setClientId] = useState<string | null>(null);
+  const [working, setWorking] = useState(false);
+  const slot = useRef<HTMLDivElement>(null);
+  // Held in refs so typing elsewhere in the form never re-initializes Google's button.
+  const callbacks = useRef({ done, onError });
+  callbacks.current = { done, onError };
+
+  useEffect(() => {
+    let active = true;
+    platform<{ google: { clientId: string } | null }>("/auth/providers")
+      .then(({ google }) => active && setClientId(google?.clientId ?? null))
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!clientId) return;
+    let active = true;
+    loadGoogle()
+      .then((accounts) => {
+        if (!active || !slot.current) return;
+        accounts.id.initialize({
+          client_id: clientId,
+          ux_mode: "popup",
+          context: signup ? "signup" : "signin",
+          callback: ({ credential }) => {
+            const { done, onError } = callbacks.current;
+            if (!credential) return onError("Google sign-in was cancelled.");
+            setWorking(true);
+            platform("/auth/google", "POST", { credential })
+              .then(done)
+              .catch((err: Error) => onError(err.message))
+              .finally(() => setWorking(false));
+          },
+        });
+        const dark =
+          document.documentElement.dataset.theme === "dark" ||
+          (document.documentElement.dataset.theme !== "light" &&
+            matchMedia("(prefers-color-scheme: dark)").matches);
+        accounts.id.renderButton(slot.current, {
+          type: "standard",
+          theme: dark ? "filled_black" : "outline",
+          size: "large",
+          shape: "pill",
+          text: signup ? "signup_with" : "continue_with",
+          logo_alignment: "left",
+          width: Math.min(400, slot.current.clientWidth || 320),
+        });
+      })
+      .catch((err: Error) => active && callbacks.current.onError(err.message));
+    return () => {
+      active = false;
+    };
+  }, [clientId, signup]);
+
+  if (!clientId) return null;
+  return (
+    <div className="kx-auth-google" aria-busy={working || undefined}>
+      <div ref={slot} className="kx-auth-google-button" />
+      <p className="kx-auth-divider">
+        <span>or use your email</span>
+      </p>
+    </div>
+  );
+}
+
 const headings: Record<Mode, [string, string]> = {
   login: ["Welcome back", "Sign in to manage your agents and portfolio."],
   register: [
@@ -157,6 +276,13 @@ export function Auth({
             <p className="platform-error" role="alert">
               {error}
             </p>
+          )}
+          {(mode === "login" || mode === "register") && (
+            <GoogleSignIn
+              signup={mode === "register"}
+              done={done}
+              onError={setError}
+            />
           )}
           {mode === "register" && (
             <label>

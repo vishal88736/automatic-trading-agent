@@ -136,6 +136,11 @@
   background: var(--positive-bg);
 }
 
+.unified-workspace .paper-order-status[data-status="REJECTED"] {
+  color: var(--negative);
+  background: var(--negative-bg);
+}
+
 .unified-workspace .paper-order-status[data-status="OPEN"] {
   color: var(--warning);
   background: var(--warning-bg);
@@ -170,5 +175,65 @@
 
   .unified-workspace .product-intro {
     animation: none !important;
+  }
+}
+
+/* One staged entrance per page: the page settles, then its panels arrive
+   in reading order. The dashboard console runs its own sequence instead. */
+@media (prefers-reduced-motion: no-preference) {
+  .unified-workspace .kx-stage {
+    animation: stage-in 420ms var(--product-ease) both;
+  }
+
+  .unified-workspace
+    .kx-stage
+    :is(.platform-product-panel, .kx-card):not(.dashboard-instrument > *) {
+    animation: stage-panel-in 520ms var(--product-ease) both;
+  }
+
+  .unified-workspace
+    .kx-stage
+    :is(.platform-product-panel, .kx-card):nth-child(2) {
+    animation-delay: 60ms;
+  }
+  .unified-workspace
+    .kx-stage
+    :is(.platform-product-panel, .kx-card):nth-child(3) {
+    animation-delay: 120ms;
+  }
+  .unified-workspace
+    .kx-stage
+    :is(.platform-product-panel, .kx-card):nth-child(4) {
+    animation-delay: 180ms;
+  }
+  .unified-workspace
+    .kx-stage
+    :is(.platform-product-panel, .kx-card):nth-child(5) {
+    animation-delay: 240ms;
+  }
+  .unified-workspace
+    .kx-stage
+    :is(.platform-product-panel, .kx-card):nth-child(n + 6) {
+    animation-delay: 300ms;
+  }
+}
+
+@keyframes stage-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes stage-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
   }
 }

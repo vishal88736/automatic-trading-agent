@@ -13,28 +13,28 @@
   --muted: light-dark(#526457, #9bb0a0);
   --subtle: light-dark(#5e7163, #8da395);
 
-  --lime: #b5f248;
-  --lime-hover: light-dark(#a6e835, #c4fa5e);
+  --lime: light-dark(#b5f248, #a3dc5a);
+  --lime-hover: light-dark(#a6e835, #b2e670);
   --on-accent: #0a130c;
   --accent: light-dark(#276b38, var(--lime));
-  --accent-strong: light-dark(#1b5c2e, #c4fa5e);
+  --accent-strong: light-dark(#1b5c2e, #b2e670);
   --accent-bg: light-dark(#ebf8dc, #23321d);
   --accent-border: light-dark(#c5e1ab, #40592c);
   --accent-2: light-dark(#167345, #6ee7b7);
   --contrast-bg: light-dark(#0d1710, #19261d);
   --contrast-fg: #fff;
-  --gradient-brand: linear-gradient(135deg, var(--lime), #22c55e);
+  --gradient-brand: linear-gradient(135deg, var(--lime), var(--lime));
   --wordmark-ink: light-dark(#0d1710, #e1edd8);
   --wordmark-signal: light-dark(#398118, var(--lime));
-  --brand-glow: rgb(181 242 72 / 50%);
-  --spotlight: light-dark(rgb(181 242 72 / 24%), rgb(34 197 94 / 19%));
-  --spotlight-soft: light-dark(rgb(22 163 74 / 8%), rgb(181 242 72 / 7%));
+  --brand-glow: light-dark(rgb(8 28 14 / 14%), rgb(0 0 0 / 45%));
+  --spotlight: light-dark(rgb(181 242 72 / 14%), rgb(34 197 94 / 8%));
+  --spotlight-soft: light-dark(rgb(22 163 74 / 5%), rgb(163 220 90 / 4%));
   --grid-line: light-dark(rgb(11 20 14 / 6%), rgb(181 242 72 / 6%));
 
-  --positive: light-dark(#15803d, #58e57f);
+  --positive: light-dark(#15803d, #4cc874);
   --positive-bg: light-dark(#e6f6ea, #102a1b);
   --positive-border: light-dark(#bee2c7, #255d38);
-  --negative: light-dark(#b91c1c, #ff7777);
+  --negative: light-dark(#b91c1c, #f07070);
   --negative-bg: light-dark(#fceeee, #2e1818);
   --negative-border: light-dark(#f1c4c4, #60302e);
   --warning: light-dark(#924a0b, #facc65);

@@ -312,3 +312,24 @@ def test_okx_adapter_uses_demo_mode_passphrase_and_rejects_withdraw_keys():
         live.verify()
     assert len(client_order_id("okx", uuid4())) == 32
     assert client_order_id("okx", uuid4()).isalnum()
+
+
+async def test_price_hub_keeps_a_day_of_hourly_closes_for_sparklines():
+    seen = []
+
+    def handler(request):
+        seen.append(request.url)
+        assert request.url.path.endswith("/klines")
+        assert request.url.params["interval"] == "1h"
+        assert request.url.params["limit"] == "24"
+        base = {"BTCUSDT": 60000, "ETHUSDT": 2000, "SOLUSDT": 100}[request.url.params["symbol"]]
+        rows = [[0, "0", "0", "0", str(base + hour), "0"] for hour in range(24)]
+        return httpx.Response(200, json=rows)
+
+    hub = PriceHub(transport=httpx.MockTransport(handler), stream=False)
+    await hub.refresh_history()
+    assert len(seen) == 3
+    history = hub.snapshot()["history"]
+    assert history["BTC"][0] == Decimal("60000") and history["BTC"][-1] == Decimal("60023")
+    assert len(history["SOL"]) == 24
+    await hub.stop()

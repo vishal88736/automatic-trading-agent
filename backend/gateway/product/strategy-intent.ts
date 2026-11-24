@@ -390,6 +390,8 @@ function readGroup(
   const normalized = text
     .replace(quoteSuffix, "")
     .replace(/\bat or (above|below)\b/gi, "at_or_$1")
+    // "cross above" and "crossing below" are common phrasings of "crosses ...".
+    .replace(/\bcross(?:es|ed|ing)?[\s_]+(above|below)\b/gi, "crosses $1")
     .replace(/^(?:[:=,]\s*|(?:when|if|once|rule)\s+)+/i, "")
     .replace(/\s+(?:when|if|once)\s+/i, (cue, index: number, source: string) =>
       normalizeAsset(source.slice(0, index)) === asset ? " " : cue,
@@ -489,6 +491,31 @@ function unsupported(text: string) {
     return "Choose a supported indicator with its built-in period. ADX and custom indicator periods are unavailable.";
 }
 
+export const OUT_OF_SCOPE =
+  "I only build crypto spot trading strategies. Describe what to trade and when to buy and sell, for example: Buy BTC when RSI drops below 30 and sell when it rises above 70.";
+export const NO_GUARANTEE =
+  "No strategy can guarantee profit. Describe the buy and sell rules you want, then backtest them before you run an agent.";
+
+// Words that only make sense in a trading request. Plain "buy" or "sell" are not
+// enough on their own ("should I buy a house?") unless a listed coin is named.
+const strategySignal =
+  /\b(?:strateg(?:y|ies)|agent|trad(?:e|es|ed|ing)|rsi|macd|ema|sma|atr|bollinger|breakout|dips?|trend|momentum|reversion|crosse?[sd]?|crossing|stop[ -]loss|take[ -]profit|trailing[ -]stop|position size|indicator|candles?|coins?|tokens?|crypto\w*|bitcoin|ethereum|solana|altcoins?|memecoins?|scalp\w*|swing|dca|hodl|spot)\b/i;
+const harmfulRequest =
+  /\b(?:hack\w*|exploit\w*|phish\w*|steal\w*|launder\w*|pump[ -]and[ -]dump|wash[ -]trad\w*|spoof\w*|front[ -]?run\w*|insider|malware|ddos|bypass\w*|jailbreak\w*)\b|\bignore (?:all |any |the )?(?:previous|prior|above|earlier) (?:instructions|rules|prompts?)\b|\b(?:system|developer) prompt\b/i;
+const guaranteedReturn =
+  /\b(?:guarantee[ds]?|risk[ -]free|can'?t lose|never lose|no risk|sure[ -]?(?:fire|shot|win))\b/i;
+
+// The builder only drafts trading strategies. Requests outside that scope get one
+// clear answer instead of strategy questions that would imply it understood them.
+// While a strategy is being edited, short follow-ups such as "Use 3%" carry the
+// context of the draft, so only harmful or guaranteed-return requests are declined.
+function outOfScope(text: string, namesAsset: boolean, editing: boolean) {
+  if (harmfulRequest.test(text)) return OUT_OF_SCOPE;
+  if (guaranteedReturn.test(text)) return NO_GUARANTEE;
+  if (!editing && !namesAsset && !strategySignal.test(text))
+    return OUT_OF_SCOPE;
+}
+
 function timeframeRequest(text: string) {
   if (/\b(?:daily|weekly)\s+(?:candles?|chart|timeframe)\b/i.test(text))
     return "unsupported";
@@ -520,10 +547,25 @@ export function interpretStrategy(
   let timeframe: ReturnType<typeof timeframeRequest>;
   let changed = false;
   let name = current?.name;
+  let inScope = false;
 
   for (const turn of turns) {
     const text = turn.text.trim().replace(/\s+/g, " ");
     timeframe = timeframeRequest(text) ?? timeframe;
+    if (!turn.answer_to) {
+      const scope = outOfScope(
+        text,
+        mentionedAssets(turn, allowed).length > 0,
+        current !== undefined || inScope,
+      );
+      if (scope) {
+        incompatible = scope;
+        continue;
+      }
+      if (incompatible === OUT_OF_SCOPE || incompatible === NO_GUARANTEE)
+        incompatible = undefined;
+      inScope = true;
+    }
     const conflict = unsupported(text);
     if (conflict) {
       incompatible = conflict;

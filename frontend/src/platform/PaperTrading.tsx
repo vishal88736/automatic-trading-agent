@@ -194,6 +194,125 @@ export default function PaperAccount({
     });
   }
 
+  const balance = (
+    <section
+      className={
+        dashboard
+          ? "platform-product-panel paper-overview-balance dashboard-metrics"
+          : "platform-product-panel paper-overview-balance"
+      }
+      aria-labelledby="paper-balance"
+    >
+      <div className="paper-balance-heading">
+        <div>
+          <h3 id="paper-balance">Virtual balance</h3>
+          {account && (
+            <p className="platform-product-balance">
+              <strong>
+                {dashboard ? money(value?.cash ?? account.cash) : account.cash}
+              </strong>{" "}
+              virtual {account.currency}
+            </p>
+          )}
+        </div>
+        {(!data || account) && (
+          <button
+            className={dashboard ? "secondary" : undefined}
+            disabled={busy}
+            onClick={() => void act()}
+          >
+            Refresh account
+          </button>
+        )}
+        {data && !account && (
+          <button
+            disabled={busy}
+            onClick={() =>
+              void act(async () => {
+                await platform("/paper-account", "POST");
+              })
+            }
+          >
+            Open virtual account
+          </button>
+        )}
+      </div>
+      {dashboard && account && value && (
+        <dl className="dashboard-balance-facts">
+          <div>
+            <dt>Portfolio value</dt>
+            <dd>{value.equity === null ? "—" : money(value.equity)}</dd>
+          </div>
+          <div>
+            <dt>Invested</dt>
+            <dd>
+              {value.equity === null
+                ? "—"
+                : money(Math.max(0, Number(value.equity) - Number(value.cash)))}
+            </dd>
+          </div>
+          <div>
+            <dt>Open positions</dt>
+            <dd>{value.positions?.length ?? value.holdings.length}</dd>
+          </div>
+        </dl>
+      )}
+      {dashboard && account && (
+        <a
+          className="button secondary dashboard-trade-link"
+          href={workspaceHref("paper")}
+        >
+          Paper trading
+        </a>
+      )}
+      {!dashboard && (
+        <p className="paper-money-note">
+          Simulated funds. USD market prices are modeled at 1 virtual USDT per
+          USD.
+        </p>
+      )}
+      {error && (
+        <p role="alert" className="platform-error">
+          {error}
+        </p>
+      )}
+      <p role="status">{busy ? "Updating paper account…" : message}</p>
+      {value && view !== "settings" && (
+        <>
+          {value.equity === null && (
+            <p>
+              Portfolio value is unavailable until all held assets have fresh
+              prices.
+            </p>
+          )}
+          {!dashboard && (
+            <dl className="platform-backtest-metrics">
+              {accountMetrics}
+              {riskMetrics}
+            </dl>
+          )}
+          {!dashboard && (
+            <>
+              <h4>Holdings</h4>
+              {value.holdings.length ? (
+                <ul>
+                  {value.holdings.map((item) => (
+                    <li key={item.asset}>
+                      {item.asset} · {item.quantity} · {money(item.mark)} marked
+                      value · {percent(item.allocation)} allocation
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>No open positions.</p>
+              )}
+            </>
+          )}
+        </>
+      )}
+    </section>
+  );
+
   return (
     <div
       className={
@@ -210,132 +329,41 @@ export default function PaperAccount({
           <a href={workspaceHref("settings")}>Review controls</a>
         </p>
       )}
-      <section
-        className={
-          dashboard
-            ? "platform-product-panel paper-overview-balance dashboard-metrics"
-            : "platform-product-panel paper-overview-balance"
-        }
-        aria-labelledby="paper-balance"
-      >
-        <div className="paper-balance-heading">
-          <div>
-            <h3 id="paper-balance">Virtual balance</h3>
-            {account && (
-              <p className="platform-product-balance">
-                <strong>
-                  {dashboard
-                    ? money(value?.cash ?? account.cash)
-                    : account.cash}
-                </strong>{" "}
-                virtual {account.currency}
-              </p>
-            )}
-          </div>
-          {(!data || account) && (
-            <button
-              className={dashboard ? "secondary" : undefined}
-              disabled={busy}
-              onClick={() => void act()}
-            >
-              Refresh account
-            </button>
+      {dashboard ? (
+        <div className="dashboard-instrument">
+          {balance}
+          {dashboard && value && <PortfolioPerformance rows={value.history} />}
+          {dashboard && value && account && (
+            <AssetAllocation
+              cash={value.cash}
+              currency={account.currency}
+              equity={value.equity}
+              holdings={value.holdings}
+            />
           )}
-          {data && !account && (
-            <button
-              disabled={busy}
-              onClick={() =>
-                void act(async () => {
-                  await platform("/paper-account", "POST");
-                })
-              }
-            >
-              Open virtual account
-            </button>
+          {dashboard && value && (
+            <dl className="dashboard-kpis" aria-label="Paper account metrics">
+              {(
+                [
+                  "available_cash",
+                  "unrealized_pnl",
+                  "realized_pnl",
+                  "daily_pnl",
+                  "drawdown",
+                ] as const
+              ).map((metric) => (
+                <DashboardMetric
+                  key={metric}
+                  metric={metric}
+                  value={value[metric]}
+                  rows={value.history}
+                />
+              ))}
+            </dl>
           )}
         </div>
-        {dashboard && account && (
-          <a
-            className="button secondary dashboard-trade-link"
-            href={workspaceHref("paper")}
-          >
-            Paper trading
-          </a>
-        )}
-        {!dashboard && (
-          <p className="paper-money-note">
-            Simulated funds. USD market prices are modeled at 1 virtual USDT per
-            USD.
-          </p>
-        )}
-        {error && (
-          <p role="alert" className="platform-error">
-            {error}
-          </p>
-        )}
-        <p role="status">{busy ? "Updating paper account…" : message}</p>
-        {value && view !== "settings" && (
-          <>
-            {value.equity === null && (
-              <p>
-                Portfolio value is unavailable until all held assets have fresh
-                prices.
-              </p>
-            )}
-            {!dashboard && (
-              <dl className="platform-backtest-metrics">
-                {accountMetrics}
-                {riskMetrics}
-              </dl>
-            )}
-            {!dashboard && (
-              <>
-                <h4>Holdings</h4>
-                {value.holdings.length ? (
-                  <ul>
-                    {value.holdings.map((item) => (
-                      <li key={item.asset}>
-                        {item.asset} · {item.quantity} · {money(item.mark)}{" "}
-                        marked value · {percent(item.allocation)} allocation
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p>No open positions.</p>
-                )}
-              </>
-            )}
-          </>
-        )}
-      </section>
-      {dashboard && value && <PortfolioPerformance rows={value.history} />}
-      {dashboard && value && account && (
-        <AssetAllocation
-          cash={value.cash}
-          currency={account.currency}
-          equity={value.equity}
-          holdings={value.holdings}
-        />
-      )}
-      {dashboard && value && (
-        <dl className="dashboard-kpis" aria-label="Paper account metrics">
-          {(
-            [
-              "available_cash",
-              "unrealized_pnl",
-              "realized_pnl",
-              "daily_pnl",
-              "drawdown",
-            ] as const
-          ).map((metric) => (
-            <DashboardMetric
-              key={metric}
-              metric={metric}
-              value={value[metric]}
-              rows={value.history}
-            />
-          ))}
-        </dl>
+      ) : (
+        balance
       )}
       {dashboard && (
         <DashboardPaperPositions positions={value?.positions} loading={busy} />
@@ -416,7 +444,55 @@ export default function PaperAccount({
             </h3>
             {dashboard && <a href={workspaceHref("paper")}>Paper trading</a>}
           </div>
-          {data.orders.length ? (
+          {dashboard && data.orders.length > 0 && (
+            <ul className="dashboard-orders" aria-label="Recent paper orders">
+              {data.orders.slice(0, 5).map((order) => (
+                <li key={order.id} className="dashboard-order">
+                  <span
+                    className="dashboard-order-side"
+                    data-side={order.request.side}
+                  >
+                    {order.request.side}
+                  </span>
+                  <span className="dashboard-order-main">
+                    <strong>
+                      {order.request.quantity} {order.request.asset}
+                      {order.request.limit_price &&
+                        ` @ ${money(order.request.limit_price)}`}
+                    </strong>
+                    <span className="dashboard-order-meta">
+                      <time dateTime={order.created_at}>
+                        {timestamp(order.created_at)}
+                      </time>
+                      <span>{order.agent_id ? "Agent" : "Manual"}</span>
+                    </span>
+                  </span>
+                  <span className="dashboard-order-result">
+                    <span
+                      className="paper-order-status"
+                      data-status={order.status}
+                    >
+                      {order.status.toLowerCase()}
+                    </span>
+                    <small>
+                      {order.status === "FILLED" && order.fill_price
+                        ? money(order.fill_price)
+                        : order.reason
+                          ? order.reason.replaceAll("_", " ").toLowerCase()
+                          : ""}
+                    </small>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {dashboard ? (
+            !data.orders.length && (
+              <p className="dashboard-empty">
+                No paper orders yet. Manual and agent orders appear here.
+              </p>
+            )
+          ) : data.orders.length ? (
             <div
               className="platform-backtest-table"
               tabIndex={0}
@@ -437,68 +513,66 @@ export default function PaperAccount({
                   </tr>
                 </thead>
                 <tbody>
-                  {(dashboard ? data.orders.slice(0, 5) : data.orders).map(
-                    (order) => (
-                      <tr key={order.id}>
-                        <td>{timestamp(order.created_at)}</td>
+                  {data.orders.map((order) => (
+                    <tr key={order.id}>
+                      <td>{timestamp(order.created_at)}</td>
+                      <td>
+                        {order.request.side} {order.request.quantity}{" "}
+                        {order.request.asset}
+                        {order.request.limit_price &&
+                          ` @ ${order.request.limit_price}`}{" "}
+                        · Epoch {order.epoch}
+                      </td>
+                      <td>{order.agent_id ? "Agent" : "Manual"}</td>
+                      <td>
+                        <span
+                          className="paper-order-status"
+                          data-status={order.status}
+                        >
+                          {order.status}
+                        </span>
+                        {order.reason &&
+                          ` · ${order.reason.replaceAll("_", " ")}`}
+                      </td>
+                      <td>{money(order.fill_price)}</td>
+                      <td>{money(order.fee)}</td>
+                      <td>{money(order.realized_pnl)}</td>
+                      {!dashboard && (
                         <td>
-                          {order.request.side} {order.request.quantity}{" "}
-                          {order.request.asset}
-                          {order.request.limit_price &&
-                            ` @ ${order.request.limit_price}`}{" "}
-                          · Epoch {order.epoch}
+                          {order.status === "OPEN" && (
+                            <div className="platform-product-actions">
+                              <button
+                                disabled={busy}
+                                onClick={() =>
+                                  void act(async () => {
+                                    await platform(
+                                      `/paper-orders/${order.id}/evaluate`,
+                                      "POST",
+                                    );
+                                  })
+                                }
+                              >
+                                Check limit
+                              </button>
+                              <button
+                                disabled={busy}
+                                onClick={() =>
+                                  void act(async () => {
+                                    await platform(
+                                      `/paper-orders/${order.id}/cancel`,
+                                      "POST",
+                                    );
+                                  })
+                                }
+                              >
+                                Cancel order
+                              </button>
+                            </div>
+                          )}
                         </td>
-                        <td>{order.agent_id ? "Agent" : "Manual"}</td>
-                        <td>
-                          <span
-                            className="paper-order-status"
-                            data-status={order.status}
-                          >
-                            {order.status}
-                          </span>
-                          {order.reason &&
-                            ` · ${order.reason.replaceAll("_", " ")}`}
-                        </td>
-                        <td>{money(order.fill_price)}</td>
-                        <td>{money(order.fee)}</td>
-                        <td>{money(order.realized_pnl)}</td>
-                        {!dashboard && (
-                          <td>
-                            {order.status === "OPEN" && (
-                              <div className="platform-product-actions">
-                                <button
-                                  disabled={busy}
-                                  onClick={() =>
-                                    void act(async () => {
-                                      await platform(
-                                        `/paper-orders/${order.id}/evaluate`,
-                                        "POST",
-                                      );
-                                    })
-                                  }
-                                >
-                                  Check limit
-                                </button>
-                                <button
-                                  disabled={busy}
-                                  onClick={() =>
-                                    void act(async () => {
-                                      await platform(
-                                        `/paper-orders/${order.id}/cancel`,
-                                        "POST",
-                                      );
-                                    })
-                                  }
-                                >
-                                  Cancel order
-                                </button>
-                              </div>
-                            )}
-                          </td>
-                        )}
-                      </tr>
-                    ),
-                  )}
+                      )}
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>

@@ -91,7 +91,15 @@ from backend.product.strategies import (
     strategy_history,
     update_strategy,
 )
-from backend.product.users import Credentials, Registration, authenticate, get_user, register
+from backend.product.users import (
+    Credentials,
+    GoogleIdentity,
+    Registration,
+    authenticate,
+    get_user,
+    google_sign_in,
+    register,
+)
 from backend.product.worker import heartbeat_fresh
 from backend.settings import get_settings
 from backend.storage import Store
@@ -347,6 +355,13 @@ def create_product_api(
         if user is None:
             raise ProductError(401, "INVALID_CREDENTIALS", "Email or password is incorrect")
         return {"user": user}
+
+    @app.post("/platform/internal/google-sessions")
+    def user_google_login(identity: GoogleIdentity, _: Service, db: Database):
+        try:
+            return {"user": google_sign_in(db, identity)}
+        except ConflictError as exc:
+            raise ProductError(409, "ACCOUNT_CONFLICT", str(exc)) from None
 
     @app.get("/platform/internal/users/{user_id}")
     def user_profile(user_id: UUID, _: Service, db: Database):

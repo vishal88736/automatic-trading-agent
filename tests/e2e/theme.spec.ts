@@ -3,6 +3,8 @@ import { expect, test, type Page } from "@playwright/test";
 const DARK_BG = "rgb(6, 10, 7)";
 const LIGHT_BG = "rgb(245, 248, 245)";
 const LIME = "rgb(181, 242, 72)";
+// Dark mode uses a calmer lime so filled controls do not glow on near-black.
+const DARK_LIME = "rgb(163, 220, 90)";
 
 async function stubMarkets(page: Page) {
   await page.route("**/platform/public/prices", (route) =>
@@ -123,7 +125,7 @@ test("the landing fits every viewport and opens sign-up and sign-in", async ({
 
   await page.setViewportSize({ width: 1366, height: 768 });
   await page.getByRole("button", { name: "Switch to dark theme" }).click();
-  await expect(start).toHaveCSS("background-color", LIME);
+  await expect(start).toHaveCSS("background-color", DARK_LIME);
   await start.click();
   await expect(page).toHaveURL(/#\/sign-in\?mode=register$/);
   await expect(

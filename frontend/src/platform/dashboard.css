@@ -7,9 +7,7 @@
 .paper-overview:has(> .dashboard-stop) {
   grid-template-areas:
     "stop stop"
-    "balance balance"
-    "performance allocation"
-    "kpis kpis"
+    "instrument instrument"
     "positions orders"
     "markets agents";
 }
@@ -20,12 +18,10 @@
   --overview-edge: light-dark(#d8e9d9, #304737);
   grid-template-columns: minmax(0, 2.6fr) minmax(246px, 1fr);
   grid-template-areas:
-    "balance balance"
-    "performance allocation"
-    "kpis kpis"
+    "instrument instrument"
     "positions orders"
     "markets agents";
-  gap: clamp(10px, 0.8vw, 13px);
+  gap: clamp(12px, 1vw, 16px);
 }
 
 .dashboard-kpis {
@@ -124,7 +120,7 @@
   height: 17px;
 }
 
-.kx-app .paper-overview > .dashboard-performance {
+.kx-app .dashboard-instrument > .dashboard-performance {
   grid-area: performance;
   border-color: var(--overview-edge);
   background: linear-gradient(
@@ -133,13 +129,15 @@
     var(--panel) 60%
   );
 }
-.kx-app .paper-overview > :is(.dashboard-performance, .dashboard-allocation) {
+.kx-app
+  .dashboard-instrument
+  > :is(.dashboard-performance, .dashboard-allocation) {
   padding: clamp(13px, 1.25vw, 18px);
 }
 .dashboard-paper-positions {
   grid-area: positions;
 }
-.paper-overview > .paper-overview-balance {
+.dashboard-instrument > .paper-overview-balance {
   grid-area: balance;
 }
 .dashboard-allocation {
@@ -393,14 +391,14 @@
 }
 
 .paper-overview .platform-product-balance strong {
-  color: var(--accent);
+  color: var(--text);
   font-family: var(--font-mono);
   font-size: 16px;
   line-height: 1.2;
   overflow-wrap: anywhere;
 }
 
-.kx-app .paper-overview > .dashboard-metrics {
+.kx-app .dashboard-instrument > .dashboard-metrics {
   padding-block: 8px;
   border-color: var(--overview-edge);
 }
@@ -517,7 +515,7 @@
 
 .dashboard-market-row a {
   display: grid;
-  grid-template-columns: auto minmax(38px, 1fr) auto minmax(24px, 0.65fr);
+  grid-template-columns: auto minmax(60px, 1fr) auto minmax(44px, 0.7fr);
   align-items: center;
   gap: 8px;
   padding: 8px 9px;
@@ -571,8 +569,8 @@
 
 .dashboard-agent-counts {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
   margin: 0;
 }
 
@@ -607,71 +605,7 @@
   }
 }
 
-.dashboard-trade-link {
-  display: none;
-}
-
 @media (min-width: 1280px) {
-  .paper-overview {
-    grid-template-columns: minmax(175px, 0.8fr) minmax(0, 2.1fr) minmax(
-        182px,
-        0.95fr
-      );
-    grid-template-areas:
-      "balance performance allocation"
-      "kpis kpis kpis"
-      "positions positions orders"
-      "markets markets agents";
-  }
-
-  .paper-overview:has(> .dashboard-stop) {
-    grid-template-areas:
-      "stop stop stop"
-      "balance performance allocation"
-      "kpis kpis kpis"
-      "positions positions orders"
-      "markets markets agents";
-  }
-
-  .kx-app .paper-overview > .dashboard-metrics {
-    padding: clamp(13px, 1.25vw, 18px);
-    background: linear-gradient(
-      155deg,
-      var(--overview-surface),
-      var(--panel) 68%
-    );
-  }
-
-  .dashboard-metrics .paper-balance-heading {
-    display: grid;
-    justify-content: stretch;
-    gap: 12px;
-  }
-
-  .dashboard-metrics .paper-balance-heading > div {
-    display: grid;
-    gap: 6px;
-  }
-
-  .dashboard-metrics .paper-balance-heading button {
-    justify-self: start;
-  }
-
-  .paper-overview .dashboard-metrics .platform-product-balance strong {
-    display: block;
-    margin-bottom: 3px;
-    font-size: clamp(21px, 2vw, 34px);
-    letter-spacing: -0.055em;
-  }
-
-  .kx-app .paper-overview .dashboard-trade-link {
-    display: inline-flex;
-    margin-top: 12px;
-    min-height: 32px;
-    padding: 5px 11px;
-    font-size: 12px;
-  }
-
   .dashboard-allocation-ring {
     width: clamp(95px, 9vw, 150px);
   }
@@ -679,12 +613,12 @@
 
 @media (max-width: 1020px) {
   .paper-overview:has(> .dashboard-stop) {
-    grid-template-areas: "stop" "balance" "performance" "allocation" "kpis" "positions" "orders" "markets" "agents";
+    grid-template-areas: "stop" "instrument" "positions" "orders" "markets" "agents";
   }
 
   .paper-overview {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "balance" "performance" "allocation" "kpis" "positions" "orders" "markets" "agents";
+    grid-template-areas: "instrument" "positions" "orders" "markets" "agents";
   }
 }
 
@@ -787,4 +721,558 @@
   .live-overview-grid {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* Balance card: one row on mid widths, a stacked summary in the wide three-column layout. */
+.kx-app .dashboard-instrument > .dashboard-metrics {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 2fr) auto auto;
+  grid-template-areas: "amount facts refresh trade";
+  align-items: center;
+  align-content: start;
+  gap: 10px 14px;
+}
+
+.dashboard-metrics .paper-balance-heading {
+  display: contents;
+}
+
+.dashboard-metrics .paper-balance-heading > div {
+  grid-area: amount;
+}
+
+.dashboard-metrics .paper-balance-heading > button {
+  grid-area: refresh;
+  min-height: 32px;
+  padding: 5px 11px;
+  font-size: 12px;
+}
+
+.dashboard-metrics .dashboard-trade-link {
+  grid-area: trade;
+  display: inline-flex;
+  min-height: 32px;
+  padding: 5px 11px;
+  font-size: 12px;
+}
+
+.dashboard-metrics > :is(p, .platform-error) {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.dashboard-balance-facts {
+  grid-area: facts;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.dashboard-balance-facts > div {
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-inset);
+}
+
+.dashboard-balance-facts dt {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.dashboard-balance-facts dd {
+  margin: 2px 0 0;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Recent orders: compact cards that always show the outcome, including rejections. */
+.dashboard-orders {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dashboard-order {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-inset);
+  font-variant-numeric: tabular-nums;
+}
+
+.dashboard-order-side {
+  min-width: 38px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: var(--raised);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.dashboard-order-side[data-side="BUY"] {
+  background: var(--positive-bg);
+  color: var(--positive);
+}
+
+.dashboard-order-side[data-side="SELL"] {
+  background: var(--negative-bg);
+  color: var(--negative);
+}
+
+.dashboard-order-main {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.dashboard-order-main strong {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-order-main time,
+.dashboard-order-result small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.dashboard-order-result {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  text-align: end;
+}
+
+.unified-workspace .dashboard-order-result .paper-order-status {
+  text-transform: capitalize;
+}
+
+/* Open positions */
+.dashboard-position-asset {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-weight: 650;
+}
+
+.dashboard-position-asset .coin {
+  width: 22px;
+  height: 22px;
+  font-size: 11px;
+}
+
+.dashboard-position-pnl[data-sign="1"] {
+  color: var(--positive);
+}
+
+.dashboard-position-pnl[data-sign="-1"] {
+  color: var(--negative);
+}
+
+/* Market watch */
+.dashboard-market-price {
+  display: grid;
+  justify-items: end;
+  gap: 1px;
+}
+
+.dashboard-market-price > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Agent activity */
+.kx-app .paper-overview > .dashboard-agents {
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-agent-counts > div[data-tone="running"] dd {
+  color: var(--positive);
+}
+
+.dashboard-agents-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-top: auto;
+  padding-top: 12px;
+}
+
+.dashboard-agent-counts {
+  margin-bottom: 14px;
+}
+
+.dashboard-agents-actions {
+  border-top: 1px solid var(--border);
+}
+
+@media (min-width: 1280px) {
+  .kx-app .dashboard-instrument > .dashboard-metrics {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "amount" "facts" "refresh" "trade";
+    justify-items: stretch;
+  }
+
+  .dashboard-metrics .paper-balance-heading > div {
+    display: grid;
+    gap: 6px;
+  }
+
+  .paper-overview .dashboard-metrics .platform-product-balance strong {
+    display: block;
+    margin-bottom: 3px;
+    font-size: clamp(21px, 2vw, 34px);
+    letter-spacing: -0.055em;
+  }
+
+  .dashboard-balance-facts {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    margin-block: 6px;
+  }
+
+  .dashboard-balance-facts > div {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    padding: 9px 0;
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .dashboard-balance-facts dd {
+    margin: 0;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 760px) {
+  .kx-app .dashboard-instrument > .dashboard-metrics {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas: "amount amount" "facts facts" "refresh trade";
+  }
+
+  .dashboard-position-table :is(td, th) {
+    padding-inline: 8px;
+  }
+}
+
+@media (max-width: 420px) {
+  .dashboard-balance-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-balance-facts > div:last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ------------------------------------------------------------------
+   The instrument: balance, equity and allocation read as one console,
+   with the KPI tape as its bottom bezel. Everything else on the page is
+   quieter so this is the one element that carries the design.
+   ------------------------------------------------------------------ */
+.dashboard-instrument {
+  grid-area: instrument;
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(230px, 1fr);
+  grid-template-areas:
+    "balance balance"
+    "performance allocation"
+    "kpis kpis";
+  overflow: hidden;
+  border: 1px solid var(--overview-edge);
+  border-radius: 22px;
+  background:
+    radial-gradient(
+      120% 90% at 0% 0%,
+      var(--overview-surface),
+      transparent 62%
+    ),
+    var(--panel);
+  box-shadow:
+    inset 0 1px 0 light-dark(#ffffff, rgb(255 255 255 / 0.03)),
+    var(--shadow-md);
+}
+
+.kx-app .dashboard-instrument > :is(.platform-product-panel, .dashboard-kpis) {
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.kx-app .dashboard-instrument > .dashboard-metrics {
+  padding: clamp(14px, 1.4vw, 20px);
+  border-bottom: 1px solid var(--overview-edge);
+}
+
+.kx-app .dashboard-instrument > .dashboard-allocation {
+  border-inline-start: 1px solid var(--overview-edge);
+}
+
+.kx-app .dashboard-instrument > .dashboard-kpis {
+  border-top: 1px solid var(--overview-edge);
+  background: light-dark(rgb(39 107 56 / 0.04), rgb(0 0 0 / 0.22));
+}
+
+.dashboard-instrument .dashboard-kpis > div + div {
+  border-inline-start-color: var(--overview-edge);
+}
+
+/* KPI tape: direction is a tick on the leading edge rather than a badge. */
+.dashboard-kpis > div {
+  position: relative;
+}
+
+.dashboard-kpis > div:has(.dashboard-trend[data-direction="up"])::before,
+.dashboard-kpis > div:has(.dashboard-trend[data-direction="down"])::before {
+  position: absolute;
+  inset: 14px auto 14px 0;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--positive);
+  content: "";
+}
+
+.dashboard-kpis > div:has(.dashboard-trend[data-direction="down"])::before {
+  background: var(--negative);
+}
+
+@media (min-width: 1280px) {
+  .dashboard-instrument {
+    grid-template-columns:
+      minmax(200px, 0.8fr)
+      minmax(0, 2.1fr)
+      minmax(210px, 0.95fr);
+    grid-template-areas:
+      "balance performance allocation"
+      "kpis kpis kpis";
+  }
+
+  .kx-app .dashboard-instrument > .dashboard-metrics {
+    border-bottom: 0;
+    border-inline-end: 1px solid var(--overview-edge);
+  }
+}
+
+@media (max-width: 1020px) {
+  .dashboard-instrument {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "balance" "performance" "allocation" "kpis";
+    border-radius: 18px;
+  }
+
+  .kx-app .dashboard-instrument > .dashboard-allocation {
+    border-inline-start: 0;
+    border-top: 1px solid var(--overview-edge);
+  }
+}
+
+/* Supporting tier: positions and orders stay as plain panels; markets and
+   agents step back to an outlined, unfilled surface. */
+.kx-app .paper-overview > :is(.dashboard-markets, .dashboard-agents) {
+  background: transparent;
+  box-shadow: none;
+}
+
+.dashboard-order-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 8px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.dashboard-order-meta > span {
+  padding-inline-start: 8px;
+  border-inline-start: 1px solid var(--border);
+}
+
+.dashboard-worker[data-online="true"]::before {
+  animation: dashboard-live 2.4s ease-out infinite;
+}
+
+/* ------------------------------------------------------------------
+   Arrival sequence: the console fades up, its rim catches the light,
+   the equity line draws, the allocation ring sweeps in and the tape
+   reads out left to right. One sequence, then everything holds still.
+   ------------------------------------------------------------------ */
+@media (prefers-reduced-motion: no-preference) {
+  .dashboard-instrument {
+    animation: instrument-in 640ms var(--product-ease) both;
+  }
+
+  .dashboard-performance .equity-line {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: equity-draw 1.3s 260ms cubic-bezier(0.6, 0, 0.2, 1) forwards;
+  }
+
+  .dashboard-allocation-ring svg {
+    animation: ring-in 900ms 360ms var(--product-ease) both;
+  }
+
+  .dashboard-kpis > div {
+    animation: tape-in 420ms var(--product-ease) both;
+  }
+
+  .dashboard-kpis > div:nth-child(1) {
+    animation-delay: 520ms;
+  }
+  .dashboard-kpis > div:nth-child(2) {
+    animation-delay: 580ms;
+  }
+  .dashboard-kpis > div:nth-child(3) {
+    animation-delay: 640ms;
+  }
+  .dashboard-kpis > div:nth-child(4) {
+    animation-delay: 700ms;
+  }
+  .dashboard-kpis > div:nth-child(5) {
+    animation-delay: 760ms;
+  }
+
+  .dashboard-order {
+    animation: tape-in 360ms var(--product-ease) both;
+  }
+
+  .dashboard-order:nth-child(2) {
+    animation-delay: 50ms;
+  }
+  .dashboard-order:nth-child(3) {
+    animation-delay: 100ms;
+  }
+  .dashboard-order:nth-child(4) {
+    animation-delay: 150ms;
+  }
+  .dashboard-order:nth-child(5) {
+    animation-delay: 200ms;
+  }
+}
+
+@keyframes instrument-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes equity-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes ring-in {
+  from {
+    opacity: 0;
+    transform: rotate(-120deg) scale(0.86);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes tape-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes dashboard-live {
+  0% {
+    box-shadow: 0 0 0 0 currentColor;
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 7px transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-worker[data-online="true"]::before {
+    animation: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .dashboard-metrics .paper-balance-heading > button,
+  .dashboard-metrics .dashboard-trade-link {
+    justify-content: center;
+  }
+}
+
+@media (max-width: 520px) {
+  .dashboard-position-table :is(th, td):nth-child(2) {
+    display: none;
+  }
+}
+
+/* Calm interaction feedback: rows lift slightly and settle their border. */
+.dashboard-market-row a,
+.dashboard-order {
+  transition:
+    transform 180ms var(--product-ease),
+    border-color 180ms ease,
+    background-color 180ms ease;
+}
+
+.dashboard-market-row a:hover,
+.dashboard-order:hover {
+  transform: translateY(-1px);
+  border-color: var(--border-strong);
+}
+
+.dashboard-market-row a:hover {
+  background: var(--surface-hover);
+}
+
+.unified-workspace .dashboard-periods button {
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease;
 }

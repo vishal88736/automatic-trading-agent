@@ -20,6 +20,11 @@ const envSchema = z.object({
   // "local" signs users in against the product database instead of Cognito and needs no AWS.
   KRONO_AUTH_MODE: z.enum(["cognito", "local"]).default("cognito"),
   KRONO_SESSION_SECRET: z.string().min(32).optional(),
+  // OAuth web client ID from Google Cloud. When set, local sign-in offers "Continue with Google".
+  KRONO_GOOGLE_CLIENT_ID: z
+    .string()
+    .regex(/^[\w.-]+\.apps\.googleusercontent\.com$/)
+    .optional(),
   COGNITO_USER_POOL_ID: z.string().min(8),
   COGNITO_CLIENT_ID: z.string().min(8),
   KRONO_CONTROL_TABLE: z.string().min(3),

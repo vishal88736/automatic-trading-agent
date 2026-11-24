@@ -38,6 +38,14 @@ class Credentials(Model):
     password: str = Field(min_length=1, max_length=128)
 
 
+class GoogleIdentity(Model):
+    """A Google account the gateway has already verified from a signed ID token."""
+
+    subject: str = Field(min_length=1, max_length=255)
+    email: Email
+    display_name: DisplayName
+
+
 def hash_password(password: str) -> str:
     salt = secrets.token_bytes(16)
     digest = hashlib.scrypt(password.encode(), salt=salt, dklen=32, **SCRYPT)
@@ -65,6 +73,13 @@ def _public(row) -> dict:
     return {"id": row[0], "email": row[1], "display_name": row[2]}
 
 
+def record_sign_in(db: Connection, user_id: UUID, method: str) -> None:
+    db.execute(
+        "UPDATE platform_credentials SET last_sign_in_at = now() WHERE user_id = %s", (user_id,)
+    )
+    db.execute("INSERT INTO platform_sign_ins (user_id, method) VALUES (%s, %s)", (user_id, method))
+
+
 def register(db: Connection, request: Registration) -> dict:
     user_id = uuid4()
     try:
@@ -82,6 +97,7 @@ def register(db: Connection, request: Registration) -> dict:
                     hash_password(request.password),
                 ),
             ).fetchone()
+            record_sign_in(db, user_id, "registration")
     except UniqueViolation:
         raise ConflictError("An account with this email already exists") from None
     return _public(row)
@@ -92,10 +108,54 @@ def authenticate(db: Connection, credentials: Credentials) -> dict | None:
         "SELECT user_id, email, display_name, password_hash FROM platform_credentials WHERE email = %s",
         (credentials.email.lower(),),
     ).fetchone()
-    if row is None:
+    if row is None or row[3] is None:
+        # Unknown emails and Google-only accounts cost the same scrypt evaluation.
         verify_password(credentials.password, _DUMMY_HASH)
         return None
-    return _public(row) if verify_password(credentials.password, row[3]) else None
+    if not verify_password(credentials.password, row[3]):
+        return None
+    record_sign_in(db, row[0], "password")
+    return _public(row)
+
+
+def google_sign_in(db: Connection, identity: GoogleIdentity) -> dict:
+    """Sign in with a verified Google identity, creating or linking the account.
+
+    Google has verified the email, so an existing password account with the same email
+    is linked rather than duplicated.
+    """
+    email = identity.email.lower()
+    with db.transaction():
+        row = db.execute(
+            "SELECT user_id, email, display_name FROM platform_credentials "
+            "WHERE google_subject = %s",
+            (identity.subject,),
+        ).fetchone()
+        if row is None:
+            row = db.execute(
+                """
+                UPDATE platform_credentials SET google_subject = %s
+                WHERE email = %s AND google_subject IS NULL
+                RETURNING user_id, email, display_name
+                """,
+                (identity.subject, email),
+            ).fetchone()
+        if row is None:
+            if db.execute(
+                "SELECT 1 FROM platform_credentials WHERE email = %s", (email,)
+            ).fetchone():
+                raise ConflictError("This email is linked to a different Google account")
+            user_id = uuid4()
+            db.execute("INSERT INTO platform_users (id) VALUES (%s)", (user_id,))
+            row = db.execute(
+                """
+                INSERT INTO platform_credentials (user_id, email, display_name, google_subject)
+                VALUES (%s, %s, %s, %s) RETURNING user_id, email, display_name
+                """,
+                (user_id, email, identity.display_name, identity.subject),
+            ).fetchone()
+        record_sign_in(db, row[0], "google")
+    return _public(row)
 
 
 def get_user(db: Connection, user_id: UUID) -> dict | None:

@@ -250,9 +250,12 @@ test("paper agent continues without a browser and survives API and worker restar
       .click();
     const orders = reopened.page
       .getByRole("region", { name: "Recent paper orders" })
-      .getByRole("table");
+      .getByRole("list", { name: "Recent paper orders" });
     await expect(
-      orders.getByRole("cell", { name: "Agent", exact: true }).first(),
+      orders
+        .getByRole("listitem")
+        .getByText("Agent", { exact: true })
+        .first(),
     ).toBeVisible();
     await reopened.page
       .getByRole("link", { name: "My Agents", exact: true })

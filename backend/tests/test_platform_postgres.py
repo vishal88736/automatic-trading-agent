@@ -1386,3 +1386,57 @@ def test_promoted_agents_mirror_each_paper_fill_to_the_exchange_once(
         with database() as db:
             [listed] = list_agents(db, owner)
         assert listed["live_connection_id"] is None
+
+
+def test_google_sign_in_creates_links_and_records_accounts(database):
+    from backend.product.users import (
+        Credentials,
+        GoogleIdentity,
+        Registration,
+        authenticate,
+        google_sign_in,
+        register,
+    )
+
+    with database() as db:
+        migrate(db)
+        first = google_sign_in(
+            db, GoogleIdentity(subject="g-1", email="New@Example.com", display_name="New")
+        )
+        assert first["email"] == "new@example.com"
+        # The same Google account signs into the same user, never a duplicate.
+        assert (
+            google_sign_in(
+                db, GoogleIdentity(subject="g-1", email="new@example.com", display_name="New")
+            )["id"]
+            == first["id"]
+        )
+        # A Google-only account has no password to guess.
+        assert authenticate(db, Credentials(email="new@example.com", password="anything")) is None
+
+        # Google has verified the email, so an existing password account is linked.
+        existing = register(
+            db, Registration(email="ana@example.com", password="long password", display_name="Ana")
+        )
+        linked = google_sign_in(
+            db, GoogleIdentity(subject="g-2", email="ana@example.com", display_name="Ana G")
+        )
+        assert linked["id"] == existing["id"]
+        assert authenticate(db, Credentials(email="ana@example.com", password="long password"))
+
+        # A different Google account cannot take over an email that is already linked.
+        with pytest.raises(ValueError, match="different Google account"):
+            google_sign_in(
+                db, GoogleIdentity(subject="g-3", email="ana@example.com", display_name="X")
+            )
+
+        methods = db.execute(
+            "SELECT method FROM platform_sign_ins WHERE user_id = %s ORDER BY id",
+            (existing["id"],),
+        ).fetchall()
+        assert [row[0] for row in methods] == ["registration", "google", "password"]
+        assert db.execute(
+            "SELECT last_sign_in_at IS NOT NULL FROM platform_credentials WHERE user_id = %s",
+            (first["id"],),
+        ).fetchone()[0]
+        assert ensure_account(db, first["id"]).cash == Decimal("10000")

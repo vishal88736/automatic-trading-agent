@@ -167,6 +167,7 @@ const gatewayEnv = {
 
 const colors = { api: 33, worker: 35, gateway: 34, ui: 32 };
 const children = [];
+let stopping = false;
 function run(name, command, args, childEnv) {
   const child = spawn(command, args, {
     env: childEnv,
@@ -205,6 +206,27 @@ run(
   env,
 );
 run("worker", python, ["-m", "backend.product.worker"], env);
+
+// The gateway answers sign-in and price requests by calling the product API, so it must not
+// accept traffic before the API is serving; otherwise the first requests fail with 503.
+async function apiReady() {
+  const url = `http://127.0.0.1:${ports.api}/healthz`;
+  for (let attempt = 0; attempt < 120 && !stopping; attempt++) {
+    try {
+      if ((await fetch(url)).ok) return;
+    } catch {
+      // Not listening yet.
+    }
+    await sleep(500);
+  }
+  if (!stopping) {
+    console.error("The product API did not become ready within 60 seconds.");
+    stop(1);
+  }
+}
+await apiReady();
+if (stopping) await new Promise(() => {});
+
 run(
   "gateway",
   "node",
@@ -223,13 +245,12 @@ run(
   },
 );
 log(
-  `Krono is starting at http://127.0.0.1:${ports.ui}/  (sign-in: ${gatewayEnv.KRONO_AUTH_MODE}, strategy chat: ${gatewayEnv.KRONO_LLM_PROVIDER})`,
+  `Krono is ready at http://127.0.0.1:${ports.ui}/  (sign-in: ${gatewayEnv.KRONO_AUTH_MODE}, strategy chat: ${gatewayEnv.KRONO_LLM_PROVIDER})`,
 );
 log(
   "Agents run in the worker, not the browser: closing the tab never stops them. Stopping this command pauses them until the worker restarts from its checkpoint.",
 );
 
-let stopping = false;
 function stop(code = 0) {
   if (stopping) return;
   stopping = true;
