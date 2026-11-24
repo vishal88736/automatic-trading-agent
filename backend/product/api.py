@@ -6,7 +6,7 @@ import hmac
 import json
 import os
 import time
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from decimal import Decimal
 from typing import Annotated, Literal
 from uuid import UUID
@@ -40,7 +40,7 @@ from backend.product.agents import (
 from backend.product.backtests import get_replay, save_replay
 from backend.product.credentials import CredentialVault
 from backend.product.database import database_dsn, database_pool
-from backend.product.errors import ConflictError, LiveRejected
+from backend.product.errors import ConflictError, LiveRejected, NotFoundError
 from backend.product.exchanges import ExchangeError
 from backend.product.execution import (
     Asset,
@@ -162,41 +162,46 @@ def create_product_api(
 
     @asynccontextmanager
     async def lifespan(application):
-        pool = database_pool(dsn)
-        pool.open()
-        application.state.database_pool = pool
-        cache = Store(":memory:")
-        feeds = Providers(
-            cache,
-            market_provider="fixture" if fixture_feeds else "coinbase",
-            news_provider="fixture" if fixture_feeds else "cryptocurrency.cv",
-            news_key=os.environ.get("NEWS_API_KEY", ""),
-        )
-        application.state.feeds = feeds
-        hub = NewsHub(
-            get_settings().providers.news_base_url, stream=not fixture_feeds, catalog=listed_assets
-        )
-        if fixture_feeds:
-            for article in fixture_news().articles:
-                hub.articles[article.id] = article
-        elif news_hub:
-            await hub.start()
-        application.state.news = hub
-        prices = PriceHub(stream=not fixture_feeds)
-        if fixture_feeds:
-            for asset, price in (("BTC", 50000), ("ETH", 2500), ("SOL", 130)):
-                prices.update(quote(asset, price, price, price, price, 0, time.time() * 1000))
-        elif news_hub:
-            await prices.start()
-        application.state.prices = prices
-        try:
+        async with AsyncExitStack() as cleanup:
+            pool = database_pool(dsn)
+            pool.open()
+            cleanup.push_async_callback(asyncio.to_thread, pool.close)
+            application.state.database_pool = pool
+            cache = Store(":memory:")
+            cleanup.callback(cache.close)
+            feeds = Providers(
+                cache,
+                market_provider="fixture" if fixture_feeds else "coinbase",
+                news_provider="fixture" if fixture_feeds else "cryptocurrency.cv",
+                news_key=os.environ.get("NEWS_API_KEY", ""),
+            )
+            cleanup.push_async_callback(feeds.close)
+            application.state.feeds = feeds
+            hub = NewsHub(
+                get_settings().providers.news_base_url,
+                stream=not fixture_feeds,
+                catalog=listed_assets,
+            )
+            cleanup.push_async_callback(hub.stop)
+            if fixture_feeds:
+                for article in fixture_news().articles:
+                    hub.articles[article.id] = article
+            elif news_hub:
+                await hub.start()
+            application.state.news = hub
+            prices = PriceHub(stream=not fixture_feeds)
+            cleanup.push_async_callback(prices.stop)
+            if fixture_feeds:
+                fixture_prices = {"BTC": 50000, "ETH": 2500, "SOL": 130, "ADA": "0.60"}
+                for asset in FEATURED:
+                    if (price := fixture_prices.get(asset)) is not None:
+                        prices.update(
+                            quote(asset, price, price, price, price, 0, time.time() * 1000)
+                        )
+            elif news_hub:
+                await prices.start()
+            application.state.prices = prices
             yield
-        finally:
-            await prices.stop()
-            await hub.stop()
-            await feeds.close()
-            cache.close()
-            await asyncio.to_thread(pool.close)
 
     app = FastAPI(
         title="Krono Product API",
@@ -246,10 +251,10 @@ def create_product_api(
             status_code=503,
         )
 
-    @app.exception_handler(LookupError)
-    async def missing_strategy(_request, _exc):
+    @app.exception_handler(NotFoundError)
+    async def missing_record(_request, exc):
         return JSONResponse(
-            {"error": {"code": "NOT_FOUND", "message": "Strategy is unavailable"}},
+            {"error": {"code": "NOT_FOUND", "message": str(exc)}},
             status_code=404,
         )
 
@@ -439,8 +444,6 @@ def create_product_api(
     def paper_agent_start(request: AgentStart, subject: Principal, db: Database):
         try:
             agent = start_agent(db, subject, request)
-        except LookupError:
-            raise ProductError(404, "NOT_FOUND", "Strategy or backtest is unavailable") from None
         except ConflictError as exc:
             raise ProductError(409, "AGENT_START_REJECTED", str(exc)) from None
         return {"id": agent}
@@ -451,8 +454,6 @@ def create_product_api(
     ):
         try:
             return {"status": control_agent(db, subject, agent_id, command.action)}
-        except LookupError:
-            raise ProductError(404, "NOT_FOUND", "Paper agent is unavailable") from None
         except ConflictError as exc:
             raise ProductError(409, "AGENT_CONTROL_REJECTED", str(exc)) from None
 
@@ -466,8 +467,6 @@ def create_product_api(
                     db, subject, agent_id, command.request_key, command.epoch, quotes
                 )
             )
-        except LookupError:
-            raise ProductError(404, "NOT_FOUND", "Paper agent is unavailable") from None
         except ConflictError as exc:
             raise ProductError(409, "CLOSE_REJECTED", str(exc)) from None
 
@@ -557,8 +556,6 @@ def create_product_api(
     def exchange_call(action):
         try:
             return action()
-        except LookupError:
-            raise ProductError(404, "NOT_FOUND", "Exchange connection is unavailable") from None
         except LiveRejected as exc:
             raise ProductError(422, "LIVE_REJECTED", str(exc)) from None
         except ExchangeError as exc:
@@ -830,7 +827,7 @@ def create_product_api(
     ):
         stored = get_strategy(db, subject, strategy_id, version)
         if stored is None:
-            raise LookupError
+            raise NotFoundError("Strategy is unavailable")
         return stored
 
     @app.put("/platform/custom-strategies/{strategy_id}")
@@ -855,7 +852,7 @@ def create_product_api(
         limit: Annotated[int, Query(ge=1, le=100)] = 50,
     ):
         if get_strategy(db, subject, strategy_id, 1) is None:
-            raise LookupError
+            raise NotFoundError("Strategy is unavailable")
         return {
             "items": strategy_history(db, subject, strategy_id, before_version=before, limit=limit)
         }
@@ -866,7 +863,7 @@ def create_product_api(
     ):
         strategy = get_strategy(db, subject, strategy_id, study.version)
         if strategy is None:
-            raise LookupError
+            raise NotFoundError("Strategy is unavailable")
         try:
             market = history_source(strategy.document.definition.asset, study.start, study.end)
             return save_replay(db, subject, strategy, study, market)

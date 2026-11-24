@@ -1,12 +1,6 @@
-from typing import Annotated, Sequence, Dict, Any
-from datetime import date, timedelta, datetime
-from typing_extensions import TypedDict, Optional
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import AnyMessage
-from langgraph.graph.message import add_messages
-from tradingagents.agents import *
-from langgraph.prebuilt import ToolNode
-from langgraph.graph import END, StateGraph, START, MessagesState
+from typing import Annotated, Any, Dict, NotRequired, TypedDict
+
+from langgraph.graph import MessagesState
 
 
 # Researcher team state
@@ -102,4 +96,6 @@ class AgentState(MessagesState):
     ]
     trading_mode: Annotated[str, "investment or trading execution mode"]
     current_position: Annotated[str, "Live position state at final risk decision time"]
+    positions_data: NotRequired[list[dict]]
+    account_info: NotRequired[dict]
     recommended_action: Annotated[str, "Final executable signal extracted from the intent"]

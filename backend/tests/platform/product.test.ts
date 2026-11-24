@@ -23,6 +23,7 @@ test("Product gateway signs exact authenticated requests and discards incoming i
     const body = Buffer.concat(chunks).toString("utf8");
     const subject = req.headers["x-krono-product-sub"] as string | undefined;
     const message = [
+      req.headers["x-krono-product-issued-at"],
       req.headers["x-krono-product-expires"],
       subject,
       req.method,
@@ -69,6 +70,7 @@ test("Product gateway signs exact authenticated requests and discards incoming i
       "x-krono-product-sub": bob.userId,
       "x-krono-product-signature": "ignored",
       "x-krono-product-expires": "ignored",
+      "x-krono-product-issued-at": "ignored",
     };
     const foreignOrigin = await app.inject({
       method: "GET",

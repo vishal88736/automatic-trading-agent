@@ -12,14 +12,11 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from pydantic import AwareDatetime, Field, model_validator
 
-from backend.product.errors import ConflictError
 from backend.models import Model, RiskConfig, now
 from backend.product.accounts import PaperAccount, get_account
+from backend.product.errors import ConflictError
 from backend.product.spot_markets import Asset as Asset
-
-# Account-wide trade frequency limits applied to every manual and agent order.
-REVIEWED_TRADE_CAPS = {"max_trades_per_hour": 6, "max_trades_per_day": 20}
-
+from backend.settings import get_settings
 
 Quantity = Annotated[Decimal, Field(gt=0, le=1000000, decimal_places=12)]
 Price = Annotated[Decimal, Field(gt=0, le=100000000, decimal_places=12)]
@@ -45,8 +42,10 @@ class PaperQuote(Model):
 
 
 class PaperTerms(Model):
-    fee_bps: int = Field(default=10, ge=0, le=100)
-    slippage_bps: int = Field(default=10, ge=0, le=100)
+    fee_bps: int = Field(default_factory=lambda: get_settings().paper.fee_bps, ge=0, le=100)
+    slippage_bps: int = Field(
+        default_factory=lambda: get_settings().paper.slippage_bps, ge=0, le=100
+    )
     risk: RiskConfig = Field(default_factory=RiskConfig)
 
     @model_validator(mode="after")
@@ -209,10 +208,11 @@ def _buy_risk(db, owner, account, asset, gross, fee, held, quotes, at, terms):
         """,
         (recent_hour, midnight, owner, account.epoch, min(recent_hour, midnight, at - cooldown)),
     ).fetchone()
+    policy = get_settings().paper
     if (
         (last and at - last < cooldown)
-        or hourly >= REVIEWED_TRADE_CAPS["max_trades_per_hour"]
-        or daily >= REVIEWED_TRADE_CAPS["max_trades_per_day"]
+        or hourly >= policy.max_trades_per_hour
+        or daily >= policy.max_trades_per_day
     ):
         return "FREQUENCY"
     return None

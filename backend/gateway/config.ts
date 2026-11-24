@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
 const envSchema = z.object({
@@ -98,7 +101,45 @@ const envSchema = z.object({
     .optional(),
   KRONO_PRICING_SOURCE: z.string().url().optional(),
 });
-export type Config = z.infer<typeof envSchema>;
+export type Config = z.infer<typeof envSchema> & {
+  referenceAssets: readonly string[];
+};
+
+const referenceSettings = z.object({
+  providers: z.object({
+    assets: z.record(
+      z.string().regex(/^[A-Z0-9]{2,20}$/),
+      z.object({ product_id: z.string() }),
+    ),
+  }),
+});
+
+function readReferenceAssets(configPath = "config/runtime.json"): string[] {
+  const root = fileURLToPath(new URL("../..", import.meta.url));
+  try {
+    const raw: unknown = JSON.parse(
+      readFileSync(resolve(root, configPath), "utf8"),
+    );
+    const entries = Object.entries(
+      referenceSettings.parse(raw).providers.assets,
+    );
+    if (
+      !entries.length ||
+      entries.some(([asset, info]) => info.product_id !== `${asset}-USD`)
+    )
+      throw Error("Invalid reference market identity");
+    return entries.map(([asset]) => asset);
+  } catch {
+    throw Error(
+      "Runtime configuration is missing or invalid; inspect config/runtime.json",
+    );
+  }
+}
+
+export const productApiPort = 8794;
+export const privateProductNamespace = (stage: Config["KRONO_ENV"]) =>
+  `krono-${stage}.internal`;
+
 export const runtimeSettingsSchema = envSchema.pick({
   BEDROCK_MAX_OUTPUT_TOKENS: true,
   BEDROCK_TEMPERATURE: true,
@@ -164,10 +205,16 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     throw Error("Configure the product API URL and key together");
   if (c.KRONO_PRODUCT_API_URL) {
     const url = new URL(c.KRONO_PRODUCT_API_URL);
-    const local = ["127.0.0.1", "[::1]", "localhost"].includes(url.hostname);
+    const loopback = ["127.0.0.1", "[::1]", "localhost"].includes(url.hostname);
+    const cloudProduct =
+      c.KRONO_AUTH_MODE === "cognito" &&
+      url.hostname === `product.${privateProductNamespace(c.KRONO_ENV)}` &&
+      url.port === String(productApiPort);
+    const internalHttp =
+      url.protocol === "http:" &&
+      (cloudProduct || (loopback && c.NODE_ENV !== "production"));
     if (
-      (url.protocol !== "https:" &&
-        !(url.protocol === "http:" && local && c.NODE_ENV !== "production")) ||
+      (url.protocol !== "https:" && !internalHttp) ||
       url.pathname !== "/" ||
       url.search ||
       url.hash ||
@@ -175,8 +222,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       url.password
     )
       throw Error(
-        "Use an HTTPS product API origin or loopback HTTP in development",
+        "Use an HTTPS product API origin, the stage's private Product API, or loopback HTTP in development",
       );
   }
-  return c;
+  return {
+    ...c,
+    referenceAssets: readReferenceAssets(env.KRONO_CONFIG_PATH || undefined),
+  };
 }

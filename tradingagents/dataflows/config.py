@@ -5,6 +5,7 @@ import os
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
+load_dotenv(".env.local")
 load_dotenv()
 
 # Use default config but allow it to be overridden

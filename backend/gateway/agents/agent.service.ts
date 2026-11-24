@@ -231,15 +231,15 @@ export class AgentService {
       newsAssets: string[];
     }>(p, "CONFIG", "asset_catalog");
     const assets = catalog?.data ?? {
-      marketAssets: ["BTC", "ETH", "SOL"],
-      newsAssets: ["BTC", "ETH", "SOL", "HSK"],
+      marketAssets: this.config.referenceAssets,
+      newsAssets: [...this.config.referenceAssets, "HSK"],
     };
     const supported =
       spec.type === "news_monitor" ? assets.newsAssets : assets.marketAssets;
     if (spec.configuration.assets.some((a) => !supported.includes(a)))
       throw new PlatformError(
         "ASSET_UNAVAILABLE",
-        "No configured market provider for one or more assets. HSK supports news monitoring only until a verified market provider is configured",
+        "No configured provider supports one or more assets for this agent type",
         422,
       );
     for (const id of spec.coordination.researchAgentIds) {

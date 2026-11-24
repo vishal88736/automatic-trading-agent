@@ -14,16 +14,18 @@ import hmac
 import json
 import re
 import time
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from decimal import ROUND_DOWN, Decimal
-from typing import Literal, Protocol
+from decimal import ROUND_DOWN, Decimal, DecimalException
+from typing import Callable, Literal, Protocol
 from urllib.parse import urlencode
 from uuid import UUID
 
 import httpx
 
-from backend.product.errors import LiveRejected
 from backend.product.binance import BinanceClient, BinanceError, fill_summary
+from backend.product.errors import LiveRejected
+from backend.settings import get_settings
 
 Exchange = Literal["binance", "bybit", "okx"]
 Environment = Literal["testnet", "live"]
@@ -68,6 +70,35 @@ def floor_to_step(quantity: Decimal, step: Decimal) -> Decimal:
     return (quantity / step).to_integral_value(rounding=ROUND_DOWN) * step
 
 
+@dataclass(frozen=True)
+class SellLot:
+    step: Decimal
+    minimum: Decimal = Decimal(0)
+    minimum_notional: Decimal = Decimal(0)
+
+
+def checked_sell_size(quantity: Decimal, lot_for: Callable[[], SellLot], price_for) -> str:
+    try:
+        lot = lot_for()
+        if not lot.step.is_finite() or lot.step <= 0:
+            raise ExchangeError("Exchange returned an invalid lot step")
+        size = floor_to_step(quantity, lot.step)
+        if size <= 0 or size < lot.minimum:
+            raise ExchangeError("Sell size is below the exchange minimum quantity")
+        if lot.minimum_notional:
+            price = Decimal(str(price_for()))
+            if not price.is_finite() or price <= 0:
+                raise ExchangeError("Exchange price is unavailable for validating the sell")
+            if price * size < lot.minimum_notional:
+                raise ExchangeError("Sell value is below the exchange minimum notional")
+    except ExchangeError as exc:
+        # No order has been submitted during preflight.
+        raise ExchangeError(exc.message) from None
+    except (KeyError, IndexError, TypeError, DecimalException, ValueError):
+        raise ExchangeError("Exchange lot rules are unavailable") from None
+    return format(size, "f")
+
+
 class ExchangeClient(Protocol):
     exchange: Exchange
     environment: Environment
@@ -103,7 +134,7 @@ class BinanceAdapter:
         self.raw = BinanceClient(
             credentials["api_key"], credentials["api_secret"], environment, transport=transport
         )
-        self._steps: dict[str, Decimal] = {}
+        self._lots: dict[str, SellLot] = {}
 
     def _call(self, action):
         try:
@@ -121,7 +152,9 @@ class BinanceAdapter:
             return {"can_trade": True, "withdrawals": "testnet funds only", "ip_restricted": None}
         restrictions = self._call(self.raw.api_restrictions)
         if restrictions.get("enableWithdrawals"):
-            raise LiveRejected("This key can withdraw funds. Create a key with withdrawals disabled.")
+            raise LiveRejected(
+                "This key can withdraw funds. Create a key with withdrawals disabled."
+            )
         if not restrictions.get("enableSpotAndMarginTrading"):
             raise LiveRejected("Enable Spot & Margin trading for this key and retry.")
         return {
@@ -153,16 +186,29 @@ class BinanceAdapter:
             ),
         )
 
-    def _step(self, symbol: str) -> Decimal:
-        if symbol not in self._steps:
+    def _lot(self, symbol: str) -> SellLot:
+        if symbol not in self._lots:
             info = self._call(
                 lambda: self.raw._request(
                     "GET", "/api/v3/exchangeInfo", {"symbol": symbol}, signed=False
                 )
             )
-            lot = next(f for f in info["symbols"][0]["filters"] if f["filterType"] == "LOT_SIZE")
-            self._steps[symbol] = Decimal(lot["stepSize"]).normalize()
-        return self._steps[symbol]
+            filters = info["symbols"][0]["filters"]
+            lots = [f for f in filters if f["filterType"] in {"LOT_SIZE", "MARKET_LOT_SIZE"}]
+            self._lots[symbol] = SellLot(
+                step=max(Decimal(f["stepSize"]) for f in lots),
+                minimum=max(Decimal(f.get("minQty", "0")) for f in lots),
+                minimum_notional=max(
+                    (
+                        Decimal(f["minNotional"])
+                        for f in filters
+                        if (f["filterType"] == "MIN_NOTIONAL" and f.get("applyToMarket"))
+                        or (f["filterType"] == "NOTIONAL" and f.get("applyMinToMarket"))
+                    ),
+                    default=Decimal(0),
+                ),
+            )
+        return self._lots[symbol]
 
     @staticmethod
     def _normalize(order: dict) -> dict:
@@ -185,7 +231,15 @@ class BinanceAdapter:
             "newOrderRespType": "FULL",
         }
         if quantity is not None:
-            params["quantity"] = format(floor_to_step(quantity, self._step(symbol)), "f")
+            params["quantity"] = checked_sell_size(
+                quantity,
+                lambda: self._lot(symbol),
+                lambda: self._call(
+                    lambda: self.raw._request(
+                        "GET", "/api/v3/ticker/price", {"symbol": symbol}, signed=False
+                    )
+                )["price"],
+            )
         else:
             params["quoteOrderQty"] = format(quote_amount.normalize(), "f")
         return self._normalize(
@@ -205,7 +259,6 @@ class BinanceAdapter:
 # ---------------------------------------------------------------- Bybit (v5 unified account)
 class BybitAdapter:
     exchange: Exchange = "bybit"
-    BASE = {"live": "https://api.bybit.com", "testnet": "https://api-testnet.bybit.com"}
     STATUS = {
         "Filled": "FILLED",
         "PartiallyFilledCanceled": "PARTIALLY_FILLED",
@@ -221,11 +274,11 @@ class BybitAdapter:
         self.clock = clock
         self.sleep = sleep or time.sleep
         self.client = httpx.Client(
-            base_url=self.BASE[environment],
+            base_url=getattr(get_settings().providers.spot_endpoints, f"bybit_{environment}"),
             timeout=httpx.Timeout(10, connect=5),
             transport=transport,
         )
-        self._steps: dict[str, Decimal] = {}
+        self._lots: dict[str, SellLot] = {}
 
     def _request(self, method: str, path: str, params: dict | None = None, signed=True):
         params = params or {}
@@ -301,16 +354,20 @@ class BybitAdapter:
             lambda row: row.get("status") == "Trading",
         )
 
-    def _step(self, symbol: str) -> Decimal:
-        if symbol not in self._steps:
+    def _lot(self, symbol: str) -> SellLot:
+        if symbol not in self._lots:
             data = self._request(
                 "GET",
                 "/v5/market/instruments-info",
                 {"category": "spot", "symbol": symbol},
                 signed=False,
             )
-            self._steps[symbol] = Decimal(data["list"][0]["lotSizeFilter"]["basePrecision"])
-        return self._steps[symbol]
+            lot = data["list"][0]["lotSizeFilter"]
+            self._lots[symbol] = SellLot(
+                Decimal(lot["basePrecision"]),
+                minimum_notional=Decimal(lot.get("minOrderAmt") or "0"),
+            )
+        return self._lots[symbol]
 
     def _lookup(self, asset: str, client_id: str) -> dict | None:
         for path in ("/v5/order/realtime", "/v5/order/history"):
@@ -346,7 +403,16 @@ class BybitAdapter:
         }
         if quantity is not None:
             body |= {
-                "qty": format(floor_to_step(quantity, self._step(symbol)), "f"),
+                "qty": checked_sell_size(
+                    quantity,
+                    lambda: self._lot(symbol),
+                    lambda: self._request(
+                        "GET",
+                        "/v5/market/tickers",
+                        {"category": "spot", "symbol": symbol},
+                        signed=False,
+                    )["list"][0]["lastPrice"],
+                ),
                 "marketUnit": "baseCoin",
             }
         else:
@@ -397,12 +463,12 @@ class OkxAdapter:
         if environment == "testnet":
             headers["x-simulated-trading"] = "1"  # OKX demo trading
         self.client = httpx.Client(
-            base_url="https://www.okx.com",
+            base_url=get_settings().providers.spot_endpoints.okx,
             timeout=httpx.Timeout(10, connect=5),
             transport=transport,
             headers=headers,
         )
-        self._steps: dict[str, Decimal] = {}
+        self._lots: dict[str, SellLot] = {}
 
     def _request(self, method: str, path: str, params=None, signed=True):
         if method == "GET":
@@ -480,13 +546,15 @@ class OkxAdapter:
         data = self._request("GET", "/api/v5/public/instruments", params, signed=False)
         return spot_symbols(data, "baseCcy", "quoteCcy", lambda row: row.get("state") == "live")
 
-    def _step(self, inst: str) -> Decimal:
-        if inst not in self._steps:
+    def _lot(self, inst: str) -> SellLot:
+        if inst not in self._lots:
             data = self._request(
                 "GET", "/api/v5/public/instruments", {"instType": "SPOT", "instId": inst}, False
             )
-            self._steps[inst] = Decimal(data[0]["lotSz"])
-        return self._steps[inst]
+            self._lots[inst] = SellLot(
+                Decimal(data[0]["lotSz"]), Decimal(data[0].get("minSz") or "0")
+            )
+        return self._lots[inst]
 
     def _normalize(self, row: dict) -> dict:
         executed = Decimal(row.get("accFillSz") or "0")
@@ -519,7 +587,7 @@ class OkxAdapter:
         }
         if quantity is not None:
             body |= {
-                "sz": format(floor_to_step(quantity, self._step(inst)), "f"),
+                "sz": checked_sell_size(quantity, lambda: self._lot(inst), lambda: None),
                 "tgtCcy": "base_ccy",
             }
         else:

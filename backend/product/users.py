@@ -16,8 +16,8 @@ from psycopg import Connection
 from psycopg.errors import UniqueViolation
 from pydantic import Field, StringConstraints
 
-from backend.product.errors import ConflictError
 from backend.models import Model
+from backend.product.errors import ConflictError
 
 SCRYPT = {"n": 2**14, "r": 8, "p": 1}
 Email = Annotated[

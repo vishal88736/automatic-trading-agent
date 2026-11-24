@@ -35,16 +35,15 @@ def create_trader(llm, memory, config=None):
         company_name = state["company_of_interest"]
         investment_plan = state["investment_plan"]
         
-        # Determine current position from live Alpaca account (fallback to state)
-        current_position = AlpacaUtils.get_current_position_state(company_name)
-        # Persist into state so downstream agents see an accurate picture
+        if (config or {}).get("broker_account_context"):
+            current_position = AlpacaUtils.get_current_position_state(company_name)
+            positions_data = AlpacaUtils.get_positions_data()
+            account_info = AlpacaUtils.get_account_info()
+        else:
+            current_position = state.get("current_position") or "NEUTRAL"
+            positions_data = state.get("positions_data") or []
+            account_info = state.get("account_info") or {}
         state["current_position"] = current_position
-
-        # ---------------------------------------------------------
-        # NEW: Pull richer live account & position metrics from Alpaca
-        # ---------------------------------------------------------
-        positions_data = AlpacaUtils.get_positions_data()
-        account_info = AlpacaUtils.get_account_info()
 
         # Build a user-friendly summary for the specific symbol the agent cares about
         position_stats_desc = ""

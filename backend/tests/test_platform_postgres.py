@@ -86,6 +86,17 @@ def test_migrations_are_repeatable_and_rollback_failed_upgrade(database, tmp_pat
             migrate(db, tmp_path)
 
 
+def test_database_pool_reuses_connection_and_sets_statement_timeout(database_dsn):
+    from backend.product.database import database_pool
+
+    with database_pool(database_dsn, max_size=1) as pool:
+        with pool.connection() as db:
+            session = db.execute("SELECT pg_backend_pid()").fetchone()
+            assert db.execute("SHOW statement_timeout").fetchone() == ("5s",)
+        with pool.connection() as db:
+            assert db.execute("SELECT pg_backend_pid()").fetchone() == session
+
+
 def test_concurrent_provisioning_posts_one_opening_credit(database):
     with database() as db:
         migrate(db)
@@ -181,6 +192,34 @@ def test_strategy_versions_preserve_history_and_are_tenant_scoped(database, stra
         assert get_strategy(db, owner, original.id) is None
         assert get_strategy(db, owner, original.id, 1) == original
         assert get_strategy(db, other, original.id, 1) is None
+
+
+def test_signed_issuance_allows_bounded_clock_skew(database_dsn, database, monkeypatch):
+    from types import SimpleNamespace
+
+    from backend.product import api
+
+    with database() as db:
+        migrate(db)
+    key = "clock-skew-test-material-" * 2
+    app = create_product_api(database_dsn, key, fixture_feeds=True)
+    path = "/platform/paper-account"
+    issued = int(time.time())
+    expires = issued + 20
+    subject = str(uuid4())
+    message = f"{issued}\n{expires}\n{subject}\nGET\n{path}\n{hashlib.sha256(b'').hexdigest()}"
+    headers = {
+        "x-krono-product-sub": subject,
+        "x-krono-product-issued-at": str(issued),
+        "x-krono-product-expires": str(expires),
+        "x-krono-product-signature": hmac.new(
+            key.encode(), message.encode(), hashlib.sha256
+        ).hexdigest(),
+    }
+    with TestClient(app) as client:
+        for offset, expected in [(-31, 401), (-20, 200), (20, 200), (51, 401)]:
+            monkeypatch.setattr(api, "time", SimpleNamespace(time=lambda: issued + offset))
+            assert client.get(path, headers=headers).status_code == expected
 
 
 def test_authenticated_product_http_checks_identity_payload_and_ownership(
@@ -698,14 +737,63 @@ def test_worker_backtests_saved_version_then_revalidates_on_independent_history(
         assert order_history(db, owner) == []
 
 
+def test_worker_pauses_when_a_held_position_has_no_buy_fill(database, strategy_draft, monkeypatch):
+    from backend.product import worker as worker_module
+    from backend.product.agents import AgentStart, claim_agent, start_agent, timeline
+    from tests.e2e.product_api import history, quotes
+
+    owner = uuid4()
+    draft = strategy_draft.model_dump(mode="json")
+    condition = {"indicator": "price", "operator": "gt", "threshold": "1"}
+    for group in ("entry", "exit"):
+        draft["definition"][group]["conditions"] = [condition]
+    worker = worker_module.PaperWorker(history, quotes, allow_fixture=True)
+
+    with database() as db:
+        migrate(db)
+        ensure_account(db, owner)
+        strategy = create_strategy(db, owner, StrategyDraft.model_validate(draft))
+        agent = start_agent(
+            db,
+            owner,
+            AgentStart(
+                name="Restored position",
+                strategy_id=strategy.id,
+                strategy_version=strategy.version,
+                epoch=1,
+                capital="1000",
+            ),
+        )
+        worker.tick(db, claim_agent(db))
+        claim = claim_agent(db)
+        assert claim["stage"] == "MONITOR"
+
+        # Simulate a restored position map without its source fills.
+        monkeypatch.setattr(
+            worker_module,
+            "positions",
+            lambda *_args, **_kwargs: {"BTC": {"quantity": Decimal("0.001")}},
+        )
+        worker.tick(db, claim)
+
+        assert db.execute(
+            "SELECT status, failures FROM paper_agents WHERE id = %s", (agent,)
+        ).fetchone() == ("PAUSED", 0)
+        assert any(
+            row["kind"] == "RISK_PAUSED" and row["detail"]["reason"] == "MISSING_ENTRY_FILL"
+            for row in timeline(db, owner, agent)
+        )
+
+
 def test_shared_paper_entry_frequency_counts_exits_without_blocking_exit(database):
     from datetime import timedelta
 
     from backend.models import now
-    from backend.product.execution import REVIEWED_TRADE_CAPS as CAPS
     from backend.product.execution import OrderRequest, PaperQuote, PaperTerms, submit_order
+    from backend.settings import get_settings
 
     owner = uuid4()
+    caps = get_settings().paper
     at = now().replace(hour=12, minute=0, second=0, microsecond=0)
 
     def submit(db, side, offset_seconds):
@@ -720,21 +808,56 @@ def test_shared_paper_entry_frequency_counts_exits_without_blocking_exit(databas
         assert submit(db, "BUY", 0)["status"] == "FILLED"
         assert submit(db, "SELL", 1)["status"] == "FILLED"
         assert submit(db, "BUY", 60)["reason"] == "FREQUENCY"
-        for index in range(2, CAPS["max_trades_per_hour"], 2):
+        for index in range(2, caps.max_trades_per_hour, 2):
             minute = index * 60
             assert submit(db, "BUY", minute)["status"] == "FILLED"
             assert submit(db, "SELL", minute + 1)["status"] == "FILLED"
         assert submit(db, "BUY", 8 * 60)["reason"] == "FREQUENCY"
         # Repeat in separate hours until the daily cap independently rejects a buy.
-        completed_fills = CAPS["max_trades_per_hour"]
+        completed_fills = caps.max_trades_per_hour
         n = 0
-        while completed_fills < CAPS["max_trades_per_day"]:
+        while completed_fills < caps.max_trades_per_day:
             instant = (1 + n // 3) * 3600 + (n % 3) * 120
             assert submit(db, "BUY", instant)["status"] == "FILLED"
             assert submit(db, "SELL", instant + 1)["status"] == "FILLED"
             completed_fills += 2
             n += 1
         assert submit(db, "BUY", 6 * 3600)["reason"] == "FREQUENCY"
+
+
+def test_full_close_clears_high_precision_cost_basis(database):
+    from datetime import timedelta
+
+    from backend.models import now
+    from backend.product.execution import (
+        OrderRequest,
+        PaperQuote,
+        PaperTerms,
+        positions,
+        submit_order,
+    )
+
+    owner = uuid4()
+    started = now()
+    quantity = Decimal("9783.148318255427")
+    with database() as db:
+        migrate(db)
+        ensure_account(db, owner, Decimal("1000000"))
+        for index in range(74):
+            at = started + timedelta(hours=2 * index)
+            closing = index == 73
+            mark = PaperQuote(asset="ADA", price="0.021978997790", observed_at=at, source="fixture")
+            order = OrderRequest(
+                request_key=uuid4(),
+                epoch=1,
+                asset="ADA",
+                side="SELL" if closing else "BUY",
+                quantity=quantity * 73 if closing else quantity,
+            )
+            fill = submit_order(db, owner, order, {"ADA": mark}, PaperTerms(), clock=lambda: at)
+            assert fill["status"] == "FILLED"
+        position = positions(db, owner, 1, actor_only=True)["ADA"]
+        assert position["quantity"] == position["basis"] == 0
 
 
 def test_self_hosted_accounts_are_unique_and_reserved_for_the_gateway(database_dsn, database):
@@ -857,8 +980,12 @@ class FakeExchange:
         pass
 
     def verify(self):
+        from backend.product.errors import LiveRejected
+
         if self.environment == "live" and self.key.startswith("WITHDRAW"):
-            raise ValueError("This key can withdraw funds. Create a key with withdrawals disabled.")
+            raise LiveRejected(
+                "This key can withdraw funds. Create a key with withdrawals disabled."
+            )
         return {"can_trade": True, "withdrawals": False, "ip_restricted": True}
 
     def balances(self):

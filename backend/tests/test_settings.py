@@ -17,6 +17,23 @@ def test_runtime_configuration_is_validated_and_identity_cannot_be_aliased():
         RuntimeSettings.model_validate(config)
 
 
+def test_configured_market_symbol_can_be_used_by_the_legacy_models(monkeypatch):
+    from backend import models
+    from backend.data import fixture_market
+
+    config = get_settings().model_dump(mode="json")
+    config["providers"]["assets"]["AVAX"] = {"name": "Avalanche", "product_id": "AVAX-USD"}
+    config["providers"]["ticker_assets"] = ["AVAX"]
+    config["scheduler"]["default_asset"] = "AVAX"
+    settings = RuntimeSettings.model_validate(config)
+    monkeypatch.setattr(models, "get_settings", lambda: settings)
+
+    assert settings.providers.featured_assets == ("AVAX",)
+    assert models.RunRequest().symbol == models.BacktestRequest().symbol == "AVAX"
+    assert "AVAX" in models.StrategyConfig().assets
+    assert fixture_market("AVAX").status == "FIXTURE"
+
+
 async def test_simulation_costs_and_backtest_capital_follow_configuration():
     from backend.backtesting import backtest
     from backend.data import fixture_market, fixture_news

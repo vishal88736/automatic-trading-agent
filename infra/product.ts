@@ -8,6 +8,7 @@ import * as rds from "aws-cdk-lib/aws-rds";
 import * as secrets from "aws-cdk-lib/aws-secretsmanager";
 import * as discovery from "aws-cdk-lib/aws-servicediscovery";
 import type { Construct } from "constructs";
+import { productApiPort } from "../backend/gateway/config.js";
 
 interface ProductOptions {
   prefix: string;
@@ -22,12 +23,21 @@ interface ProductOptions {
   credentialKeyArn?: string;
 }
 
-const productPort = 8794;
 const databaseName = "krono";
 
-export function createProductServices(scope: Construct, options: ProductOptions) {
+export function createProductServices(
+  scope: Construct,
+  options: ProductOptions,
+) {
   const {
-    vpc, cluster, production, prefix, encryption, gateway, repository, imageDigest,
+    vpc,
+    cluster,
+    production,
+    prefix,
+    encryption,
+    gateway,
+    repository,
+    imageDigest,
   } = options;
   const apiSg = new ec2.SecurityGroup(scope, "ProductApiSecurity", {
     vpc,
@@ -41,22 +51,38 @@ export function createProductServices(scope: Construct, options: ProductOptions)
     vpc,
     allowAllOutbound: false,
   });
-  gateway.connections.allowTo(apiSg, ec2.Port.tcp(productPort), "Private product API");
+  gateway.connections.allowTo(
+    apiSg,
+    ec2.Port.tcp(productApiPort),
+    "Private product API",
+  );
   for (const group of [apiSg, workerSg]) {
-    group.addEgressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(443), "Providers and AWS HTTPS APIs");
-    group.connections.allowTo(databaseSg, ec2.Port.tcp(5432), "Product PostgreSQL");
+    group.addEgressRule(
+      ec2.Peer.anyIpv4(),
+      ec2.Port.tcp(443),
+      "Providers and AWS HTTPS APIs",
+    );
+    group.connections.allowTo(
+      databaseSg,
+      ec2.Port.tcp(5432),
+      "Product PostgreSQL",
+    );
   }
 
   const database = new rds.DatabaseCluster(scope, "ProductDatabase", {
     engine: rds.DatabaseClusterEngine.auroraPostgres({
       version: rds.AuroraPostgresEngineVersion.VER_17_6,
     }),
-    writer: rds.ClusterInstance.serverlessV2("Writer", { publiclyAccessible: false }),
+    writer: rds.ClusterInstance.serverlessV2("Writer", {
+      publiclyAccessible: false,
+    }),
     readers: production
-      ? [rds.ClusterInstance.serverlessV2("Reader", {
-          publiclyAccessible: false,
-          scaleWithWriter: true,
-        })]
+      ? [
+          rds.ClusterInstance.serverlessV2("Reader", {
+            publiclyAccessible: false,
+            scaleWithWriter: true,
+          }),
+        ]
       : [],
     vpc,
     vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
@@ -79,14 +105,24 @@ export function createProductServices(scope: Construct, options: ProductOptions)
     generateSecretString: { passwordLength: 64, excludePunctuation: true },
   });
   const credentialKey = options.credentialKeyArn
-    ? secrets.Secret.fromSecretCompleteArn(scope, "ExchangeCredentialKey", options.credentialKeyArn)
+    ? secrets.Secret.fromSecretCompleteArn(
+        scope,
+        "ExchangeCredentialKey",
+        options.credentialKeyArn,
+      )
     : undefined;
-  const exchangeSecrets = credentialKey
+  const exchangeSecrets: Record<string, ecs.Secret> = credentialKey
     ? { KRONO_CREDENTIAL_KEY: ecs.Secret.fromSecretsManager(credentialKey) }
     : {};
   const databaseSecrets = {
-    KRONO_DATABASE_USER: ecs.Secret.fromSecretsManager(database.secret!, "username"),
-    KRONO_DATABASE_PASSWORD: ecs.Secret.fromSecretsManager(database.secret!, "password"),
+    KRONO_DATABASE_USER: ecs.Secret.fromSecretsManager(
+      database.secret!,
+      "username",
+    ),
+    KRONO_DATABASE_PASSWORD: ecs.Secret.fromSecretsManager(
+      database.secret!,
+      "password",
+    ),
   };
   const databaseEnv = {
     KRONO_DATABASE_HOST: database.clusterEndpoint.hostname,
@@ -95,7 +131,10 @@ export function createProductServices(scope: Construct, options: ProductOptions)
     KRONO_DATABASE_SSLROOTCERT: "/etc/ssl/certs/rds-global-bundle.pem",
   };
   const dispatch = (id: string) =>
-    new ecs.FargateTaskDefinition(scope, id, { cpu: 512, memoryLimitMiB: 1024 });
+    new ecs.FargateTaskDefinition(scope, id, {
+      cpu: 512,
+      memoryLimitMiB: 1024,
+    });
   const image = ecs.ContainerImage.fromEcrRepository(repository, imageDigest);
   const logging = ecs.LogDrivers.awsLogs({
     streamPrefix: "product",
@@ -106,7 +145,12 @@ export function createProductServices(scope: Construct, options: ProductOptions)
       removalPolicy: RemovalPolicy.RETAIN,
     }),
   });
-  const container = { image, logging, readonlyRootFilesystem: true, user: "10001:10001" };
+  const container = {
+    image,
+    logging,
+    readonlyRootFilesystem: true,
+    user: "10001:10001",
+  };
   const apiTask = dispatch("ProductApiTask");
   const migration = apiTask.addContainer("migrate", {
     ...container,
@@ -125,8 +169,10 @@ export function createProductServices(scope: Construct, options: ProductOptions)
     },
     healthCheck: {
       command: [
-        "CMD", "python", "-c",
-        "from urllib.request import urlopen; urlopen('http://127.0.0.1:8794/healthz', timeout=4).close()",
+        "CMD",
+        "python",
+        "-c",
+        `from urllib.request import urlopen; urlopen('http://127.0.0.1:${productApiPort}/healthz', timeout=4).close()`,
       ],
       interval: Duration.seconds(15),
       timeout: Duration.seconds(6),
@@ -134,12 +180,19 @@ export function createProductServices(scope: Construct, options: ProductOptions)
       startPeriod: Duration.seconds(60),
     },
   });
-  api.addPortMappings({ containerPort: productPort });
-  api.addContainerDependencies({ container: migration, condition: ecs.ContainerDependencyCondition.SUCCESS });
-  const namespace = new discovery.PrivateDnsNamespace(scope, "ProductNamespace", {
-    name: options.namespace,
-    vpc,
+  api.addPortMappings({ containerPort: productApiPort });
+  api.addContainerDependencies({
+    container: migration,
+    condition: ecs.ContainerDependencyCondition.SUCCESS,
   });
+  const namespace = new discovery.PrivateDnsNamespace(
+    scope,
+    "ProductNamespace",
+    {
+      name: options.namespace,
+      vpc,
+    },
+  );
   const service = {
     cluster,
     assignPublicIp: false,
@@ -153,7 +206,11 @@ export function createProductServices(scope: Construct, options: ProductOptions)
     desiredCount: production ? 2 : 1,
     minHealthyPercent: 100,
     securityGroups: [apiSg],
-    cloudMapOptions: { cloudMapNamespace: namespace, name: "product", dnsTtl: Duration.seconds(10) },
+    cloudMapOptions: {
+      cloudMapNamespace: namespace,
+      name: "product",
+      dnsTtl: Duration.seconds(10),
+    },
   });
 
   const workerTask = dispatch("PaperWorkerTask");
@@ -179,5 +236,10 @@ export function createProductServices(scope: Construct, options: ProductOptions)
     securityGroups: [workerSg],
   });
   workerService.node.addDependency(apiService);
-  return { apiService, workerService, signingKey, url: `http://product.${namespace.namespaceName}:${productPort}` };
+  return {
+    apiService,
+    workerService,
+    signingKey,
+    url: `http://product.${namespace.namespaceName}:${productApiPort}`,
+  };
 }

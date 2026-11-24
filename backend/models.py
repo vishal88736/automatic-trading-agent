@@ -22,6 +22,7 @@ def uid() -> str:
 
 Money = Annotated[Decimal, Field(ge=0, max_digits=38, decimal_places=18)]
 Positive = Annotated[Decimal, Field(gt=0, max_digits=38, decimal_places=18)]
+MarketSymbol = Annotated[str, Field(pattern=r"^[A-Z0-9]{2,20}$")]
 
 
 class Model(BaseModel):
@@ -184,8 +185,8 @@ class VersionedNewsScoring(Model):
 
 class StrategyConfig(Model):
     enabled: bool = True
-    assets: list[Literal["BTC", "ETH", "SOL"]] = Field(
-        default_factory=lambda: ["BTC", "ETH", "SOL"]
+    assets: list[MarketSymbol] = Field(
+        default_factory=lambda: list(get_settings().providers.assets)
     )
     fast_period: int = Field(default=12, ge=5, le=30)
     slow_period: int = Field(default=26, ge=20, le=60)
@@ -229,7 +230,7 @@ class Signal(Model):
 class ResearchEvidence(Model):
     opportunity_id: str = Field(pattern=r"^[a-f0-9-]{36}$")
     source_agent_id: str = Field(pattern=r"^[a-f0-9-]{36}$")
-    symbol: Literal["BTC", "ETH", "SOL"]
+    symbol: MarketSymbol
     signal: Literal["BUY", "SELL", "HOLD"]
     evidence: list[str] = Field(max_length=30)
 
@@ -395,7 +396,7 @@ class ExecutionIntent(Model):
 
 
 class RunRequest(Model):
-    symbol: Literal["BTC", "ETH", "SOL"] = "BTC"
+    symbol: MarketSymbol = Field(default_factory=lambda: get_settings().scheduler.default_asset)
     notional: Positive = Field(default=Decimal("100"), le=10000)
 
 
@@ -422,9 +423,7 @@ class SchedulerAction(Model):
     interval_seconds: int | None = Field(default=None, ge=30, le=86400)
     auto_simulate: bool | None = None
     acknowledge: bool = False
-    symbols: list[Literal["BTC", "ETH", "SOL"]] | None = Field(
-        default=None, min_length=1, max_length=3
-    )
+    symbols: list[MarketSymbol] | None = Field(default=None, min_length=1, max_length=3)
 
 
 class ChatTurn(Model):
@@ -451,7 +450,7 @@ class BacktestAssumptions(Model):
 
 
 class BacktestRequest(BacktestAssumptions):
-    symbol: Literal["BTC", "ETH", "SOL"] = "BTC"
+    symbol: MarketSymbol = Field(default_factory=lambda: get_settings().scheduler.default_asset)
     strategy_id: Literal[
         "momentum_v1", "mean_reversion_v1", "trend_following_v1", "breakout_v1", "news_aware_v1"
     ] = "momentum_v1"

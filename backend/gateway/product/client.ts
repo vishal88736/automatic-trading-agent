@@ -37,7 +37,9 @@ export function productClient(config: Config): ProductForward {
     const expires = String(issuedAt + SIGNATURE_TTL_SECONDS);
     const body = payload === undefined ? "" : JSON.stringify(payload);
     const digest = createHash("sha256").update(body).digest("hex");
-    const message = [issuedAt, expires, subject, method, path, digest].join("\n");
+    const message = [issuedAt, expires, subject, method, path, digest].join(
+      "\n",
+    );
     const signature = createHmac("sha256", key).update(message).digest("hex");
     return fetch(new URL(api).origin + path, {
       method,

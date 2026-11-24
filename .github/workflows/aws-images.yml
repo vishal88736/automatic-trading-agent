@@ -37,9 +37,11 @@ jobs:
           registry="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
           tag="sha-${GITHUB_SHA}-${GITHUB_RUN_ID}"
           aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$registry"
-          for component in api agent; do
+          for component in api agent product; do
             repository="krono-${KRONO_ENV}/${component}"
-            docker build --file "deploy/aws/Dockerfile.${component}" --tag "${registry}/${repository}:${tag}" .
+            dockerfile="deploy/aws/Dockerfile.${component}"
+            if [[ "$component" == product ]]; then dockerfile=deploy/paper/Dockerfile; fi
+            docker build --file "$dockerfile" --tag "${registry}/${repository}:${tag}" .
             docker push "${registry}/${repository}:${tag}"
             digest=$(aws ecr describe-images --repository-name "$repository" --image-ids "imageTag=$tag" --query 'imageDetails[0].imageDigest' --output text)
             echo "${component}: ${registry}/${repository}@${digest}" >> "$GITHUB_STEP_SUMMARY"

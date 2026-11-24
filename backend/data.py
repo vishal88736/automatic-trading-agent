@@ -26,10 +26,10 @@ FIXTURE_START = datetime(2026, 1, 10, tzinfo=timezone.utc)
 
 
 def fixture_market(symbol: str, count=238) -> Market:
-    base = {"BTC": 67000, "ETH": 3200, "SOL": 145, "ADA": 0.60}[symbol]
+    base = {"BTC": 67000, "ETH": 3200, "SOL": 145, "ADA": 0.60}.get(symbol, 100)
     bars = []
     previous = base
-    phase = {"BTC": 0, "ETH": 1.1, "SOL": 2.2, "ADA": 3.3}[symbol]
+    phase = {"BTC": 0, "ETH": 1.1, "SOL": 2.2, "ADA": 3.3}.get(symbol, 4.4)
     for index in range(count):
         # Reproducible synthetic path: trend, cyclic pullbacks, widening recent participation.
         close = base * (

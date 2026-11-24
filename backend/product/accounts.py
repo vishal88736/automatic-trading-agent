@@ -8,11 +8,12 @@ from uuid import UUID, uuid4
 
 from psycopg import Connection
 
+from backend.product.errors import ConflictError
+
 DEFAULT_INITIAL_USDT = Decimal("10000")
 
 
 @dataclass(frozen=True)
-from backend.product.errors import ConflictError
 class PaperAccount:
     id: UUID
     epoch: int

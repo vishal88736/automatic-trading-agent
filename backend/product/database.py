@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from hashlib import sha256
 import os
+from hashlib import sha256
 from pathlib import Path
 
 from psycopg import Connection, connect
@@ -27,11 +27,15 @@ def database_dsn() -> str:
     }
     if not all(fields.values()):
         raise ValueError(f"Set {DSN_ENV} or the platform database host, name, user and password")
+    sslmode = os.environ.get("KRONO_DATABASE_SSLMODE", "verify-full")
+    sslrootcert = os.environ.get("KRONO_DATABASE_SSLROOTCERT")
+    if not sslrootcert and sslmode == "verify-full":
+        sslrootcert = "system"
     return make_conninfo(
         **fields,
         port=os.environ.get("KRONO_DATABASE_PORT", "5432"),
-        sslmode=os.environ.get("KRONO_DATABASE_SSLMODE", "verify-full"),
-        sslrootcert=os.environ.get("KRONO_DATABASE_SSLROOTCERT", "system"),
+        sslmode=sslmode,
+        sslrootcert=sslrootcert,
     )
 
 

@@ -37,8 +37,14 @@ jobs:
         with:
           python-version: "3.12"
           enable-cache: false
-      - run: uv sync --frozen --extra platform --python 3.12
+      - run: uv sync --frozen --extra platform --extra legacy --python 3.12
       - run: .venv/bin/python -m pytest -q backend/tests/test_platform_postgres.py
+      - name: Inherited graph and CLI
+        run: |
+          export ANONYMIZED_TELEMETRY=false
+          export TRADINGAGENTS_RESULTS_DIR="$RUNNER_TEMP/krono-legacy-results"
+          .venv/bin/python -m cli.main --help
+          .venv/bin/python -m pytest -q tests/inherited
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: "22"

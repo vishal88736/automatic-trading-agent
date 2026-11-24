@@ -47,7 +47,7 @@ services:
       migrate:
         condition: service_completed_successfully
     ports:
-      - "127.0.0.1:8794:8794"
+      - "127.0.0.1:${KRONO_PAPER_API_PORT:-8794}:8794"
     healthcheck:
       test:
         [

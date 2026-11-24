@@ -19,6 +19,10 @@ HOUR = timedelta(hours=1)
 
 
 class HistoricalBacktestRequest(BacktestAssumptions):
+    fee_bps: int = Field(default_factory=lambda: get_settings().paper.fee_bps, ge=0, le=100)
+    slippage_bps: int = Field(
+        default_factory=lambda: get_settings().paper.slippage_bps, ge=0, le=100
+    )
     version: Annotated[int, Field(ge=1, le=2**31 - 1)]
     start: AwareDatetime
     end: AwareDatetime

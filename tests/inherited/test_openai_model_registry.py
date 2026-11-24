@@ -107,9 +107,9 @@ class OpenAIModelRegistryTests(unittest.TestCase):
         )
 
     def test_openai_provider_defaults_stay_cost_safe_after_switching(self):
-        self.assertEqual(get_default_model_for_provider("openai", "quick"), "gpt-5.4-nano")
+        self.assertEqual(get_default_model_for_provider("openai", "quick"), "gpt-5.4-mini")
         self.assertEqual(get_default_model_for_provider("openai", "deep"), "gpt-5.4-mini")
-        self.assertEqual(get_default_model_for_provider("local_openai", "quick"), "gpt-5.4-nano")
+        self.assertEqual(get_default_model_for_provider("local_openai", "quick"), "gpt-5.4-mini")
 
     def test_custom_model_choice_resolves_to_runtime_model_id(self):
         self.assertEqual(resolve_model_choice("custom", " openai/gpt-5.4-mini "), "openai/gpt-5.4-mini")

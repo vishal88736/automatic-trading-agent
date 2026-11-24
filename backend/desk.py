@@ -5,12 +5,13 @@ from typing import Literal
 
 from pydantic import AwareDatetime, Field
 
-from backend.models import Market, Model, Positive, RiskConfig, now, uid
+from backend.models import Market, MarketSymbol, Model, Positive, RiskConfig, now, uid
+from backend.settings import get_settings
 from backend.storage import Store, encode
 
 
 class AlertRequest(Model):
-    symbol: Literal["BTC", "ETH", "SOL"]
+    symbol: MarketSymbol
     condition: Literal["ABOVE", "BELOW"]
     target: Positive = Field(le=Decimal("1000000000000"))
 
@@ -66,6 +67,8 @@ class PriceAlerts:
         return -5 <= (now() - market.price_at).total_seconds() <= max_age
 
     def create(self, request: AlertRequest, markets: dict[str, Market]):
+        if request.symbol not in get_settings().providers.assets:
+            raise ValueError("The asset is not enabled in the configured reference universe")
         with self.store.transaction():
             rows, version = self._load()
             if len(rows) >= 50:

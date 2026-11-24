@@ -82,6 +82,17 @@ def test_credentials_are_bound_to_their_owner_and_connection():
         CredentialVault(bytes(32 * [1])).open(owner, connection, nonce, sealed)
 
 
+def test_sell_lot_rejects_dust_and_minimum_notional_before_submission():
+    from backend.product.exchanges import ExchangeError, SellLot, checked_sell_size
+
+    lot = SellLot(Decimal("0.001"), Decimal("0.002"), Decimal("5"))
+    with pytest.raises(ExchangeError, match="minimum quantity"):
+        checked_sell_size(Decimal("0.0019"), lambda: lot, lambda: pytest.fail("priced dust"))
+    with pytest.raises(ExchangeError, match="minimum notional"):
+        checked_sell_size(Decimal("0.0209"), lambda: lot, lambda: "100")
+    assert checked_sell_size(Decimal("0.0509"), lambda: lot, lambda: "100") == "0.050"
+
+
 def test_exchange_messages_never_echo_key_shaped_values():
     assert safe_message("Invalid key " + "A" * 64) == "Invalid key [redacted]"
 

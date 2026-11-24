@@ -6,7 +6,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { createServer } from "node:net";
 
-if (existsSync(".env")) process.loadEnvFile(".env");
+for (const filename of [".env.local", ".env"])
+  if (existsSync(filename)) process.loadEnvFile(filename);
 // Blank lines copied from .env.example mean "use the default", not an empty value.
 for (const [name, value] of Object.entries(process.env))
   if (value === "") delete process.env[name];
@@ -16,12 +17,12 @@ if (!existsSync(python)) {
   process.exit(1);
 }
 
-const ports = {
-  ui: Number(process.env.TERMINAL_UI_PORT ?? 5173),
-  gateway: Number(process.env.KRONO_PORT ?? 8790),
-  api: Number(process.env.KRONO_PRODUCT_API_PORT ?? 8794),
-  db: Number(process.env.KRONO_DEV_DB_PORT ?? 55432),
-};
+const defaults = [
+  ["ui", "TERMINAL_UI_PORT", 5173],
+  ["gateway", "KRONO_PORT", 8790],
+  ["api", "KRONO_PRODUCT_API_PORT", 8794],
+];
+const ports = { db: Number(process.env.KRONO_DEV_DB_PORT ?? 55432) };
 
 async function free(port) {
   return new Promise((resolve) => {
@@ -31,13 +32,45 @@ async function free(port) {
       .listen(port, "127.0.0.1");
   });
 }
-for (const [name, port] of Object.entries(ports).filter(([n]) => n !== "db"))
+const reserved = new Set([ports.db]);
+for (const [name, variable] of defaults) {
+  if (!process.env[variable]) continue;
+  const port = Number(process.env[variable]);
+  if (
+    !Number.isInteger(port) ||
+    port < 1 ||
+    port > 65535 ||
+    reserved.has(port)
+  ) {
+    console.error(`Select a valid, distinct port with ${variable}.`);
+    process.exit(1);
+  }
   if (!(await free(port))) {
     console.error(
-      `Port ${port} (${name}) is already in use. Stop the other Krono stack (or that process) and retry.`,
+      `Port ${port} (${name}) is already in use. Set ${variable} to a free port and retry.`,
     );
     process.exit(1);
   }
+  reserved.add(port);
+  ports[name] = port;
+}
+for (const [name, variable, preferred] of defaults) {
+  if (ports[name]) continue;
+  for (let port = preferred; port < preferred + 50; port++) {
+    if (reserved.has(port) || !(await free(port))) continue;
+    reserved.add(port);
+    ports[name] = port;
+    if (port !== preferred)
+      console.log(
+        `Port ${preferred} (${name}) is occupied. Using port ${port}.`,
+      );
+    break;
+  }
+  if (!ports[name]) {
+    console.error(`No free port for ${name}. Set ${variable} explicitly.`);
+    process.exit(1);
+  }
+}
 
 mkdirSync(".runtime", { recursive: true, mode: 0o700 });
 const secretsFile = ".runtime/dev.json";

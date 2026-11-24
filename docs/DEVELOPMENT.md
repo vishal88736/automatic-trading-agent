@@ -37,7 +37,9 @@ npm run test:e2e
 
 The browser runner opens the same frontend used in production. It uses loopback ports 5180 and 8793 and supports overrides through `KRONO_E2E_UI_PORT` and `KRONO_E2E_GATEWAY_PORT`. Set `KRONO_E2E_BUILD=1` after a build to test the production bundle. PostgreSQL integration tests require a disposable `KRONO_TEST_DATABASE_DSN`.
 
-Account-wide trade frequency limits live in `REVIEWED_TRADE_CAPS` in `backend/product/execution.py`. The optional inherited CLI has its own [dependency list](../config/legacy-requirements.txt).
+The `paper` section of [runtime.json](../config/runtime.json) configures modeled costs and operational limits within the reviewed bounds. Its `providers` section defines spot endpoints, the reference assets and the featured ticker list. Set `KRONO_CONFIG_PATH` to select a different configuration. The market search uses the venue's full eligible spot catalog.
+
+`make setup` installs the optional legacy graph and CLI dependencies. Install them separately with `uv sync --frozen --extra platform --extra legacy`, then run `.venv/bin/python -m cli.main --help`. Put personal provider keys in `.env.local` or the shell. The inherited graph accepts `TRADINGAGENTS_DEEP_MODEL` and `TRADINGAGENTS_QUICK_MODEL` to select deployment-supported models. Broker account reads require an explicit opt-in.
 
 ## Tenant PostgreSQL foundation
 
@@ -50,7 +52,7 @@ uv sync --frozen --extra platform
 .venv/bin/python -m scripts.platform_database
 ```
 
-Migrations run in a single PostgreSQL transaction with a transaction-scoped advisory lock and verify the applied revision checksums. A failed migration rolls back its changes. Keep applied revision files intact and take a database backup before upgrading a deployed environment. Use a migration role with DDL permissions and a separate, restricted runtime role. [PostgreSQL advisory locks](https://www.postgresql.org/docs/18/explicit-locking.html#ADVISORY-LOCKS), [Psycopg transactions](https://www.psycopg.org/psycopg3/docs/basic/transactions.html)
+Migrations use one transaction and an advisory lock and verify the applied revision checksums. A failed migration rolls back its changes. Keep applied revision files intact and take a database backup before upgrading a deployed environment. The API and worker reuse bounded connections. [PostgreSQL advisory locks](https://www.postgresql.org/docs/18/explicit-locking.html#ADVISORY-LOCKS) · [Psycopg pools](https://www.psycopg.org/psycopg3/docs/advanced/pool.html)
 
 Migration `0012_paper_snapshot_metrics` adds buying power, P&L and drawdown to paper portfolio snapshots. The Overview shows a trend once two recorded values are available for that metric. Legacy snapshots contribute their recorded equity.
 
@@ -112,7 +114,7 @@ Open **AI Strategy Builder** and describe an objective in **Strategy chat**. Eac
 
 ### Container topology and recovery
 
-The Vite frontend and authenticated Fastify gateway retain their existing deployment configuration. Run the private FastAPI product service and paper worker independently of both. The local Compose file starts PostgreSQL, the schema migration, the product API and the worker. PostgreSQL stores the durable due-work queue and acts as the scheduler using indexed due times, row locks and expiring claims. No additional broker is required for the current queue.
+The local Compose file starts PostgreSQL 18, the schema migration, the private product API and the paper worker. The PostgreSQL 18 container mounts its named volume at `/var/lib/postgresql`. PostgreSQL stores the durable due-work queue using indexed due times, row locks and expiring claims. The AWS stack runs the same product image against private Aurora PostgreSQL. [Official PostgreSQL image](https://hub.docker.com/_/postgres)
 
 Copy `deploy/paper/.env.example` to `deploy/paper/.env`, fill each secret with an independent random hex value, then run:
 

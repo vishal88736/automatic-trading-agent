@@ -168,6 +168,29 @@ class PaperWorker:
             candle_at = market.candles[-1].closed_at
             new_candle = work["last_candle"] is None or candle_at > work["last_candle"]
             peak = max(work["peak_price"] or quote.price, quote.price) if quantity else None
+            fill_price = None
+            if quantity:
+                fill = db.execute(
+                    """
+                    SELECT l.price FROM paper_orders o JOIN paper_ledger_entries l ON o.id = l.order_id
+                    WHERE o.owner_id = %s AND o.agent_id = %s AND o.epoch = %s
+                        AND l.asset = %s AND l.kind = 'BUY'
+                    ORDER BY l.id DESC LIMIT 1
+                    """,
+                    (owner, agent, account.epoch, definition.asset),
+                ).fetchone()
+                if fill is None:
+                    event(db, owner, agent, "RISK_PAUSED", {"reason": "MISSING_ENTRY_FILL"})
+                    checkpoint(
+                        db,
+                        work,
+                        status="PAUSED",
+                        candle=candle_at,
+                        quote=quote.observed_at,
+                        peak=peak,
+                    )
+                    return
+                fill_price = fill[0]
             equity, breach = mark_agent(db, work, quantity, quote.price, now_at)
             if breach:
                 event(db, owner, agent, "RISK_PAUSED", {"reason": breach, "equity": str(equity)})
@@ -183,24 +206,7 @@ class PaperWorker:
                 if new_candle
                 else ("HOLD", "No new closed candle")
             )
-            if quantity:
-                fill = db.execute(
-                    """
-                    SELECT l.price FROM paper_orders o JOIN paper_ledger_entries l ON o.id = l.order_id
-                    WHERE o.owner_id = %s AND o.agent_id = %s AND o.epoch = %s
-                        AND l.asset = %s AND l.kind = 'BUY'
-                    ORDER BY l.id DESC LIMIT 1
-                    """,
-                    (owner, agent, account.epoch, definition.asset),
-                ).fetchone()
-                if fill is None:
-                    event(db, owner, agent, "RISK_PAUSED", {"reason": "MISSING_ENTRY_FILL"})
-                    checkpoint(
-                        db, work, status="PAUSED", candle=candle_at,
-                        quote=quote.observed_at, peak=peak,
-                    )
-                    return
-                fill_price = fill[0]
+            if fill_price is not None:
                 if quote.price <= fill_price * (1 - definition.stop_loss):
                     side, why = "SELL", "Stop loss"
                 elif definition.trailing_stop and quote.price <= peak * (

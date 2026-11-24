@@ -8,8 +8,8 @@ from psycopg import Connection
 from psycopg.types.json import Jsonb
 from pydantic import AwareDatetime
 
-from backend.product.errors import ConflictError
 from backend.models import Model
+from backend.product.errors import ConflictError, NotFoundError
 from backend.product.rules import StrategyDraft
 
 
@@ -130,7 +130,7 @@ def _lock_current(
         (owner_id, strategy_id),
     ).fetchone()
     if not row:
-        raise LookupError("Strategy is unavailable")
+        raise NotFoundError("Strategy is unavailable")
     current = get_strategy(db, owner_id, strategy_id)
     if current is None or current.version != expected_version:
         raise ConflictError("Strategy version changed")

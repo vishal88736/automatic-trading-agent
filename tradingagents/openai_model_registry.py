@@ -7,6 +7,7 @@ that knows which knobs are valid for each model family.
 from __future__ import annotations
 
 from copy import deepcopy
+import os
 import re
 from typing import Any, Dict, Iterable, List, Mapping, Optional
 
@@ -527,11 +528,12 @@ def get_model_options_for_provider(provider: str, role: str) -> List[Dict[str, s
 def get_default_model_for_provider(provider: str, role: str) -> str:
     provider_key = (provider or "openai").lower()
     if provider_key in ("openai", "local_openai"):
-        return "gpt-5.4-nano" if role == "quick" else "gpt-5.4-mini"
+        override = "TRADINGAGENTS_QUICK_MODEL" if role == "quick" else "TRADINGAGENTS_DEEP_MODEL"
+        return os.getenv(override) or "gpt-5.4-mini"
     options = get_model_options_for_provider(provider, role)
     if options:
         return options[0]["value"]
-    return "gpt-5.4-nano" if role == "quick" else "gpt-5.4-mini"
+    return "gpt-5.4-mini"
 
 
 def resolve_model_choice(model_choice: str, custom_model: Optional[str] = None) -> Optional[str]:

@@ -24,8 +24,10 @@ log = logging.getLogger(__name__)
 _providers = get_settings().providers
 ASSETS = {asset: f"{asset}USDT" for asset in _providers.featured_assets}
 SYMBOLS = {symbol: asset for asset, symbol in ASSETS.items()}
-STREAM_URL = _providers.spot_endpoints.ticker_stream + "?streams=" + "/".join(
-    f"{symbol.lower()}@miniTicker" for symbol in ASSETS.values()
+STREAM_URL = (
+    _providers.spot_endpoints.ticker_stream
+    + "?streams="
+    + "/".join(f"{symbol.lower()}@miniTicker" for symbol in ASSETS.values())
 )
 REST_URL = _providers.spot_endpoints.ticker_rest
 STALE_SECONDS = 90
@@ -97,7 +99,12 @@ class PriceHub:
             for asset, item in self.prices.items()
             if (datetime.now(timezone.utc) - item["at"]).total_seconds() < STALE_SECONDS
         }
-        return {"source": "binance", "live": self.connected, "assets": list(ASSETS), "prices": fresh}
+        return {
+            "source": "binance",
+            "live": self.connected,
+            "assets": list(ASSETS),
+            "prices": fresh,
+        }
 
     def price(self, asset: str) -> Decimal | None:
         item = self.snapshot()["prices"].get(asset)

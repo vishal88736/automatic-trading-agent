@@ -5,6 +5,16 @@
     "news": "cryptocurrency.cv",
     "market_base_url": "https://api.exchange.coinbase.com",
     "news_base_url": "https://cryptocurrency.cv",
+    "ticker_assets": ["BTC", "ETH", "SOL"],
+    "spot_endpoints": {
+      "binance_live": "https://api.binance.com",
+      "binance_testnet": "https://testnet.binance.vision",
+      "bybit_live": "https://api.bybit.com",
+      "bybit_testnet": "https://api-testnet.bybit.com",
+      "okx": "https://www.okx.com",
+      "ticker_rest": "https://data-api.binance.vision/api/v3/ticker/24hr",
+      "ticker_stream": "wss://data-stream.binance.vision/stream"
+    },
     "timeout_seconds": 8,
     "connect_timeout_seconds": 4,
     "max_connections": 4,
@@ -42,6 +52,14 @@
     "deadline_seconds": 30,
     "proposal_ttl_seconds": 120,
     "mark_snapshot_seconds": 60
+  },
+  "paper": {
+    "fee_bps": 10,
+    "slippage_bps": 10,
+    "max_agents": 10,
+    "max_trades_per_hour": 6,
+    "max_trades_per_day": 20,
+    "minimum_live_order_usdt": "5"
   },
   "scheduler": {
     "interval_seconds": 300,

@@ -91,10 +91,9 @@ def test_unknown_execution_recovery_never_replays_a_transaction():
         },
         update_item=lambda **kw: writes.append(kw),
     )
-    with pytest.raises(RuntimeError, match="no blind replay"):
-        worker.recover_manifests(SimpleNamespace(get=lambda *_: None))
+    assert not worker.recover_manifests(SimpleNamespace(get=lambda *_: None))
     assert not writes
-    worker.recover_manifests(SimpleNamespace(get=lambda *_: {"state": "RECONCILED"}))
+    assert worker.recover_manifests(SimpleNamespace(get=lambda *_: {"state": "RECONCILED"}))
     assert len(writes) == 1
     assert writes[0]["ExpressionAttributeValues"][":s"] == "RECONCILED"
 

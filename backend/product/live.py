@@ -25,9 +25,9 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from pydantic import Field, StringConstraints
 
-from backend.product.errors import LiveRejected
 from backend.models import Model
 from backend.product.credentials import CredentialVault
+from backend.product.errors import LiveRejected, NotFoundError
 from backend.product.exchanges import (
     Environment,
     Exchange,
@@ -38,10 +38,11 @@ from backend.product.exchanges import (
 )
 from backend.product.price_hub import ASSETS
 from backend.product.spot_markets import Asset
+from backend.settings import get_settings
 
 ClientFactory = Callable[[Exchange, Environment, dict], ExchangeClient]
 STABLECOINS = {"USDT", "USDC", "FDUSD"}
-MIN_ORDER_USDT = Decimal("5")
+MIN_ORDER_USDT = get_settings().paper.minimum_live_order_usdt
 KeyText = Annotated[
     str, StringConstraints(strip_whitespace=True, pattern=r"^[A-Za-z0-9-]{16,128}$")
 ]
@@ -181,7 +182,7 @@ def _load(db, owner: UUID, connection: UUID, lock: bool = False) -> dict:
             (owner, connection),
         ).fetchone()
     if row is None:
-        raise LookupError("Connection unavailable")
+        raise NotFoundError("Exchange connection is unavailable")
     return row
 
 
@@ -275,7 +276,7 @@ def revoke_connection(db, owner: UUID, connection: UUID):
             (owner, connection),
         )
     if result.rowcount == 0:
-        raise LookupError("Connection unavailable")
+        raise NotFoundError("Exchange connection is unavailable")
 
 
 # ---------------------------------------------------------------- orders
@@ -496,7 +497,7 @@ def promote_agent(db, owner: UUID, agent: UUID, request: Promotion, vault, facto
         (owner, agent),
     ).fetchone()
     if selection is None:
-        raise LookupError("Agent unavailable")
+        raise NotFoundError("Agent is unavailable")
     (asset,) = selection
     if asset not in connection_spot_assets(db, owner, request.connection_id, vault, factory, asset):
         raise LiveRejected(f"{asset}/USDT is unavailable on this exchange")
@@ -511,7 +512,7 @@ def promote_agent(db, owner: UUID, agent: UUID, request: Promotion, vault, facto
                 (owner, agent),
             ).fetchone()
         if row is None:
-            raise LookupError("Agent unavailable")
+            raise NotFoundError("Agent is unavailable")
         connection = _load(db, owner, request.connection_id, lock=True)
         if row["live_connection_id"]:
             raise LiveRejected("This agent is already trading live")
@@ -565,7 +566,7 @@ def demote_agent(db, owner: UUID, agent: UUID, request: Demotion, vault, factory
             (owner, agent),
         ).fetchone()
     if row is None or row["live_connection_id"] is None:
-        raise LookupError("Agent is not trading live")
+        raise NotFoundError("Agent is not trading live")
     closed = None
     if request.close_position:
         held = live_holding(db, owner, agent, row["asset"])

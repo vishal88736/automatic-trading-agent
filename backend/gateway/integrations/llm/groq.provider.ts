@@ -128,9 +128,13 @@ export class GroqProvider implements LLMProvider {
         bytes + 2048 + this.config.BEDROCK_MAX_OUTPUT_TOKENS,
       ),
       started = Date.now();
+    const modelHost = new URL(this.config.GROQ_BASE_URL).hostname;
+    const openaiReasoning =
+      modelHost === "api.openai.com" &&
+      /^gpt-5(?:[.-]|$)/.test(this.config.GROQ_MODEL);
     const strict =
       request.outputSchema?.strict &&
-      new URL(this.config.GROQ_BASE_URL).hostname === "api.groq.com" &&
+      modelHost === "api.groq.com" &&
       strictOutputModels.has(this.config.GROQ_MODEL);
     let recorded = false;
     try {
@@ -147,7 +151,9 @@ export class GroqProvider implements LLMProvider {
             model: this.config.GROQ_MODEL,
             messages: toOpenAIMessages(request.system, request.messages),
             max_completion_tokens: this.config.BEDROCK_MAX_OUTPUT_TOKENS,
-            temperature: this.config.BEDROCK_TEMPERATURE,
+            ...(!openaiReasoning && {
+              temperature: this.config.BEDROCK_TEMPERATURE,
+            }),
             ...(request.tools?.length
               ? {
                   tools: request.tools.map((t) => ({

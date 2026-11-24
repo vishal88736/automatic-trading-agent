@@ -36,6 +36,34 @@ test("local mode starts without AWS settings but still requires the product API"
   );
 });
 
+test("production accepts the stage's private Product API and rejects other HTTP origins", () => {
+  const env = {
+    ...Object.fromEntries(
+      Object.entries(config).map(([key, value]) => [key, String(value)]),
+    ),
+    NODE_ENV: "production",
+    KRONO_ENV: "production",
+    KRONO_PUBLIC_ORIGIN: "https://krono.example",
+    KRONO_PRODUCT_API_KEY: "k".repeat(32),
+  };
+  const privateUrl = "http://product.krono-production.internal:8794";
+  assert.equal(
+    loadConfig({ ...env, KRONO_PRODUCT_API_URL: privateUrl })
+      .KRONO_PRODUCT_API_URL,
+    privateUrl,
+  );
+  for (const url of [
+    "http://api.krono.example:8794",
+    "http://127.0.0.1:8794",
+    "http://product.krono-staging.internal:8794",
+    "http://product.krono-production.internal:80",
+  ])
+    assert.throws(
+      () => loadConfig({ ...env, KRONO_PRODUCT_API_URL: url }),
+      /HTTPS product API origin/,
+    );
+});
+
 test("local sign-in issues signed sessions, enforces CSRF and rejects forged cookies", async () => {
   const userId = "11111111-1111-4111-8111-111111111111";
   const calls: Array<[string, string, string]> = [];

@@ -134,11 +134,21 @@ class SchedulerSettings(SettingsModel):
     default_asset: str
 
 
+class PaperSettings(SettingsModel):
+    fee_bps: int = Field(default=10, ge=0, le=30)
+    slippage_bps: int = Field(default=10, ge=0, le=50)
+    max_agents: int = Field(default=10, ge=1, le=10)
+    max_trades_per_hour: int = Field(default=6, ge=1, le=6)
+    max_trades_per_day: int = Field(default=20, ge=1, le=20)
+    minimum_live_order_usdt: Amount = Field(default=Decimal("5"), ge=5, le=100000)
+
+
 class RuntimeSettings(SettingsModel):
     schema_version: Literal[1]
     providers: DataSettings
     simulation: SimulationSettings
     scheduler: SchedulerSettings
+    paper: PaperSettings = Field(default_factory=PaperSettings)
 
     @model_validator(mode="after")
     def default_asset_available(self):

@@ -10,8 +10,8 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from pydantic import Field, model_validator
 
-from backend.product.errors import ConflictError
 from backend.models import Model
+from backend.product.errors import ConflictError, NotFoundError
 from backend.product.execution import (
     OrderRequest,
     PaperTerms,
@@ -24,6 +24,7 @@ from backend.product.execution import (
 )
 from backend.product.rules import Name, StrategyDraft
 from backend.product.strategies import create_strategy, get_strategy
+from backend.settings import get_settings
 
 
 class AgentStartSettings(Model):
@@ -282,7 +283,7 @@ def start_agent(db, owner: UUID, request: AgentStart):
                 (owner, request.strategy_id, request.strategy_version),
             ).fetchone()
         if strategy is None:
-            raise LookupError("Strategy or report is unavailable")
+            raise NotFoundError("Strategy or backtest is unavailable")
         _validate_allocation(db, owner, account.epoch, account.cash, request.capital)
         ident = request.request_key
         db.execute(
@@ -365,7 +366,10 @@ def _validate_allocation(db, owner, epoch, cash, capital, exclude=None):
             (owner, exclude),
         ).fetchone()
         capital = max(Decimal(0), capital + delta)
-    if count >= 10 or booked + pending + capital > cash:
+    max_agents = get_settings().paper.max_agents
+    if count >= max_agents:
+        raise ConflictError(f"Account reached its limit of {max_agents} active paper agents")
+    if booked + pending + capital > cash:
         raise ConflictError("Agent allocation exceeds the available paper capital")
 
 
@@ -380,7 +384,7 @@ def control_agent(db, owner: UUID, agent: UUID, action: str):
             (owner, agent),
         ).fetchone()
         if row is None:
-            raise LookupError("Paper agent is unavailable")
+            raise NotFoundError("Paper agent is unavailable")
         status, epoch, capital = row
         target = {"pause": "PAUSED", "resume": "RUNNING", "stop": "STOPPED"}[action]
         if target == status:
@@ -534,7 +538,7 @@ def position_asset(db, owner, agent):
         (owner, agent),
     ).fetchone()
     if row is None:
-        raise LookupError("Paper agent is unavailable")
+        raise NotFoundError("Paper agent is unavailable")
     return row[0]
 
 
@@ -546,7 +550,7 @@ def close_agent_position(db, owner, agent, request_key, epoch, quotes):
             (owner, agent),
         ).fetchone()
         if row is None:
-            raise LookupError("Paper agent is unavailable")
+            raise NotFoundError("Paper agent is unavailable")
         previous = db.execute(
             "SELECT id, agent_id, epoch, request->>'side' FROM paper_orders WHERE owner_id = %s AND request_key = %s",
             (owner, request_key),

@@ -16,11 +16,9 @@ from urllib.parse import urlencode
 
 import httpx
 
+from backend.settings import get_settings
+
 Environment = Literal["testnet", "live"]
-BASE_URLS: dict[str, str] = {
-    "live": "https://api.binance.com",
-    "testnet": "https://testnet.binance.vision",
-}
 
 
 class BinanceError(Exception):
@@ -52,7 +50,7 @@ class BinanceClient:
         self.secret = api_secret
         self.clock = clock
         self.client = httpx.Client(
-            base_url=BASE_URLS[environment],
+            base_url=getattr(get_settings().providers.spot_endpoints, f"binance_{environment}"),
             timeout=httpx.Timeout(10, connect=5),
             transport=transport,
             headers={"X-MBX-APIKEY": api_key, "User-Agent": "Krono/0.1"},

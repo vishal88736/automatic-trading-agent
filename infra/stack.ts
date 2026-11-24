@@ -34,6 +34,8 @@ import * as acm from "aws-cdk-lib/aws-certificatemanager";
 import * as route53 from "aws-cdk-lib/aws-route53";
 import * as routeTargets from "aws-cdk-lib/aws-route53-targets";
 import * as resolver from "aws-cdk-lib/aws-route53resolver";
+import { privateProductNamespace } from "../backend/gateway/config.js";
+import { createProductServices } from "./product.js";
 
 interface Props extends StackProps {
   stage: "development" | "staging" | "production";
@@ -45,6 +47,14 @@ interface Props extends StackProps {
   budgetEmail?: string;
   apiImageDigest?: string;
   agentImageDigest?: string;
+  productImageDigest?: string;
+  credentialKeyArn?: string;
+  egressHosts?: string[];
+  groqKeyArn?: string;
+  groqBaseUrl?: string;
+  groqModel?: string;
+  llmProvider?: "bedrock" | "groq" | "rules";
+  wafRateLimit?: number;
   githubRepository?: string;
   githubOidcProviderArn?: string;
   modelId?: string;
@@ -57,6 +67,49 @@ export class KronoStack extends Stack {
       production = props.stage === "production",
       retention = RemovalPolicy.RETAIN;
     const modelId = props.modelId ?? "minimax.minimax-m2.5";
+    const llmProvider = props.llmProvider ?? "bedrock";
+    const productNamespace = privateProductNamespace(props.stage);
+    if (props.apiImageDigest && !props.productImageDigest)
+      throw Error(
+        "Configure KRONO_PRODUCT_IMAGE_DIGEST before enabling the gateway service",
+      );
+    for (const digest of [
+      props.apiImageDigest,
+      props.agentImageDigest,
+      props.productImageDigest,
+    ])
+      if (digest && !/^sha256:[a-f0-9]{64}$/.test(digest))
+        throw Error("AWS container images require immutable SHA-256 digests");
+    if (llmProvider === "groq" && !props.groqKeyArn)
+      throw Error("Configure KRONO_GROQ_KEY_SECRET_ARN for Groq on AWS");
+    const exactHostname =
+      /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
+    if (props.egressHosts?.some((host) => !exactHostname.test(host)))
+      throw Error("Extra DNS egress hosts must be exact lowercase hostnames");
+    const groqBaseUrl = llmProvider === "groq" ? props.groqBaseUrl : undefined;
+    let modelHost: string | undefined;
+    if (groqBaseUrl) {
+      const url = URL.canParse(groqBaseUrl) ? new URL(groqBaseUrl) : undefined;
+      if (
+        !url ||
+        url.protocol !== "https:" ||
+        url.port ||
+        url.username ||
+        url.password ||
+        url.search ||
+        url.hash ||
+        !exactHostname.test(url.hostname)
+      )
+        throw Error("Configure a public HTTPS GROQ_BASE_URL on AWS");
+      modelHost = url.hostname;
+    }
+    const wafRateLimit = props.wafRateLimit ?? 50000;
+    if (
+      !Number.isInteger(wafRateLimit) ||
+      wafRateLimit < 10 ||
+      wafRateLimit > 2_000_000_000
+    )
+      throw Error("Invalid KRONO_WAF_RATE_LIMIT");
     if (!/^[a-z0-9][a-z0-9.:-]{2,120}$/.test(modelId))
       throw Error("Invalid Bedrock model ID");
     this.tags.setTag("Project", "KRONO");
@@ -92,7 +145,7 @@ export class KronoStack extends Stack {
     apiSg.addEgressRule(
       ec2.Peer.anyIpv4(),
       ec2.Port.tcp(443),
-      "AWS HTTPS APIs",
+      "AWS and configured model HTTPS APIs",
     );
     agentSg.addEgressRule(
       ec2.Peer.anyIpv4(),
@@ -102,11 +155,26 @@ export class KronoStack extends Stack {
     const domains = new resolver.CfnFirewallDomainList(this, "EgressDomains", {
       name: `${prefix}-approved`,
       domains: [
-        "*.amazonaws.com",
-        "*.amazonaws.com.cn",
-        "api.coinbase.com",
-        "api.exchange.coinbase.com",
-        "cryptocurrency.cv",
+        ...new Set([
+          "*.amazonaws.com",
+          "*.amazonaws.com.cn",
+          "api.coinbase.com",
+          "api.exchange.coinbase.com",
+          "cryptocurrency.cv",
+          "api.binance.com",
+          "testnet.binance.vision",
+          "data-api.binance.vision",
+          "data-stream.binance.vision",
+          "api.bybit.com",
+          "api-testnet.bybit.com",
+          "www.okx.com",
+          "api.groq.com",
+          "api.openai.com",
+          "api.anthropic.com",
+          `product.${productNamespace}`,
+          ...(modelHost ? [modelHost] : []),
+          ...(props.egressHosts ?? []),
+        ]),
       ],
     });
     const dnsRules = new resolver.CfnFirewallRuleGroup(this, "DnsRules", {
@@ -116,6 +184,7 @@ export class KronoStack extends Stack {
           action: "ALLOW",
           firewallDomainListId: domains.attrId,
           priority: 100,
+          firewallDomainRedirectionAction: "TRUST_REDIRECTION_DOMAIN",
         },
         {
           action: "BLOCK",
@@ -129,11 +198,15 @@ export class KronoStack extends Stack {
         },
       ],
     });
-    new resolver.CfnFirewallRuleGroupAssociation(this, "DnsAssociation", {
-      vpcId: vpc.vpcId,
-      firewallRuleGroupId: dnsRules.attrId,
-      priority: 101,
-    });
+    const dnsAssociation = new resolver.CfnFirewallRuleGroupAssociation(
+      this,
+      "DnsAssociation",
+      {
+        vpcId: vpc.vpcId,
+        firewallRuleGroupId: dnsRules.attrId,
+        priority: 101,
+      },
+    );
     const table = (name: string) =>
       new dynamo.Table(this, name, {
         tableName: `${prefix}-${name.toLowerCase()}`,
@@ -223,6 +296,13 @@ export class KronoStack extends Stack {
         imageTagMutability: ecr.TagMutability.IMMUTABLE,
         removalPolicy: retention,
         lifecycleRules: [{ maxImageCount: 30 }],
+      }),
+      productRepo = new ecr.Repository(this, "ProductImages", {
+        repositoryName: `${prefix}/product`,
+        imageScanOnPush: true,
+        imageTagMutability: ecr.TagMutability.IMMUTABLE,
+        removalPolicy: retention,
+        lifecycleRules: [{ maxImageCount: 20 }],
       });
     if (props.githubRepository) {
       if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(props.githubRepository))
@@ -250,6 +330,7 @@ export class KronoStack extends Stack {
       });
       apiRepo.grantPullPush(publisher);
       agentRepo.grantPullPush(publisher);
+      productRepo.grantPullPush(publisher);
       new CfnOutput(this, "ImagePublisherRoleArn", {
         value: publisher.roleArn,
       });
@@ -262,6 +343,21 @@ export class KronoStack extends Stack {
       clusterName: prefix,
       containerInsightsV2: ecs.ContainerInsights.ENHANCED,
     });
+    const product = props.productImageDigest
+      ? createProductServices(this, {
+          prefix,
+          namespace: productNamespace,
+          production,
+          vpc,
+          cluster,
+          gateway: apiSg,
+          encryption: key,
+          repository: productRepo,
+          imageDigest: props.productImageDigest,
+          credentialKeyArn: props.credentialKeyArn,
+        })
+      : undefined;
+    product?.apiService.node.addDependency(dnsAssociation);
     const agentLog = new logs.LogGroup(this, "AgentLogs", {
       logGroupName: `/${prefix}/agents`,
       retention: logs.RetentionDays.ONE_MONTH,
@@ -654,6 +750,23 @@ export class KronoStack extends Stack {
       }),
       readonlyRootFilesystem: true,
       user: "10001",
+      secrets: {
+        ...(product && {
+          KRONO_PRODUCT_API_KEY: ecs.Secret.fromSecretsManager(
+            product.signingKey,
+          ),
+        }),
+        ...(llmProvider === "groq" &&
+          props.groqKeyArn && {
+            GROQ_API_KEY: ecs.Secret.fromSecretsManager(
+              secrets.Secret.fromSecretCompleteArn(
+                this,
+                "GroqKey",
+                props.groqKeyArn,
+              ),
+            ),
+          }),
+      },
       environment: {
         KRONO_HOST: "0.0.0.0",
         KRONO_PORT: "8790",
@@ -683,6 +796,11 @@ export class KronoStack extends Stack {
         KRONO_AGENT_LOG_GROUP: agentLog.logGroupName,
         KRONO_COORDINATION_QUEUE_URL: queue.queueUrl,
         KRONO_ANALYSIS_QUEUE_URL: analysisQueue.queueUrl,
+        ...(product && { KRONO_PRODUCT_API_URL: product.url }),
+        KRONO_LLM_PROVIDER: llmProvider,
+        ...(groqBaseUrl && { GROQ_BASE_URL: groqBaseUrl }),
+        ...(llmProvider === "groq" &&
+          props.groqModel && { GROQ_MODEL: props.groqModel }),
         BEDROCK_MODEL_ID: modelId,
         ...props.runtimeSettings,
       },
@@ -704,6 +822,7 @@ export class KronoStack extends Stack {
       healthCheckGracePeriod: Duration.seconds(60),
       enableECSManagedTags: true,
     });
+    if (product) service.node.addDependency(product.apiService);
     listener.addTargets("ApiTarget", {
       port: 8790,
       protocol: elbv2.ApplicationProtocol.HTTP,
@@ -734,7 +853,7 @@ export class KronoStack extends Stack {
           priority: 0,
           action: { block: {} },
           statement: {
-            rateBasedStatement: { limit: 50000, aggregateKeyType: "IP" },
+            rateBasedStatement: { limit: wafRateLimit, aggregateKeyType: "IP" },
           },
           visibilityConfig: {
             cloudWatchMetricsEnabled: true,
@@ -906,6 +1025,11 @@ export class KronoStack extends Stack {
       FrontendBucket: frontend.bucketName,
       ApiRepository: apiRepo.repositoryUri,
       AgentRepository: agentRepo.repositoryUri,
+      ProductRepository: productRepo.repositoryUri,
+      ...(product && {
+        ProductApiService: product.apiService.serviceName,
+        PaperWorkerService: product.workerService.serviceName,
+      }),
       UserPoolId: pool.userPoolId,
       UserPoolClientId: client.userPoolClientId,
       ControlTable: control.tableName,

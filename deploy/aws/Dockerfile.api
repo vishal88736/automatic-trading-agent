@@ -12,6 +12,7 @@ WORKDIR /app
 RUN groupadd -g 10001 krono && useradd -u 10001 -g krono krono
 COPY --from=build /app/node_modules node_modules
 COPY --from=build /app/backend/dist backend/dist
+COPY config/runtime.json config/runtime.json
 COPY package.json ./
 USER 10001
 EXPOSE 8790

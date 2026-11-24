@@ -13,6 +13,7 @@ import type {
 export const alice: Principal = { userId: randomUUID(), username: "alice" },
   bob: Principal = { userId: randomUUID(), username: "bob" };
 export const config: Config = {
+  referenceAssets: ["BTC", "ETH", "SOL"],
   NODE_ENV: "test",
   KRONO_LLM_PROVIDER: "bedrock",
   GROQ_MODEL: "openai/gpt-oss-120b",

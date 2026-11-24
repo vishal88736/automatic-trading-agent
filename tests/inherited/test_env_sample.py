@@ -36,12 +36,12 @@ REQUIRED_ENV_VARS = {
 
 class EnvSampleTests(unittest.TestCase):
     def test_env_sample_documents_required_runtime_keys(self):
-        sample = Path("env.sample").read_text(encoding="utf-8")
+        sample = (Path(__file__).resolve().parents[2] / ".env.example").read_text(encoding="utf-8")
         documented = set(re.findall(r"^([A-Z][A-Z0-9_]*)=", sample, flags=re.MULTILINE))
 
         self.assertFalse(
             REQUIRED_ENV_VARS - documented,
-            f"env.sample is missing: {sorted(REQUIRED_ENV_VARS - documented)}",
+            f".env.example is missing: {sorted(REQUIRED_ENV_VARS - documented)}",
         )
 
 

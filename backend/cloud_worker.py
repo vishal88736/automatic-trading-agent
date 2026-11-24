@@ -17,7 +17,7 @@ from decimal import Decimal
 from pathlib import Path
 from uuid import uuid4
 
-from backend.data import Providers
+from backend.data import ASSETS, Providers
 from backend.engine import Engine
 from backend.models import Authorize, ResearchEvidence, RiskConfig, RunRequest, StrategyConfig
 from backend.selection import SelectionConfig
@@ -77,6 +77,7 @@ class CloudWorker:
         self.stop = False
         self.owner = str(uuid4())
         self.engine = None
+        self.recovery_pending = False
         self.acquired = False
         self.last_activity = time.time()
         self.next_run = 0
@@ -241,13 +242,16 @@ class CloudWorker:
 
         configure("risk", risk_adapter(spec["riskPolicy"]).model_dump(mode="json"))
         cfg = spec["configuration"]
+        market_assets = [asset for asset in cfg["assets"] if asset in ASSETS]
+        if spec["type"] != "news_monitor" and len(market_assets) != len(cfg["assets"]):
+            raise ValueError("Market provider is unavailable for a selected asset")
         for strategy in REGISTRY:
             configure(
                 "strategy:" + strategy,
                 StrategyConfig(
                     enabled=strategy in cfg["strategies"]
                     and spec["permissions"]["generateSignals"],
-                    assets=[a for a in cfg["assets"] if a in {"BTC", "ETH", "SOL"}] or ["BTC"],
+                    assets=market_assets,
                     **cfg.get("strategyParameters", {}).get(strategy, {}),
                 ).model_dump(mode="json"),
             )
@@ -258,13 +262,19 @@ class CloudWorker:
             **cfg.get("selectionWeights", {}),
         )
         configure("selection", selector.model_dump(mode="json"))
-        self.recover_manifests(store)
+        self.recovery_pending = not self.recover_manifests(store)
+        if not self.recovery_pending:
+            await self.refresh_restored_state()
+
+    async def refresh_restored_state(self):
         await self.engine.refresh_markets()
+        store = self.engine.store
         if not store.history("snapshots", 1)["items"]:
             self.engine.portfolio.snapshot(self.engine.markets)
 
     def recover_manifests(self, store):
         cursor = None
+        reconciled = True
         while True:
             page = self.state.query(
                 KeyConditionExpression="pk=:pk AND begins_with(sk,:prefix)",
@@ -277,7 +287,8 @@ class CloudWorker:
                     continue
                 local = store.get("intents", intent["intentId"])
                 if not local or local["state"] != "RECONCILED":
-                    raise RuntimeError("Prior simulation requires reconciliation; no blind replay")
+                    reconciled = False
+                    continue
                 self.state.update_item(
                     Key={"pk": self.pk, "sk": intent["sk"]},
                     UpdateExpression="SET #s=:s",
@@ -287,6 +298,7 @@ class CloudWorker:
             cursor = page.get("LastEvaluatedKey")
             if not cursor:
                 break
+        return reconciled
 
     async def renew_loop(self):
         while not self.stop:
@@ -674,6 +686,17 @@ class CloudWorker:
                     continue
                 if self.engine is None:
                     await self.initialize(spec)
+                if self.recovery_pending:
+                    self.recovery_pending = not await asyncio.to_thread(
+                        self.recover_manifests, self.engine.store
+                    )
+                    if self.recovery_pending:
+                        self.heartbeat(
+                            "PAUSED", currentTask="Prior simulation requires reconciliation"
+                        )
+                        await asyncio.sleep(15)
+                        continue
+                    await self.refresh_restored_state()
                 advice = c.get("adviceByAsset", {})
                 if self.engine.store.config("model_reviews")[0] != advice:
                     self.engine.store.update_config("model_reviews", advice)

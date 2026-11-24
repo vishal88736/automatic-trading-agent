@@ -97,7 +97,9 @@ function publish() {
 
 function connect() {
   if (!listeners.size || source) return;
-  void platform<{ assets?: string[]; prices: Record<string, PriceQuote> }>("/public/prices")
+  void platform<{ assets?: string[]; prices: Record<string, PriceQuote> }>(
+    "/public/prices",
+  )
     .then(({ assets, prices }) => {
       if (assets?.length) featured = assets;
       Object.values(prices).forEach(apply);

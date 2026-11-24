@@ -38,8 +38,8 @@ DEFAULT_CONFIG = {
     ),
     # LLM settings
     "llm_provider": os.getenv("LLM_PROVIDER", "openai"),
-    "deep_think_llm": "gpt-5.4-mini",
-    "quick_think_llm": "gpt-5.4-nano",
+    "deep_think_llm": os.getenv("TRADINGAGENTS_DEEP_MODEL") or "gpt-5.4-mini",
+    "quick_think_llm": os.getenv("TRADINGAGENTS_QUICK_MODEL") or "gpt-5.4-mini",
     "backend_url": None,
     "google_thinking_level": None,
     "openai_reasoning_effort": None,
@@ -66,6 +66,8 @@ DEFAULT_CONFIG = {
     "max_risk_discuss_rounds": 3,
     "max_recur_limit": 200,
     # Trading settings
+    "broker_account_context": os.getenv("TRADINGAGENTS_BROKER_ACCOUNT_CONTEXT", "").lower()
+    in {"1", "true"},
     "allow_shorts": False,  # False = Investment mode (BUY/HOLD/SELL), True = Trading mode (LONG/NEUTRAL/SHORT)
     # Deterministic risk sizing: when enabled, position size for opening trades
     # is recomputed by tradingagents.risk (fractional Kelly, ATR stops, exposure

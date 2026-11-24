@@ -94,7 +94,7 @@ interface Report {
 }
 const layouts = ["in_sample", "out_of_sample"] as const;
 const ratio = (value: string | null) =>
-  value?.trim() && Number.isFinite(Number(value))
+  value != null && String(value).trim() && Number.isFinite(Number(value))
     ? Number(value).toFixed(2)
     : "—";
 
